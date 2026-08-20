@@ -43,6 +43,10 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   the decks are **general theory from Ramakrishnan & Gehrke, not MySQL-specific**. They back chapters
   1-5 with citable slide numbers and yield a ~40-term Serbian glossary, but give **zero** coverage of
   chapters 6-8, which must come entirely from external sources.
+- [Research: vectorized execution, parallel execution, and plan caching in MySQL](issues/06-research-vectorized-parallel-plancache.md):
+  chapters 6, 7 and 8 all survive. MySQL is row-at-a-time (no vectorization), its parallelism excludes
+  ordinary `SELECT`s, and it has no shared plan cache - though it does cache prepared-statement
+  **parse trees** per session, a distinction chapter 8 must draw precisely.
 - **Destination and paper structure fixed** (this charting session): Serbian, ~20 pages, IEEE, nine
   chapters mapping onto the six slide bullets plus an architecture bridge chapter, an intro and a
   conclusion.
