@@ -1,0 +1,16 @@
+# MySQL dumps and generated data
+*.sql.gz
+*.dump
+examples/**/*.csv
+data/
+
+# pandoc / export intermediates
+*.docx.tmp
+*.pdf.tmp
+.pandoc/
+
+# OS / editor
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
