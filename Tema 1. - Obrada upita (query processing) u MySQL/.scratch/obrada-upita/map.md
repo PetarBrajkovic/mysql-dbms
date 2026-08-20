@@ -51,6 +51,10 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   ample material for chapter 4, organised around the ranked access `type` values and around
   **estimated vs actual row divergence** as the core diagnostic. Two claims flagged for empirical
   check against the live server: the "3x divergence" heuristic and JSON format version 2.
+- [Research: how MySQL turns SQL into an executing plan](issues/04-research-sql-to-plan-and-iterator.md):
+  MySQL has **five** stages, with transformations living inside **resolution**, not a separate rewrite
+  stage. The **hypergraph optimizer is compile-gated to debug builds and cannot be demonstrated** on a
+  stock 8.4 install. `optimizer_search_depth` defaults to 62. Two items are explicitly uncitable.
 - **Destination and paper structure fixed** (this charting session): Serbian, ~20 pages, IEEE, nine
   chapters mapping onto the six slide bullets plus an architecture bridge chapter, an intro and a
   conclusion.
