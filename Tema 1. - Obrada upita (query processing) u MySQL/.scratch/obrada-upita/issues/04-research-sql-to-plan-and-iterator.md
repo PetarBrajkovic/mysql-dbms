@@ -1,7 +1,7 @@
 # Research: how MySQL turns SQL into an executing plan
 
 Type: research
-Status: open
+Status: claimed
 
 ## Question
 

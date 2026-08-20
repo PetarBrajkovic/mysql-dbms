@@ -39,6 +39,10 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
 
 ## Decisions so far
 
+- [Research: mine the lecture decks for required content and terminology](issues/07-research-mine-lecture-decks.md):
+  the decks are **general theory from Ramakrishnan & Gehrke, not MySQL-specific**. They back chapters
+  1-5 with citable slide numbers and yield a ~40-term Serbian glossary, but give **zero** coverage of
+  chapters 6-8, which must come entirely from external sources.
 - **Destination and paper structure fixed** (this charting session): Serbian, ~20 pages, IEEE, nine
   chapters mapping onto the six slide bullets plus an architecture bridge chapter, an intro and a
   conclusion.
@@ -55,6 +59,9 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
 - **A final Serbian proofreading / consistency pass** over the whole paper. Almost certainly needed,
   but its shape depends on how consistent the terminology glossary keeps things.
 - **GitHub remote.** The user wants it eventually; explicitly low priority. Local git only for now.
+- **Whether chapters 6-8 need rebalancing.** With no lecture backing at all, they rest entirely on
+  external sources; if research ticket 06 finds thin material, their combined 6-page budget may be
+  better spent on chapters 3 to 5. Decide in ticket 08.
 - **Reference documents / cheat sheets** in the teach workspace (`reference/*.html`) — which ones
   earn their place is unknown until several lessons exist.
 

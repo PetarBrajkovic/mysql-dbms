@@ -18,7 +18,7 @@ Nothing to decide; the layout was settled during charting. AFK. Create, inside
 `MISSION.md` matters most: the teach skill grounds every lesson in it, and it must say the user is
 learning this in order to **write and defend a specific paper**, not for general interest.
 
-Then `git init` at the repo root with a `.gitignore` covering MySQL dumps and pandoc temp files. The
-map and tickets **are** worth versioning.
+Git is already initialised at the repo root with a `.gitignore`, and the map and tickets are
+committed - that part is done. This ticket only needs to commit the scaffolding it creates.
 
 ## Answer

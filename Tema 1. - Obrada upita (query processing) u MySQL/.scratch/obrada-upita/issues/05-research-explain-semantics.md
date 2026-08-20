@@ -1,7 +1,7 @@
 # Research: EXPLAIN, EXPLAIN ANALYZE, and optimizer trace
 
 Type: research
-Status: open
+Status: claimed
 
 ## Question
 

@@ -1,7 +1,7 @@
 # Research: vectorized execution, parallel execution, and plan caching in MySQL
 
 Type: research
-Status: open
+Status: claimed
 
 ## Question
 
