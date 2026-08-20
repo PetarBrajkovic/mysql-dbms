@@ -17,3 +17,7 @@ desktop.ini
 
 # Claude Code agent worktrees and local state
 .claude/
+
+# Course lecture PDFs - source material, not project output.
+# The exported paper (rad.docx / rad.pdf) is NOT covered by this and stays committable.
+Predavanja/
