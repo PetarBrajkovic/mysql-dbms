@@ -47,6 +47,10 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   chapters 6, 7 and 8 all survive. MySQL is row-at-a-time (no vectorization), its parallelism excludes
   ordinary `SELECT`s, and it has no shared plan cache - though it does cache prepared-statement
   **parse trees** per session, a distinction chapter 8 must draw precisely.
+- [Research: EXPLAIN, EXPLAIN ANALYZE, and optimizer trace](issues/05-research-explain-semantics.md):
+  ample material for chapter 4, organised around the ranked access `type` values and around
+  **estimated vs actual row divergence** as the core diagnostic. Two claims flagged for empirical
+  check against the live server: the "3x divergence" heuristic and JSON format version 2.
 - **Destination and paper structure fixed** (this charting session): Serbian, ~20 pages, IEEE, nine
   chapters mapping onto the six slide bullets plus an architecture bridge chapter, an intro and a
   conclusion.
