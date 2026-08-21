@@ -22,6 +22,9 @@ Execution ticket - this map carries execution, so it resolves only when all four
 4. A learning record written to `learning-records/`, and the work committed.
 
 **Grounding**: research ticket 05, plus the lecture mapping from ticket 07 and the glossary
-from ticket 08.
+from ticket 08. Also see ticket 01's Answer for a live-server finding this chapter should use
+directly: the `country_code` covering-vs-non-covering contrast on `wide_events`, including the
+non-covering follow-up query (`SELECT notes FROM wide_events WHERE country_code = ...`) that
+ticket 01 flagged but didn't run.
 
 ## Answer
