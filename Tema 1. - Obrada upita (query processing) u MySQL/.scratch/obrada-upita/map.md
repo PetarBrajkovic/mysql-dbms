@@ -74,6 +74,15 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
 - **Destination and paper structure fixed** (this charting session): Serbian, ~20 pages, IEEE, nine
   chapters mapping onto the six slide bullets plus an architecture bridge chapter, an intro and a
   conclusion.
+- [Decide the Serbian terminology glossary and lock the paper skeleton](issues/08-terminology-and-skeleton.md):
+  full glossary written to `GLOSSARY.md` at the workspace root, binding on every chapter from here on.
+  ~30 deck-derived terms adopted verbatim; six terms with no deck precedent (iterator model, plan
+  cache, vectorized execution, parallel query execution, prepared statement, cost-based optimizer)
+  locked to "Serbian term, English in parentheses on first use only." Chapter skeleton locked at the
+  top level (list, order, ~21-page budget - accepted over the nominal ~20, no trimming); subheadings
+  deliberately left open per-chapter. Chapter 8 confirmed unchanged by research ticket 06, with the
+  plan-cache-vs-parse-tree-cache distinction written in as a hard constraint. Voice: impersonal
+  *se*-construction. Citation density: per-paragraph wherever a factual claim appears.
 
 ## Not yet specified
 
@@ -87,9 +96,6 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
 - **A final Serbian proofreading / consistency pass** over the whole paper. Almost certainly needed,
   but its shape depends on how consistent the terminology glossary keeps things.
 - **GitHub remote.** The user wants it eventually; explicitly low priority. Local git only for now.
-- **Whether chapters 6-8 need rebalancing.** With no lecture backing at all, they rest entirely on
-  external sources; if research ticket 06 finds thin material, their combined 6-page budget may be
-  better spent on chapters 3 to 5. Decide in ticket 08.
 - **Reference documents / cheat sheets** in the teach workspace (`reference/*.html`) — which ones
   earn their place is unknown until several lessons exist.
 

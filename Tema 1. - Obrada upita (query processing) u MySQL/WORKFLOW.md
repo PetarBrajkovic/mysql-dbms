@@ -91,9 +91,12 @@ Roughly 7-9 lessons total.
 1. **The paper is written with the `academic-research-writer` skill.** Every time. Not hand-written
    and tidied up afterwards.
 2. **Serbian prose, written as you go.** Never draft in English intending to translate later.
-3. **Every substantive chapter needs a real figure** from a query you actually ran.
-4. **Citations go into `references.bib` as you use them**, never retrofitted at the end.
-5. **Never invent a citation.** Research turned up two facts about the hypergraph optimizer with no
+3. **Every term follows `GLOSSARY.md`.** Ticket 08 locked the Serbian terminology, the top-level
+   chapter skeleton, and the voice/citation-density rules. Never re-translate a term that's already
+   in there, and never invent a new one without adding it first.
+4. **Every substantive chapter needs a real figure** from a query you actually ran.
+5. **Citations go into `references.bib` as you use them**, never retrofitted at the end.
+6. **Never invent a citation.** Research turned up two facts about the hypergraph optimizer with no
    verifiable source. Leaving a claim uncited is fine; a fabricated reference is not.
 
 ---
