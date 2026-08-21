@@ -39,6 +39,13 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
 
 ## Decisions so far
 
+- [Install MySQL 8.4, Workbench, and the sample datasets](issues/01-install-mysql-workbench-and-datasets.md):
+  MySQL 8.4.11 + Workbench 8.0.47 verified live; Sakila loaded (1000 films); the synthetic
+  `obrada_upita.wide_events` table built by `examples/00-setup/` - 5,000,000 rows, 2.1 GB,
+  country_code skewed exactly to the designed 70/30 split. One prediction corrected by the live
+  server: a skewed secondary index still gets chosen by the optimizer when the query is
+  covering (`COUNT(*)`) - selectivity only decides the access path once the query needs
+  uncovered columns, a sharper lesson for chapter 4 than originally assumed.
 - [Scaffold the Tema 1 workspace and initialise git](issues/03-scaffold-workspace.md): `rad.md`,
   `references.bib`, `ieee.csl`, `examples/`, `figures/` and the full teach workspace
   (`MISSION.md`, `RESOURCES.md`, `NOTES.md`, `lessons/`, `reference/`, `learning-records/`) all
