@@ -83,6 +83,17 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   deliberately left open per-chapter. Chapter 8 confirmed unchanged by research ticket 06, with the
   plan-cache-vs-parse-tree-cache distinction written in as a hard constraint. Voice: impersonal
   *se*-construction. Citation density: per-paragraph wherever a factual claim appears.
+- [Decide the figure and example strategy](issues/09-figure-and-example-strategy.md): full detail
+  in `figures/README.md`, binding on every chapter from here on. Medium assigned per purpose
+  (Visual Explain for plan shape, in-Workbench EXPLAIN ANALYZE/TREE text for tree reading, result
+  grid only when the data itself is the point; no raw CLI screenshots). Non-SQL diagrams (chapter 2
+  architecture, and any other conceptual figure) prefer a reused official/existing diagram first,
+  original artwork as fallback - the only case needing a source note and a `references.bib` entry.
+  Per-chapter budget (~13 figures total, table in `figures/README.md`) is soft guidance against
+  chapter 4 swallowing every figure, not a hard quota. Capture standard: light theme, bumped font,
+  tight crop, ~1200-1600px PNG. Captions hand-typed `Slika N: ...` (Pandoc doesn't auto-number).
+  Every SQL-driven figure's script lives in `examples/` under a mirrored filename with a
+  back-reference comment; non-SQL diagrams are exempt.
 
 ## Not yet specified
 

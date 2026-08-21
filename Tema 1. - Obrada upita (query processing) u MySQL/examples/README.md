@@ -10,3 +10,12 @@ figure or listing in `rad.md`.
 
 Generated data (`*.sql.gz`, `*.dump`, CSVs) is git-ignored; only the SQL scripts themselves are
 committed.
+
+## Figure linkage (ticket 09)
+
+Every figure in `figures/` that comes from a live query has its script here under a mirrored
+filename, e.g. `figures/04-explain-01-visual-explain.png` <->
+`examples/04-explain/01-visual-explain.sql`. The script's first line is a comment naming the
+figure it produces, so the pairing is greppable in both directions. Non-SQL figures (architecture
+diagrams, reused-official diagrams) have no script and are exempt from this rule - see
+`figures/README.md`.

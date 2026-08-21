@@ -1,7 +1,7 @@
 # Decide the figure and example strategy
 
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: 01
 
 ## Question
@@ -21,3 +21,59 @@ requirement, not decoration. Decide once, apply to all nine chapters.
    rather than re-hunted.
 
 ## Answer
+
+Settled by a grilling session (three rounds). Full detail written into `figures/README.md`;
+summary here:
+
+1. **What gets photographed** - assigned per purpose, not one medium for the whole paper:
+   - **Visual Explain** (Workbench) for anything showing an access path or plan shape.
+   - **EXPLAIN ANALYZE / FORMAT=TREE text**, captured inside Workbench (monospaced), wherever the
+     tree text itself is the teaching point (ch. 4, ch. 8).
+   - **Result grid** only when the data itself is the point (e.g. the `country_code` skew from
+     ticket 01).
+   - Choice per figure is whichever is most accurate and readable for that specific example, not a
+     rigid rule forced onto a mismatched case. No raw CLI screenshots - one tool (Workbench), one
+     visual style.
+   - **Non-SQL diagrams** (architecture, conceptual comparisons): search first for a suitable
+     **official/existing diagram** (MySQL reference manual, a citable paper) to reuse; fall back to
+     an **original diagram made for this paper** only if nothing suitable turns up. Chapter 2
+     (Arhitektura) is the clear case needing this path, since no single query's output is a
+     pipeline diagram.
+
+2. **Per-chapter figure budget** - soft guidance, not a hard ceiling:
+
+   | Chapter | Expected | What it's for |
+   |---|---|---|
+   | 1 Uvod | 0 | no SQL runs here |
+   | 2 Arhitektura | 1 | pipeline diagram (official reused, or original) |
+   | 3 Od SQL-a do plana | 2 | parse/resolve stage, then optimized plan |
+   | 4 EXPLAIN i EXPLAIN ANALYZE | 4 | ranked access-type showcase, estimated-vs-actual divergence, JSON/TREE format, optimizer_trace rejected-plan excerpt |
+   | 5 Iterator model | 2 | iterator/pipeline diagram from Visual Explain, one EXPLAIN ANALYZE tree read as an iterator chain |
+   | 6 Vektorizovano | 1 | row-at-a-time evidence |
+   | 7 Paralelno | 1 | `innodb_parallel_read_threads` non-effect on ordinary SELECT |
+   | 8 Plan cache | 2 | prepared-statement parse-tree reuse evidence, contrasted with "no shared plan cache" |
+   | 9 Zaključak | 0 | no SQL runs here |
+
+   ~13 figures total. A chapter may go over (e.g. a diagram plus a live example) if it genuinely
+   needs both - this is a guide against padding chapter 4 with every screenshot going, not a quota
+   to hit exactly.
+
+3. **Capture and naming convention**: Workbench **light** theme (prints cleanly); bump the
+   Workbench UI/result-grid font a notch or two before capturing, since every screenshot shrinks to
+   fit a page margin; tight crop with no window chrome/menus/taskbar; target width ~1200-1600px;
+   native PNG (no JPEG artifacts on text). Filename scheme unchanged from `figures/README.md`:
+   `NN-<chapter-slug>-MM-<what-it-shows>.png`.
+
+4. **Captions**: hand-typed `Slika N: <opis>` in the Markdown caption text (Pandoc does not
+   auto-number, per ticket 02). **No source note** for the author's own live captures or the
+   author's own original diagrams - authorship is implicit and constant, and repeating "Izvor:
+   autor" on ~13 figures is pure noise. A source note **is** required, formatted as an IEEE
+   numbered citation in the caption (`Slika N: ... [k]`), whenever a figure is a reused
+   official/external diagram - and that source is added to `references.bib` like any other
+   reference.
+
+5. **Reproducibility**: every SQL-driven figure's script lives in `examples/`, filename mirroring
+   the figure's filename (e.g. `figures/04-explain-01-visual-explain.png` <->
+   `examples/04-explain/01-visual-explain.sql`), with a one-line comment at the top of the SQL file
+   naming the figure it produces. **Non-SQL diagrams** (architecture, reused-official, or original)
+   are explicitly exempt from this rule - there is nothing to run behind them.
