@@ -39,6 +39,15 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
 
 ## Decisions so far
 
+- [Scaffold the Tema 1 workspace and initialise git](issues/03-scaffold-workspace.md): `rad.md`,
+  `references.bib`, `ieee.csl`, `examples/`, `figures/` and the full teach workspace
+  (`MISSION.md`, `RESOURCES.md`, `NOTES.md`, `lessons/`, `reference/`, `learning-records/`) all
+  created at the Tema 1 root.
+- [Prove the Markdown to DOCX pipeline with IEEE citations](issues/02-pandoc-export-pipeline.md):
+  Pandoc 3.10.2 + the Zotero IEEE CSL file produce a clean, editable `.docx` with correct in-text
+  citations, a properly formatted reference list, and intact Serbian diacritics - but only if
+  `lang` stays unset (Serbian locale forces the bibliography into Cyrillic), and figure captions
+  need their number written into the caption text by hand since Pandoc doesn't auto-number them.
 - [Research: mine the lecture decks for required content and terminology](issues/07-research-mine-lecture-decks.md):
   the decks are **general theory from Ramakrishnan & Gehrke, not MySQL-specific**. They back chapters
   1-5 with citable slide numbers and yield a ~40-term Serbian glossary, but give **zero** coverage of
