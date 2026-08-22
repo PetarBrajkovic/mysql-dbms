@@ -12,8 +12,10 @@ deviate from a term below without updating this file first and noting why.
 
 These come directly from Prof. Stoimenov's SUBP lecture decks (research ticket 07,
 `.scratch/obrada-upita/research/07-lecture-decks.md` §1) and back chapters 1–5. Serbian only — no
-English needed in parentheses, since these are the professor's own course vocabulary and citable to
-specific slides.
+English needed in parentheses, since these are the professor's own course vocabulary and traceable to
+specific slides. (Note, policy set 2026-08-22: the decks anchor the *terminology* and the learning,
+but are **never cited** in the paper — see WORKFLOW.md rule 7. Slide numbers help locate the
+Ramakrishnan & Gehrke passage to cite; they don't go into `references.bib`.)
 
 | Concept | Serbian term |
 |---|---|

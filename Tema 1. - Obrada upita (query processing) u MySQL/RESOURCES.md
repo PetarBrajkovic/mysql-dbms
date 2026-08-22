@@ -10,9 +10,14 @@
   the reference manual only documents at a surface level. Use for: chapters 5-8, where the manual
   runs thin.
 - Lecture decks in `../../Predavanja/` (Ramakrishnan & Gehrke, general database theory, not
-  MySQL-specific). Use for: chapters 1-5's theoretical grounding and citable slide numbers; give
-  **zero** coverage of chapters 6-8 (confirmed by research ticket 07 - see
-  `.scratch/obrada-upita/research/07-lecture-decks.md`).
+  MySQL-specific). Use for: chapters 1-5's theoretical grounding, orientation, and the Serbian
+  terminology in `GLOSSARY.md`. Give **zero** coverage of chapters 6-8 (confirmed by research ticket
+  07 - see `.scratch/obrada-upita/research/07-lecture-decks.md`).
+  **Never cited in the paper (policy set 2026-08-22):** these are the user's own university course
+  material, provided for *learning*, not a citable source. When a claim comes from a deck, cite its
+  published origin instead - Ramakrishnan & Gehrke (next entry) for the theory, or the MySQL manual
+  for anything MySQL-specific. The slide numbers stay useful for *finding* the R&G passage, they just
+  never appear in `references.bib`.
 - [Ramakrishnan & Gehrke, *Database Management Systems* 3ed — open-access slides](https://pages.cs.wisc.edu/~dbbook/openAccess/thirdEdition/slides/slides3ed-english/)
   The textbook the course decks are literally drawn from (Stoimenov's slides cite it by name). The
   English original of the same figures and framing, freely linkable. Most relevant to chapter 1:

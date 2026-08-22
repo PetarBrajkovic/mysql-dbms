@@ -36,6 +36,12 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
 - Subagents run on **haiku** with narrow, specific briefs.
 - Every substantive chapter needs runnable SQL plus at least one captioned figure.
 - Nominal timebox five weeks; no hard deadline.
+- **Citation sourcing (set 2026-08-22):** the user's own university material — the lecture decks and
+  PDFs in `../../Predavanja/` (Stoimenov SUBP slides) — is for *learning* only and is **never cited**
+  in the paper. Deck-backed claims are cited to their published origin instead: Ramakrishnan & Gehrke
+  for theory, the MySQL manual for MySQL-specifics. Applies to every chapter; see WORKFLOW.md rule 7.
+- **Paper export**: `tools/make-docx.ps1` (title page `naslovna.md` + `rad.md`, IEEE citations) is the
+  one canonical way to build `rad.docx`; never run bare `pandoc rad.md ...`, which drops the title page.
 
 ## Decisions so far
 
@@ -103,9 +109,10 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
 - [Chapter 1. Uvod](issues/10-uvod.md): first chapter written and closed. ~1.5 pages of `rad.md`
   frame query processing as *crossing a gap* (declarative SQL → physical procedures), optimized on
   *two levels of one problem* (logical shape-rewrite; physical algorithm + access path) unified by
-  **cena**, motivating the paper via "one query → many plans of very different cost." Grounded in the
-  two Stoimenov decks + R&G 3ed + MySQL 8.4 manual (now the first four entries in `references.bib`,
-  rendering as IEEE [1]–[4]); illustrated by the reused lesson-01 side-by-side figure
+  **cena**, motivating the paper via "one query → many plans of very different cost." Cited to R&G
+  3ed (theory) + MySQL 8.4 manual (MySQL-specifics), rendering as IEEE [1]–[2] — the university
+  lecture decks are used for grounding but never cited, per the sourcing rule in Notes; illustrated
+  by the reused lesson-01 side-by-side figure
   (`figures/01-uvod-01-jedan-upit-dva-plana.png`); ends with the ch. 2–9 roadmap. First proof that
   the per-chapter loop (teach → run → write with `academic-research-writer` + `serbian-grammar` →
   cite → verify with pandoc) works end to end. Flagged for the revisit-after-conclusion pass the

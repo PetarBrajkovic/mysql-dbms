@@ -110,6 +110,10 @@ Roughly 7-9 lessons total.
 5. **Citations go into `references.bib` as you use them**, never retrofitted at the end.
 6. **Never invent a citation.** Research turned up two facts about the hypergraph optimizer with no
    verifiable source. Leaving a claim uncited is fine; a fabricated reference is not.
+7. **Never cite the university-provided lecture decks or PDFs** (`../../Predavanja/`, the Stoimenov
+   SUBP slides). They are for *learning* only. When a claim comes from a deck, cite its published
+   origin instead - Ramakrishnan & Gehrke for the theory, the MySQL manual for anything
+   MySQL-specific (policy set 2026-08-22, applies to every chapter).
 
 ---
 

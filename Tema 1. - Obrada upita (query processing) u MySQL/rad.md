@@ -13,24 +13,24 @@ kao rezultat, ali ne i *kako* se do tog rezultata dolazi. Sistem za upravljanje 
 stranica na disku, prolazak kroz B+ stablo, sken tabele nad neuređenim fajlom. Obrada upita (query
 processing) obuhvata sve što SUBP radi da bi premostio taj jaz između deklarativnog opisa i fizičkog
 izvršenja; upravo je teret efikasnog odgovaranja na upite time prebačen sa korisnika na sistem
-[@stoimenov_optimizacija; @stoimenov_evaluacija].
+[@ramakrishnan2003].
 
-Jaz se premošćuje optimizacijom na dva nivoa jednog istog problema [@stoimenov_optimizacija]. Na
+Jaz se premošćuje optimizacijom na dva nivoa jednog istog problema. Na
 višem, logičkom nivou, polazni izraz relacione algebre preformuliše se u ekvivalentan izraz koji se
 brže izvršava: spuštanjem selekcija naniže, izmenom redosleda spoja ili sažimanjem operacija menja se
 *oblik* izračunavanja, ali nikada sam rezultat. Na nižem, fizičkom nivou, za svaki operator bira se
 konkretan algoritam i pristupni put — sken tabele naspram skena preko indeksa, odnosno spoj sa
 ugnježdenom petljom, Sort-Merge spoj ili Hash spoj. Pošto ne postoji univerzalno superiorna tehnika,
-najpovoljniji izbor zavisi od svojstava samih podataka [@stoimenov_evaluacija]. Oba nivoa vođena su
+najpovoljniji izbor zavisi od svojstava samih podataka. Oba nivoa vođena su
 istim merilom — cenom, procenom količine posla, pre svega ulazno-izlaznih operacija — i taj
 zajednički cilj čini ih dvama nivoima jednog problema, a ne dvama odvojenim problemima
-[@stoimenov_optimizacija; @ramakrishnan2003].
+[@ramakrishnan2003].
 
 Kombinovanjem logičkih i fizičkih izbora jedan nepromenjen SQL upit grana se na više planova
 izvršenja koji vraćaju identičan rezultat, ali čija se cena razlikuje za nekoliko redova veličine:
 selektivan indeks dodirne šačicu stranica, dok sken cele tabele pročita milione redova. Zadatak
 SUBP-a jeste da među tim ekvivalentnim planovima pronađe i izabere najefikasniji
-[@stoimenov_optimizacija]. MySQL taj izbor poverava optimizatoru upita zasnovanom na ceni
+[@ramakrishnan2003]. MySQL taj izbor poverava optimizatoru upita zasnovanom na ceni
 (cost-based optimizer), koji procenjuje cenu razmatranih planova i zadržava najjeftiniji
 [@mysql84refman].
 
