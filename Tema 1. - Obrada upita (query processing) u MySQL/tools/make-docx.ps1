@@ -21,6 +21,14 @@
     * Do NOT set lang: sr in rad.md - it forces the bibliography into Cyrillic.
     * Figure captions are numbered by hand in the caption text (Slika N: ...).
 
+  Styling:
+    * --reference-doc=assets/reference-paper.docx justifies the body, centers
+      figures and their captions, and leaves the front page (raw OpenXML with its
+      own inline centering) alone. Rebuild that file with
+      tools/build-reference-doc.py if the rules change.
+    * --syntax-highlighting colors fenced code blocks (```sql). Inline `code`
+      already renders in Consolas via the reference doc's VerbatimChar style.
+
   After opening in Word: select the body and set its proofing language to Serbian
   (Latin) once, so the spell-checker stops flagging every word (the English
   reference list is correct as-is). Logos: paste the two faculty seals into the
@@ -38,6 +46,7 @@ $root = Split-Path -Parent $PSScriptRoot
 Push-Location $root
 try {
     pandoc naslovna.md rad.md --citeproc --csl=ieee.csl `
+        --reference-doc=assets/reference-paper.docx --syntax-highlighting=tango `
         -M title="" -M author="" -o $Out --resource-path=.
     if ($LASTEXITCODE -ne 0) { throw "pandoc exited with code $LASTEXITCODE" }
     Write-Host "Exported $Out (title page + body, IEEE citations)." -ForegroundColor Green

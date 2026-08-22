@@ -69,3 +69,12 @@ pandoc naslovna.md rad.md --citeproc --csl=ieee.csl -M title="" -M author="" -o 
 `-M title="" -M author=""` suppresses `rad.md`'s own YAML title block, which would otherwise render a
 second pandoc-generated title on top of the custom one. Everything else above (citeproc, `ieee.csl`,
 no `lang: sr`, hand-numbered captions) is unchanged.
+
+**Update 2026-08-22 — styling via reference doc.** `make-docx.ps1` now also passes
+`--reference-doc=assets/reference-paper.docx` and `--syntax-highlighting=tango`. The reference doc
+(built reproducibly by `tools/build-reference-doc.py` from pandoc's own default) patches three
+paragraph styles: `Normal` → justified (`w:jc both`; the body inherits it), and `Figure` /
+`CaptionedFigure` / `ImageCaption` → centered (the figure image and its `Slika N:` caption). The
+front page is untouched because `naslovna.md` is raw OpenXML that sets `w:jc=center` inline on every
+line, and inline properties beat the style. SQL: inline `code` stays Consolas (default `VerbatimChar`
+style); fenced ```sql blocks get syntax-highlighted — none exist yet, but the pipeline is ready.
