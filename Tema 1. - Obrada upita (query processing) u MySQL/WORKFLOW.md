@@ -144,6 +144,10 @@ claude
 # write the chapter / advance the plan
 /mattpocock-skills:wayfinder .scratch/obrada-upita/map.md
 
+# export the paper to Word (title page + body + IEEE citations)
+.\tools\make-docx.ps1        # always use this, never `pandoc rad.md ...` by hand -
+                             # the title page lives in naslovna.md and must be prepended
+
 # see where you are
 cat .scratch/obrada-upita/map.md
 ```

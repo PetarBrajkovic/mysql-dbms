@@ -57,3 +57,15 @@ survives as a real deliverable).
 - **Output**: a well-formed `.docx` (valid OOXML zip, verified by unpacking and inspecting
   `word/document.xml`, `styles.xml`, and the media relationships) that stays fully editable, which
   is where the user adds the title page afterward.
+
+**Update 2026-08-22 — title page added, canonical command changed.** A raw-OpenXML title page now
+lives in `naslovna.md` and must be **prepended** to the export, so the bare `pandoc rad.md ...`
+command above **drops the title page** and must no longer be used by hand. The canonical command is
+now wrapped in `tools/make-docx.ps1` (run it with no arguments from the repo root):
+```
+pandoc naslovna.md rad.md --citeproc --csl=ieee.csl -M title="" -M author="" -o rad.docx --resource-path=.
+```
+`naslovna.md` first (title page → page 1, its trailing page break puts chapter 1 on page 2);
+`-M title="" -M author=""` suppresses `rad.md`'s own YAML title block, which would otherwise render a
+second pandoc-generated title on top of the custom one. Everything else above (citeproc, `ieee.csl`,
+no `lang: sr`, hand-numbered captions) is unchanged.
