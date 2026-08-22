@@ -45,12 +45,17 @@ This is the loop you will run nine times. One chapter per session.
 `disable-model-invocation: true`).
 
 ```
-/mattpocock-skills:teach EXPLAIN ANALYZE in MySQL
+/teach EXPLAIN ANALYZE in MySQL
 ```
 
-You get a short HTML lesson in `lessons/`, which opens in your browser. Work through it. **Ask
-follow-up questions in the chat** - the lesson is a starting point, not the whole teaching. If
-something does not click, say so and ask for it again differently.
+This is a personal wrapper (`~/.claude/skills/teach/SKILL.md`) around `mattpocock-skills:teach` -
+same workspace and lesson mechanics, but the lesson ends with a self-graded multiple-choice quiz
+instead of open "say it out loud" recall cards. Use `/teach`, not `/mattpocock-skills:teach`, from
+here on.
+
+You get a short HTML lesson in `lessons/`, which opens in your browser. Work through it, finishing
+with its quiz. **Ask follow-up questions in the chat** - the lesson is a starting point, not the
+whole teaching. If something does not click, say so and ask for it again differently.
 
 **Step 2 - Run it yourself.** Open Workbench, run the chapter's queries against your own database.
 Do not skip this - it's how the chapter's content stays something you actually understand, not
@@ -134,7 +139,7 @@ cd "C:\Faks\Sistemi Baza\Tema 1. - Obrada upita (query processing) u MySQL"
 claude
 
 # learn a topic
-/mattpocock-skills:teach <topic>
+/teach <topic>
 
 # write the chapter / advance the plan
 /mattpocock-skills:wayfinder .scratch/obrada-upita/map.md

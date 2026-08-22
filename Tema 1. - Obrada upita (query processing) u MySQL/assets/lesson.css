@@ -114,6 +114,28 @@ a:hover { background: #f3e9e0; }
 .recall[open] summary::before { content: "\2713  "; color: #2e6b2e; }
 .recall .ans { padding: 0.2rem 0 0.6rem; font-size: 0.95rem; color: var(--ink-soft); }
 
+/* --- Multiple-choice quiz (self-graded, immediate feedback) -------------- */
+.quiz { border: 1px solid var(--rule); border-radius: 4px; margin: 1.3rem 0;
+  background: #fff; padding: 1rem 1.1rem 1.2rem; }
+.quiz > p { font-size: 0.9rem; color: var(--ink-soft); margin-top: 0; }
+.quiz .q { border-top: 1px solid var(--rule); padding: 0.9rem 0; }
+.quiz .q:first-of-type { border-top: none; padding-top: 0.3rem; }
+.quiz .stem { font-weight: 600; margin: 0 0 0.5rem; }
+.quiz label { display: block; padding: 0.4rem 0.6rem; margin: 0.3rem 0; border-radius: 4px;
+  border: 1px solid var(--rule); cursor: pointer; font-size: 0.95rem; }
+.quiz label:hover { background: var(--slide-bg); }
+.quiz input[type="radio"] { margin-right: 0.5rem; }
+.quiz .q.answered label { cursor: default; }
+.quiz .q.answered label:hover { background: none; }
+.quiz label.correct { border-color: #2e6b2e; background: #eaf3ea; }
+.quiz label.wrong { border-color: var(--accent); background: #f7e9e6; }
+.quiz .why { display: none; font-size: 0.88rem; color: var(--ink-soft); margin: 0.5rem 0 0;
+  padding: 0.5rem 0.7rem; background: var(--slide-bg); border-radius: 3px; }
+.quiz .why.show { display: block; }
+.quiz-score { margin-top: 0.8rem; padding-top: 0.7rem; border-top: 1px solid var(--rule);
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.85rem; font-weight: 700;
+  color: var(--accent); }
+
 /* --- Roadmap list -------------------------------------------------------- */
 ol.roadmap { counter-reset: ch 1; list-style: none; padding-left: 0; }
 ol.roadmap li { counter-increment: ch; margin: 0.5rem 0; padding-left: 2.6rem;
@@ -189,6 +211,11 @@ pre.sql .fn { color: #61afef; }   /* function/clause emphasis */
   .recall { break-inside: avoid; }
   .recall[open] summary::before, .recall summary::before { content: ""; }
   a { color: var(--ink); text-decoration: none; }
-  .slide, .level, .gap, .note, .try { break-inside: avoid; }
+  .slide, .level, .gap, .note, .try, .quiz { break-inside: avoid; }
+  .quiz .q { break-inside: avoid; }
+  .quiz input[type="radio"] { display: none; }
+  .quiz .why { display: block !important; }
+  .quiz label.correct::before { content: "\2713  "; font-weight: 700; }
+  .quiz-score { display: none; }
   .copy-btn { display: none; }
 }

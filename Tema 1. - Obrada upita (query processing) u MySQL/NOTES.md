@@ -14,16 +14,12 @@ graded - `MISSION.md` and `RESOURCES.md` are the documents that matter for plann
   `map.md`, commit messages — stays **English**, since it isn't reading the user does to learn.
   **Sources may be in any language** (English MySQL docs, R&G slides…) — only the user-facing lesson
   text must end up Serbian; the agent translates/synthesizes. Apply to chapters 2–9 without being asked.
-- **Serbian-quality preference (standing, set 2026-08-22):** lesson Serbian must be **correct
-  standard Serbian (ekavica), not Croatian** and with **correct padeži**. Enforce on every lesson:
-  Serbian lexis over Croatian (`optimizuje` not *optimizira*, `preduslov` not *preduvjet*, `tačno`
-  not *točno*, `cena` not *cijena*, `milion` not *milijun*, `sledi`/`pre`/`posle`/`delove` not
-  *slijedi/prije/poslije/dijelove*, `redosled` not *redoslijed*); Serbian analytic future (`ćeš
-  pisati` / `pisaćeš`, never Croatian *pisat ćeš*); the `da` + present construction over the bare
-  infinitive (`mora da bira`, not *mora birati*). Watch verb government (`upravljati` + instrumental →
-  `upravlja obama nivoima`; `činiti nešto nečim` → `čini ih dvama nivoima`). Deck/glossary anglicisms
-  stay as locked (`sken`, `heš`, `pipeline`). Do a deliberate padež + Croatianism pass before calling
-  a lesson done.
+- **Serbian-quality preference (standing, set 2026-08-22; enforcement delegated to the
+  `serbian-grammar` skill):** every lesson's Serbian prose must be checked with the `serbian-grammar`
+  skill (padeži, standard-Serbian lexis vs. Croatian/Bosnian, verb government, analytic future, etc.)
+  before a lesson is called done — see that skill for the rules themselves. The one project-specific
+  exception it doesn't know about: deck/glossary anglicisms stay as locked (`sken`, `heš`, `pipeline`),
+  per `GLOSSARY.md`.
 - **No-italics preference (standing, set 2026-08-22):** **no italics anywhere in lessons/reference
   cards.** Emphasis is **bold** (`<strong>`/`<b>`) or **red** (`.hi` span, the accent colour), never
   `<em>`/italic. Enforced globally in `assets/lesson.css` (`em, i, cite { font-style: normal }`, and
@@ -83,6 +79,18 @@ graded - `MISSION.md` and `RESOURCES.md` are the documents that matter for plann
     `'US'` doesn't produce. The rare `'JP'` side may still flip; **verify before using**. Ticket 01's
     Answer should be updated to match. The lesson-0001 §4 demo now uses `IGNORE INDEX` (index vs table
     scan), not `FORCE INDEX`, for exactly this reason.
+- **Quiz-instead-of-recall preference (standing, set 2026-08-22):** the user wants lessons to end
+  with a **self-graded multiple-choice quiz**, not the open "say it out loud" recall cards
+  (`.recall` in `assets/lesson.css`). Since the base `mattpocock-skills:teach` skill is a plugin and
+  gets overwritten on update, this is implemented as a personal wrapper skill at
+  `~/.claude/skills/teach/SKILL.md` (invoked as `/teach`, not `/mattpocock-skills:teach`) — it Globs
+  and Reads the plugin's `teach` `SKILL.md` for the base methodology, then replaces its recall step
+  with a quiz. **Use `/teach <topic>` from now on**, not `/mattpocock-skills:teach` (`WORKFLOW.md`
+  updated to match). The reusable quiz component already exists here — `.quiz`/`.q`/`.why`/
+  `.quiz-score` styling in `assets/lesson.css`, behavior in `assets/quiz.js` (markup contract
+  documented in that file's header comment) — so new lessons should link and reuse it rather than
+  build another one. Lesson `0001-uvod-*.html` still uses the old open-recall pattern and has not
+  been retrofitted; ask the user before touching a chapter already marked done.
 - **Figure pipeline reopened and automated (2026-08-22):** Workbench's Visual Explain stopped
   rendering on the user's machine, and he'd rather not hand-capture/name/file ~13 figures across
   nine sessions anyway. Ticket 09 reopened - figures are now generated end to end by the agent via
