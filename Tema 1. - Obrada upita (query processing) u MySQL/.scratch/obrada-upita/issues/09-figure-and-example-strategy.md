@@ -77,3 +77,36 @@ summary here:
    `examples/04-explain/01-visual-explain.sql`), with a one-line comment at the top of the SQL file
    naming the figure it produces. **Non-SQL diagrams** (architecture, reused-official, or original)
    are explicitly exempt from this rule - there is nothing to run behind them.
+
+## Reopened (2026-08-22) - Workbench Visual Explain broke, pipeline automated
+
+Workbench's Visual Explain view stopped rendering for the user, and manually capturing/cropping/
+naming/filing ~13 figures across nine sessions was also just something he'd rather not do by hand.
+Superseding point 1 and the "Capture standard" section above (points 2-5 and everything else stand):
+
+- **Tool**: [`myflames`](https://github.com/vgrippa/myflames) (`pip install myflames`), a CLI that
+  renders `EXPLAIN ANALYZE FORMAT=JSON` as an SVG (flame graph / bar chart / treemap / diagram /
+  tree), plus headless Microsoft Edge (`msedge --headless --screenshot=...`) to rasterize that SVG
+  to the PNG the DOCX export needs. Both already present on the machine; no other install required.
+- **Credentials**: `mysql-credentials.cnf` at the repo root (gitignored, `--defaults-extra-file` for
+  the `mysql` client) holds the DB password so it never appears in an argument list or shell
+  history. The user fills the password in himself; the agent only ever reads the file.
+  `mysql`'s and the pip user-scripts' directories were added to `PATH` (user scope) so both tools
+  are callable directly.
+- **Driver scripts**: `tools/make-figure.ps1` (plan-shape/tree figures - the former Visual Explain
+  and `FORMAT=TREE` captures) and `tools/make-table-figure.ps1` (result-grid figures, which have no
+  plan to visualize - runs `mysql --html`, rasterizes the table directly). Both write straight into
+  `figures/` under the existing naming convention. Full mechanics in `figures/README.md`.
+- **What changes for "what gets photographed" (point 1)**: Visual Explain -> myflames
+  `--type flamegraph` (or `--type diagram` for join order); Workbench `FORMAT=TREE` capture ->
+  myflames `--type tree`; result grid -> `make-table-figure.ps1`'s `mysql --html` rasterization.
+  Non-SQL diagrams are unaffected - still official-reused-or-original, no tool involved.
+- **What changes for "capture standard" (point 3)**: no more Workbench light theme / font-bump /
+  manual crop - both scripts produce a tight, chrome-free capture by construction. Colour scheme is
+  myflames' `hot` default for flame graphs.
+- **What does NOT change**: naming convention, per-chapter budget, caption format, no-source-note-
+  for-own-work rule (an agent-run tool operated by the author is the same authorship story a
+  Workbench screenshot was), and the reproducibility rule - the SQL in `examples/` is still the
+  citable source of truth. One addition: plan-shape figures now also keep an `.svg` twin next to the
+  `.png` (same base name, committed) as the exact source the PNG was rasterized from.
+- `myflames` itself gets one citation in the paper's methodology/tooling mention, not per-figure.

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 01 — Uvod: jaz i dva nivoa</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 01 · Poglavlje 1 (Uvod)</p>
+<h1>Jaz, i dva nivoa koja ga premošćuju</h1>
+<p class="subtitle">Ono što treba da ti bude jasno pre pisanja uvoda — čisto konceptualno, još bez MySQL mehanike (to počinje u Poglavlju&nbsp;2).</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Ova lekcija postoji da bi mogao da napišeš i <strong>odbraniš</strong> Uvod: da svojim rečima kažeš
+  šta je obrada upita, zašto je bitan jaz između deklarativnog SQL upita i njegovog fizičkog
+  izvršavanja, i zašto jedan SQL upit može da se izvrši kao više planova veoma različite cene. Ako sve
+  troje umeš da izgovoriš bez podsetnika, poglavlje se piše samo. Sve što sledi zasnovano je na
+  slajdovima prof. Stoimenova <strong>03_Optimizacija str.&nbsp;2–3</strong> i
+  <strong>02_Evaluacija str.&nbsp;2–4</strong>.
+</div>
+
+<h2>1 · Obrada upita jeste taj jaz</h2>
+<p>
+  SQL je <strong>deklarativan</strong>: pišeš <span class="hi">šta</span> želiš da dobiješ, nikad
+  <span class="hi">kako</span> da se do toga dođe. Ali mašina ume da izvrši samo <strong>procedure</strong>,
+  a procedure su fizičke — čitanje i upisivanje <strong>stranica</strong> na disku, prolazak kroz
+  <strong>B+&nbsp;stablo</strong>, sken heap fajla. Obrada upita je sve što DBMS radi da bi premostio
+  taj jaz.
+</p>
+
+<div class="gap">
+  <span class="decl">deklarativni SQL</span> &nbsp;— <b>šta</b>
+  <span class="arrow">↓ &nbsp; obrada upita &nbsp; ↓</span>
+  <span class="phys">fizičke operacije · disk · indeks · torke</span> &nbsp;— <b>kako</b>
+  <small>Korisnik je namerno oslobođen „kako“. Cena te jednostavnosti je da DBMS mora da ga
+  rekonstruiše svaki put.</small>
+</div>
+
+<div class="slide">
+  <span class="sr">03_Optimizacija · str. 2</span>
+  <q>SQL upitni jezik — orijentisan ka korisnicima, jednostavan. […] teret efikasnih odgovaranja na
+  upite nosi DBMS.</q>
+  <span class="gloss">SQL je orijentisan ka korisniku i jednostavan; <strong>teret</strong> efikasnog
+  odgovaranja na upite nosi DBMS — ne korisnik.</span>
+</div>
+<div class="slide">
+  <span class="sr">02_Evaluacija · str. 2</span>
+  <q>Prostor na disku: jedinica je stranica, obično 4 KB ili 8 KB … I/O operacije — čitanje/upis
+  stranice.</q>
+  <span class="gloss">„Kako“ strana jaza je konkretna: stranice od 4–8&nbsp;KB, čitanja i upisi
+  stranica, heap / sortirani / heš fajlovi, indeksi, B+&nbsp;stabla.</span>
+</div>
+
+<h2>2 · Jedan problem, dva nivoa</h2>
+<p>
+  DBMS premošćuje jaz tako što <strong>optimizuje na dva nivoa</strong> — strukturna ideja celog rada.
+  Isti problem, dva nivoa: prvo bira <strong>oblik</strong> izračunavanja, a zatim
+  <strong>mašineriju</strong> koja taj oblik izvršava.
+</p>
+
+<div class="slide">
+  <span class="sr">03_Optimizacija · str. 2</span>
+  <q>Moderni DBMS vrši optimizaciju na dva nivoa.</q>
+</div>
+
+<div class="levels">
+  <div class="level logical">
+    <h4>Viši · logički nivo</h4>
+    <ul>
+      <li>Preformuliše izraz <strong>relacione algebre</strong> u <strong>ekvivalentan</strong> koji
+        se brže izvršava.</li>
+      <li>Menja <strong>oblik</strong> (spušta selekcije naniže, menja redosled spojeva) — nikad
+        rezultat.</li>
+      <li>I dalje apstraktno: ne govori <span class="hi">kako</span> se pojedinačna operacija
+        izvršava.</li>
+    </ul>
+  </div>
+  <div class="level physical">
+    <h4>Niži · fizički nivo</h4>
+    <ul>
+      <li>Bira konkretan <strong>algoritam</strong> i <strong>pristupni put</strong> po operatoru.</li>
+      <li>Sken preko indeksa naspram skena tabele; spoj ugnježdenim petljama / sort-merge / heš.</li>
+      <li><q>Nema univerzalno superiorne tehnike</q> — najbolji izbor zavisi od podataka
+        <span class="gloss" style="display:inline">(02_Evaluacija str.&nbsp;4)</span>.</li>
+    </ul>
+  </div>
+</div>
+
+<p>
+  Trostepeni recept prof. Stoimenova na <strong>03_Optimizacija str.&nbsp;3</strong> ih spaja:
+  <strong>(1)</strong> napiši upit u relacionoj algebri <span style="color:var(--logical)">(logički)</span>,
+  <strong>(2)</strong> izaberi algoritme najmanje <strong>cene</strong> za međurezultate
+  <span style="color:var(--physical)">(fizički)</span>, <strong>(3)</strong> izvrši ih i proizvedi
+  rezultat. Reč koja upravlja obama nivoima je ista: <strong>cena</strong>. Taj zajednički cilj je ono
+  što ih čini dvama <strong>nivoima jednog problema</strong>, a ne dvama problemima.
+</p>
+
+<h2>3 · Zašto je sve ovo bitno</h2>
+<p>
+  Pomnoži logičke izbore (ekvivalentni algebarski oblici) sa fizičkim izborima (algoritam po
+  operatoru) i jedan SQL upit se grana u <strong>više planova izvršenja koji vraćaju identičan
+  rezultat, ali koštaju drastično različito</strong> — selektivan indeks dodirne šačicu stranica, a
+  sken dodirne milione. Isti odgovor, razlika u poslu za nekoliko redova veličine.
+</p>
+<div class="slide">
+  <span class="sr">03_Optimizacija · str. 2</span>
+  <q>SQL upit se može izvršiti na različite načine, a zadatak DBMSa je da odabere najefikasniji način.</q>
+  <span class="gloss">SQL upit može da se izvrši na različite načine; posao DBMSa je da izabere
+  najefikasniji. <strong>Taj izbor je tema celog rada.</strong></span>
+</div>
+
+<h2>4 · Vidi na svom primeru — jedan upit, dva plana</h2>
+<p>
+  Gornja tvrdnja nije apstraktna — možeš da je vidiš uživo. Pokreni ovo sada, dok ti je ideja sveža.
+  Poenta <span class="hi">nije</span> da detaljno čitaš plan (to je Poglavlje&nbsp;4) — samo da vidiš
+  da <strong>jedan nepromenjen upit ima više ispravnih planova, i da ti planovi koštaju
+  različito</strong>.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> sintetička tabela <code>obrada_upita.wide_events</code>
+      (5&nbsp;miliona torki) iz <code>examples/00-setup/</code>. Ako je još nisi napravio, koncept
+      stoji i bez pokretanja — samo pročitaj delove „šta treba da vidiš“ i „kako da ga pročitaš“.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql"><span class="k">USE</span> obrada_upita;
+
+<span class="c">-- Jedan upit, dva plana. Oba vraćaju istih ~3,5M torki (~70% tabele).</span>
+
+<span class="c">-- (A) Pusti MySQL da bira slobodno:</span>
+<span class="k">EXPLAIN</span> <span class="fn">FORMAT=TREE</span>
+<span class="k">SELECT</span> notes <span class="k">FROM</span> wide_events
+<span class="k">WHERE</span>  country_code = <span class="s">'US'</span>;
+
+<span class="c">-- (B) Zabrani mu indeks — da otkriješ plan koji je odbacio:</span>
+<span class="k">EXPLAIN</span> <span class="fn">FORMAT=TREE</span>
+<span class="k">SELECT</span> notes <span class="k">FROM</span> wide_events <span class="fn">IGNORE INDEX</span> (idx_country_code)
+<span class="k">WHERE</span>  country_code = <span class="s">'US'</span>;</pre>
+    <p style="font-size:0.82rem;color:var(--ink-soft);margin:0.5rem 0 0;">
+      <code>IGNORE INDEX</code> je samo poluga da se otkrije alternativni plan — onaj koji MySQL
+      <strong>nije</strong> izabrao. <code>'US'</code> je najčešća vrednost (~70% tabele).</p>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+    <table class="exp">
+      <tr><td>(A) slobodan izbor</td><td><strong>Pretraga preko indeksa</strong>
+        (<code>Index lookup … using idx_country_code</code>) — na ovim podacima
+        <code>cost≈513107</code>. MySQL bira indeks.</td></tr>
+      <tr><td>(B) zabranjen indeks</td><td><strong>Sken cele tabele</strong>
+        (<code>Table scan on wide_events</code>) — <code>cost≈580134</code>, dakle
+        <strong>skuplji</strong>. Zato ga MySQL nije izabrao.</td></tr>
+    </table>
+    <p class="expect">Tačni brojevi zavise od statistike tvoje tabele, pa ne juri cifre — bitno je da
+      su to <strong>dva različita plana</strong> za isti upit i da im se <strong>cena razlikuje</strong>.
+      (Ako ti se ne pojave dva različita plana, javi mi — to je zanimljivo, pa ćemo pogledati zašto.)</p>
+
+    <figure class="fig">
+      <img src="../figures/01-uvod-01-jedan-upit-dva-plana.png"
+           alt="Isti upit, dva plana: (A) index lookup preko idx_country_code, procenjena cena
+                oko 500 hiljada; (B) IGNORE INDEX table scan cele tabele, procenjena cena oko
+                575 hiljada — skuplje.">
+      <figcaption>Isti upit iz Workbench-a iznad, oba plana jedno pored drugog — slobodan izbor
+        (A) protiv zabranjenog indeksa (B). Cena i procenjeni/stvarni broj redova iz
+        <code>EXPLAIN ANALYZE FORMAT=JSON</code>, uživo sa ovog servera.</figcaption>
+    </figure>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Ovo je <strong>fizički nivo (niži nivo)</strong> iz §2, uživo: MySQL je
+      izračunao cenu dva <strong>pristupna puta</strong> za identičan upit i zadržao jeftiniji —
+      indeks (<code>513107</code>) umesto skena tabele (<code>580134</code>). Plan&nbsp;(B) je onaj
+      koji je odbacio: iste torke, više posla. Isti upit → dva plana → različita <strong>cena</strong>.
+      To je upravo rečenica iz §3, i razlog zašto svako poglavlje posle ovog postoji.</p>
+
+    <p class="scope"><b>Ograničenje.</b> Ovde <strong>ne</strong> učiš da čitaš <code>EXPLAIN</code> —
+      kolone stabla, formulu cene i to <strong>zašto</strong> se procenjeni broj torki
+      (<code>2.45e+6</code>) razlikuje od stvarnog (<code>3.5e+6</code>, koliko pokaže
+      <code>EXPLAIN ANALYZE</code>), sve su to teme <strong>Poglavlja&nbsp;4</strong>. Za Uvod je
+      dovoljan jedan zaključak: jedan SQL upit, više planova, nejednaka cena.</p>
+  </div>
+</div>
+
+<h2>5 · Priseti se (nemoj samo ponovo čitati)</h2>
+<p>Pokrij odgovore. Izgovori svaki naglas <strong>na srpskom</strong> pre nego što ga otvoriš — vežbaš
+  tačan pojmovnik iz <a href="../GLOSSARY.md">rečnika</a> kojim ćeš pisati rad, pa je prisećanje na
+  ciljnom jeziku i cela poenta.</p>
+
+<details class="recall"><summary>U jednoj rečenici: šta je obrada upita?</summary>
+  <div class="ans">Sve što DBMS radi da bi premostio jaz između deklarativnog SQL upita (šta se traži)
+  i fizičkih operacija nad diskom, indeksom i torkama (kako se rezultat dobija).</div></details>
+
+<details class="recall"><summary>Šta logički nivo menja, a šta nikada ne menja?</summary>
+  <div class="ans">Menja <strong>oblik</strong> izraza relacione algebre u ekvivalentan, brži oblik;
+  nikada ne menja sam <strong>rezultat</strong>.</div></details>
+
+<details class="recall"><summary>Šta fizički nivo odlučuje?</summary>
+  <div class="ans">Konkretan algoritam i pristupni put za svaki operator — na primer sken tabele ili
+  sken preko indeksa, i koji algoritam spoja — jer ne postoji univerzalno najbolja tehnika.</div></details>
+
+<details class="recall"><summary>Zašto uopšte mora da postoji ostatak rada?</summary>
+  <div class="ans">Jer se jedan SQL upit preslikava na više ekvivalentnih planova izvršenja veoma
+  različite cene, pa optimizator upita mora da <strong>pretražuje i bira</strong> — a kako MySQL
+  donosi i izvršava taj izbor jeste tema rada.</div></details>
+
+<h2>6 · Zatvori Uvod mapom puta</h2>
+<p>Završi uvod tako što čitaocu kažeš kuda rad ide — po jedna rečenica za svako:</p>
+<ol class="roadmap" start="2">
+  <li><b>Arhitektura obrade upita u MySQL-u</b> — komponente koje premošćuju jaz (parser,
+    optimizator, evaluator, katalog) i kako ih MySQL raspoređuje.</li>
+  <li><b>Od SQL-a do plana izvršavanja</b> — dva nivoa, opipljivo: SQL → preformulacija relacione
+    algebre → fizički plan, na stvarnom upitu.</li>
+  <li><b>EXPLAIN i EXPLAIN ANALYZE</b> — alati da se <strong>vidi</strong> izabrani plan i uporedi
+    njegova procenjena cena sa onim što se stvarno desilo.</li>
+  <li><b>Iterator model i pipeline operatora</b> — kako se izabrani plan izvršava: operatori povlače
+    torke jedan od drugog, torku po torku.</li>
+  <li><b>Vektorizovano izvršavanje</b> — grupna/kolonska alternativa izvršavanju torku-po-torku, i
+    gde MySQL tu stoji.</li>
+  <li><b>Paralelno izvršavanje upita</b> — korišćenje više jezgara na jednom upitu, i stvarne granice
+    MySQL-ove paralelnosti.</li>
+  <li><b>Keširanje i ponovna upotreba planova</b> — može li se izabrani plan ponovo upotrebiti umesto
+    da se računa iznova, i šta MySQL zaista kešira.</li>
+  <li><b>Zaključak</b> — nit provučena do kraja, od deklarativnog SQL-a nazad do fizičkog
+    izvršavanja.</li>
+</ol>
+
+<div class="note">
+  <span class="lbl">Pitaj svog predavača</span>
+  Ova lekcija je polazna tačka, ne celo predavanje. Ako ti je podela na logički/fizički nivo i dalje
+  mutna, ili želiš da ideju „više ekvivalentnih planova“ vidiš na nekom svom Sakila / wide_events
+  upitu pre nego što je napišeš, <strong>pitaj u četu</strong> — zato sam tu.
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong> Ramakrishnan &amp; Gehrke,
+  <a href="https://pages.cs.wisc.edu/~dbbook/openAccess/thirdEdition/slides/slides3ed-english/Ch12_Overview_Query_Evaluation.pdf">Poglavlje&nbsp;12 — Overview of Query Evaluation</a>
+  (besplatni slajdovi iz kojih je izvedeno gradivo kursa; na engleskom — izvor sme biti na bilo kom
+  jeziku). · <strong>Izvori sa slajdova:</strong> 03_Optimizacija str.&nbsp;2–3, 02_Evaluacija
+  str.&nbsp;2–4. · <strong>Vidi još:</strong>
+  <a href="../reference/00-query-processing-two-levels.html">referentna kartica: dva nivoa i mapa puta</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a>.
+</p>
+
+<script src="../assets/copy.js"></script>
+</body>
+</html>

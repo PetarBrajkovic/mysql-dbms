@@ -84,16 +84,21 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   plan-cache-vs-parse-tree-cache distinction written in as a hard constraint. Voice: impersonal
   *se*-construction. Citation density: per-paragraph wherever a factual claim appears.
 - [Decide the figure and example strategy](issues/09-figure-and-example-strategy.md): full detail
-  in `figures/README.md`, binding on every chapter from here on. Medium assigned per purpose
-  (Visual Explain for plan shape, in-Workbench EXPLAIN ANALYZE/TREE text for tree reading, result
-  grid only when the data itself is the point; no raw CLI screenshots). Non-SQL diagrams (chapter 2
+  in `figures/README.md`, binding on every chapter from here on. Non-SQL diagrams (chapter 2
   architecture, and any other conceptual figure) prefer a reused official/existing diagram first,
   original artwork as fallback - the only case needing a source note and a `references.bib` entry.
   Per-chapter budget (~13 figures total, table in `figures/README.md`) is soft guidance against
-  chapter 4 swallowing every figure, not a hard quota. Capture standard: light theme, bumped font,
-  tight crop, ~1200-1600px PNG. Captions hand-typed `Slika N: ...` (Pandoc doesn't auto-number).
-  Every SQL-driven figure's script lives in `examples/` under a mirrored filename with a
-  back-reference comment; non-SQL diagrams are exempt.
+  chapter 4 swallowing every figure, not a hard quota. Captions hand-typed `Slika N: ...` (Pandoc
+  doesn't auto-number). Every SQL-driven figure's script lives in `examples/` under a mirrored
+  filename with a back-reference comment; non-SQL diagrams are exempt.
+  **Reopened 2026-08-22**: Workbench's Visual Explain broke on the user's machine and manual
+  capture/naming/filing didn't scale, so the medium changed from Workbench (Visual Explain,
+  in-app TREE text, result grid) to a fully automated agent-run pipeline - `myflames` renders
+  `EXPLAIN ANALYZE FORMAT=JSON` to SVG (flame graph/tree/diagram), headless Edge rasterizes it to
+  PNG, `tools/make-figure.ps1` / `tools/make-table-figure.ps1` drive it end to end from
+  `mysql-credentials.cnf` (gitignored). Naming, budget, captions, and the examples/-as-source-of-
+  truth rule are unchanged; see ticket 09's "Reopened" section and `figures/README.md` for the
+  mechanics.
 
 ## Not yet specified
 

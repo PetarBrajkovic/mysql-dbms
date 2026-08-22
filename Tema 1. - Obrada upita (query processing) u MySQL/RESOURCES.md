@@ -13,6 +13,11 @@
   MySQL-specific). Use for: chapters 1-5's theoretical grounding and citable slide numbers; give
   **zero** coverage of chapters 6-8 (confirmed by research ticket 07 - see
   `.scratch/obrada-upita/research/07-lecture-decks.md`).
+- [Ramakrishnan & Gehrke, *Database Management Systems* 3ed — open-access slides](https://pages.cs.wisc.edu/~dbbook/openAccess/thirdEdition/slides/slides3ed-english/)
+  The textbook the course decks are literally drawn from (Stoimenov's slides cite it by name). The
+  English original of the same figures and framing, freely linkable. Most relevant to chapter 1:
+  [Ch. 12 — Overview of Query Evaluation](https://pages.cs.wisc.edu/~dbbook/openAccess/thirdEdition/slides/slides3ed-english/Ch12_Overview_Query_Evaluation.pdf).
+  Use for: an external, citable cross-check of anything the Serbian decks compress, chapters 1-5.
 - Internal research reports already produced while charting this effort, one per closed research
   ticket in `.scratch/obrada-upita/research/`:
   - `04-sql-to-plan-and-iterator.md` - the five-stage pipeline, the iterator executor,

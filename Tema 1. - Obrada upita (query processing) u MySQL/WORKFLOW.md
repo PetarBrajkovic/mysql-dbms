@@ -53,7 +53,10 @@ follow-up questions in the chat** - the lesson is a starting point, not the whol
 something does not click, say so and ask for it again differently.
 
 **Step 2 - Run it yourself.** Open Workbench, run the chapter's queries against your own database.
-Do not skip this. The professor wants examples and pictures, and the figures come from here.
+Do not skip this - it's how the chapter's content stays something you actually understand, not
+just something the agent produced. (Workbench's Visual Explain stopped rendering on this machine,
+so it's no longer where the figures come from - see Step 3 - but running the queries yourself is
+still the point of this step.)
 
 **Step 3 - Write it.** Then in the same session:
 
@@ -62,7 +65,8 @@ Do not skip this. The professor wants examples and pictures, and the figures com
 ```
 
 It picks up the chapter ticket, writes the Serbian prose into `rad.md` using the
-`academic-research-writer` skill, files the figures and SQL, and commits.
+`academic-research-writer` skill, generates the chapter's figures with `tools/make-figure.ps1` /
+`tools/make-table-figure.ps1` (`figures/README.md`), files them alongside the SQL, and commits.
 
 **A chapter is done when** the lesson exists, the SQL is in `examples/`, at least one captioned figure
 is in `figures/`, the Serbian text is appended to `rad.md`, and the citations are in `references.bib`.

@@ -1,0 +1,194 @@
+/* ==========================================================================
+   Shared stylesheet for the "Obrada upita u MySQL-u" teaching workspace.
+   Every lesson and reference card links this file, so the whole course looks
+   like one document rather than a pile of one-offs. Tufte-ish: quiet colour,
+   generous margins, serif body for reading, print-friendly.
+   ========================================================================== */
+
+:root {
+  --ink:        #1a1a1a;
+  --ink-soft:   #4a4a4a;
+  --paper:      #fbfaf7;
+  --rule:       #d8d3c8;
+  --accent:     #7a1f1f;   /* deep academic red, used sparingly */
+  --logical:    #1f5c7a;   /* logical level */
+  --physical:   #7a1f1f;   /* physical level */
+  --slide-bg:   #f1eee6;
+  --code-bg:    #f4f1ea;
+  --maxw:       42rem;
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 19.5px; }
+
+body {
+  margin: 0 auto;
+  max-width: var(--maxw);
+  padding: 3rem 1.5rem 6rem;
+  background: var(--paper);
+  color: var(--ink);
+  /* Georgia leads: it's built for on-screen reading (sturdy strokes, tall
+     x-height) and is present on every Windows install, so it's what actually
+     renders here. Charter/Iowan are nicer upgrades for anyone on macOS. */
+  font-family: Georgia, Charter, "Iowan Old Style", Cambria, "Times New Roman", serif;
+  line-height: 1.72;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Typography ---------------------------------------------------------- */
+h1, h2, h3 { font-weight: 600; line-height: 1.2; letter-spacing: -0.01em; }
+h1 { font-size: 2rem; margin: 0 0 0.2rem; }
+h2 { font-size: 1.35rem; margin: 2.6rem 0 0.8rem; padding-bottom: 0.3rem;
+     border-bottom: 1px solid var(--rule); }
+h3 { font-size: 1.08rem; margin: 1.8rem 0 0.5rem; color: var(--ink-soft); }
+
+.kicker { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.72rem;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent);
+  font-weight: 700; margin: 0 0 0.5rem; }
+
+.subtitle { color: var(--ink-soft); margin: 0.2rem 0 0; }
+
+p { margin: 0.8rem 0; }
+strong, b { font-weight: 650; font-style: normal; }
+/* Inline red emphasis — the no-italic alternative to <em>. Use sparingly. */
+.hi { color: var(--accent); font-weight: 650; font-style: normal; }
+/* No italics anywhere in these lessons, by preference: emphasis is bold or red. */
+em, i, cite { font-style: normal; font-weight: 650; }
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { background: #f3e9e0; }
+
+/* --- Slide-quote: the professor's own words ------------------------------ */
+.slide {
+  background: var(--slide-bg);
+  border-left: 3px solid var(--ink-soft);
+  padding: 0.8rem 1.1rem;
+  margin: 1.1rem 0;
+  border-radius: 2px;
+}
+.slide .sr { display: block; font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-soft); margin-bottom: 0.35rem; }
+.slide q { quotes: "\201E" "\201C"; color: #2f2a22; }
+.slide .gloss { display: block; margin-top: 0.4rem; font-size: 0.9rem;
+  color: var(--ink-soft); }
+
+/* --- Two-level box (logical vs physical) --------------------------------- */
+.levels { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; margin: 1.3rem 0; }
+.level { border: 1px solid var(--rule); border-radius: 4px; padding: 0.9rem 1rem;
+  background: #fff; }
+.level h4 { margin: 0 0 0.4rem; font-size: 0.95rem;
+  font-family: ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.02em; }
+.level.logical  { border-top: 4px solid var(--logical); }
+.level.physical { border-top: 4px solid var(--physical); }
+.level.logical  h4 { color: var(--logical); }
+.level.physical h4 { color: var(--physical); }
+.level ul { margin: 0.4rem 0 0; padding-left: 1.1rem; font-size: 0.92rem; }
+.level li { margin: 0.25rem 0; }
+@media (max-width: 34rem) { .levels { grid-template-columns: 1fr; } }
+
+/* --- The gap diagram ----------------------------------------------------- */
+.gap { text-align: center; font-family: ui-sans-serif, system-ui, sans-serif;
+  background: #fff; border: 1px solid var(--rule); border-radius: 4px;
+  padding: 1.2rem 1rem; margin: 1.3rem 0; }
+.gap .decl { color: var(--logical); font-weight: 700; }
+.gap .phys { color: var(--physical); font-weight: 700; }
+.gap .arrow { color: var(--accent); font-weight: 700; font-size: 1.2rem;
+  display: block; margin: 0.5rem 0; }
+.gap small { color: var(--ink-soft); display:block; margin-top:0.3rem; }
+
+/* --- Callouts ------------------------------------------------------------ */
+.note { background: #fff; border: 1px solid var(--rule); border-left: 4px solid var(--accent);
+  padding: 0.8rem 1.1rem; margin: 1.2rem 0; border-radius: 2px; font-size: 0.95rem; }
+.note .lbl { font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 700;
+  font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--accent); display: block; margin-bottom: 0.3rem; }
+
+/* --- Retrieval-practice cards (click to reveal) -------------------------- */
+.recall { border: 1px solid var(--rule); border-radius: 4px; margin: 0.7rem 0;
+  background: #fff; padding: 0.4rem 1rem; }
+.recall summary { cursor: pointer; font-weight: 600; padding: 0.4rem 0; list-style: none; }
+.recall summary::-webkit-details-marker { display: none; }
+.recall summary::before { content: "?  "; color: var(--accent); font-weight: 700; }
+.recall[open] summary::before { content: "\2713  "; color: #2e6b2e; }
+.recall .ans { padding: 0.2rem 0 0.6rem; font-size: 0.95rem; color: var(--ink-soft); }
+
+/* --- Roadmap list -------------------------------------------------------- */
+ol.roadmap { counter-reset: ch 1; list-style: none; padding-left: 0; }
+ol.roadmap li { counter-increment: ch; margin: 0.5rem 0; padding-left: 2.6rem;
+  position: relative; font-size: 0.95rem; }
+ol.roadmap li::before { content: counter(ch); position: absolute; left: 0; top: 0;
+  width: 1.9rem; height: 1.9rem; border-radius: 50%; background: var(--slide-bg);
+  border: 1px solid var(--rule); text-align: center; line-height: 1.9rem;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 700;
+  font-size: 0.85rem; color: var(--accent); }
+ol.roadmap li b { color: var(--ink); }
+
+/* --- Footer / meta ------------------------------------------------------- */
+.meta { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule);
+  font-size: 0.85rem; color: var(--ink-soft); font-family: ui-sans-serif, system-ui, sans-serif; }
+.meta a { color: var(--ink-soft); }
+code { background: var(--code-bg); padding: 0.05rem 0.3rem; border-radius: 3px;
+  font-size: 0.85em; font-family: "SF Mono", "Cascadia Code", Consolas, monospace; }
+
+/* --- Copy-to-clipboard button (added by assets/copy.js) ------------------ */
+.codewrap { position: relative; }
+.codewrap .copy-btn { position: absolute; top: 0.5rem; right: 0.5rem;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.7rem;
+  letter-spacing: 0.03em; padding: 0.22rem 0.6rem; border-radius: 4px;
+  border: 1px solid #3a3f4a; background: #2c313a; color: #cdd3de; cursor: pointer;
+  opacity: 0.5; transition: opacity 0.15s, background 0.15s; }
+.codewrap:hover .copy-btn { opacity: 1; }
+.codewrap .copy-btn:hover { background: #3a4150; }
+.codewrap .copy-btn.ok { background: #2e6b2e; border-color: #2e6b2e; color: #fff; opacity: 1; }
+
+/* --- Try-it-in-Workbench lab block --------------------------------------- */
+.try { border: 1px solid var(--rule); border-radius: 4px; margin: 1.3rem 0;
+  background: #fff; overflow: hidden; }
+.try > .hd { background: #21252b; color: #e8e6e0; padding: 0.55rem 1rem;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.8rem;
+  letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; }
+.try > .hd::before { content: "\25B6  "; color: #7fc7a3; }
+.try > .bd { padding: 0.9rem 1.1rem; }
+.try .prereq { font-size: 0.82rem; color: var(--ink-soft); margin: 0 0 0.8rem;
+  font-family: ui-sans-serif, system-ui, sans-serif; }
+.try .prereq b { color: var(--accent); }
+
+.try h3.lab { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.72rem;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent);
+  margin: 1.1rem 0 0.4rem; }
+.try h3.lab:first-of-type { margin-top: 0.2rem; }
+
+pre.sql { background: #21252b; color: #e6e6e6; padding: 0.9rem 1rem; border-radius: 4px;
+  overflow-x: auto; font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 0.8rem; line-height: 1.5; margin: 0.3rem 0; }
+pre.sql .k  { color: #c678dd; }   /* keyword */
+pre.sql .c  { color: #7f848e; }  /* comment */
+pre.sql .s  { color: #98c379; }   /* string  */
+pre.sql .fn { color: #61afef; }   /* function/clause emphasis */
+
+.try .expect, .try .interpret { font-size: 0.95rem; }
+.try .scope { margin-top: 1rem; font-size: 0.85rem; color: var(--ink-soft);
+  border-top: 1px dashed var(--rule); padding-top: 0.7rem; }
+.try .scope b { color: var(--ink); }
+.try table.exp { border-collapse: collapse; width: 100%; font-size: 0.88rem; margin: 0.4rem 0; }
+.try table.exp td { border: 1px solid var(--rule); padding: 0.45rem 0.6rem; vertical-align: top; }
+.try table.exp td:first-child { width: 8.5rem; font-weight: 600;
+  font-family: ui-sans-serif, system-ui, sans-serif; }
+
+/* --- Figures --------------------------------------------------------------- */
+.fig { margin: 0.9rem 0 1.2rem; text-align: center; }
+.fig img { max-width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 6px; }
+.fig figcaption { font-size: 0.82rem; color: var(--ink-soft); margin-top: 0.5rem;
+  font-family: ui-sans-serif, system-ui, sans-serif; }
+
+/* --- Print --------------------------------------------------------------- */
+@media print {
+  body { background: #fff; max-width: none; padding: 0; font-size: 11pt; }
+  .recall { break-inside: avoid; }
+  .recall[open] summary::before, .recall summary::before { content: ""; }
+  a { color: var(--ink); text-decoration: none; }
+  .slide, .level, .gap, .note, .try { break-inside: avoid; }
+  .copy-btn { display: none; }
+}

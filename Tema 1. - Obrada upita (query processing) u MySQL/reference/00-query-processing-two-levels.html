@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referenca — Obrada upita: jaz i dva nivoa</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica</p>
+<h1>Obrada upita — jaz i dva nivoa</h1>
+<p class="subtitle">Sažeta suština za pisanje Uvoda. Svaka tvrdnja je citabilna iz slajdova.</p>
+
+<div class="gap">
+  <span class="decl">deklarativni SQL (šta)</span>
+  <span class="arrow">↓ obrada upita ↓</span>
+  <span class="phys">fizičke operacije · disk · indeks · torke (kako)</span>
+</div>
+
+<h2>Dva nivoa (03_Optimizacija str. 2)</h2>
+<div class="levels">
+  <div class="level logical">
+    <h4>Logički (viši)</h4>
+    <ul>
+      <li>Preformuliše izraz RA → ekvivalentan, brži.</li>
+      <li>Menja oblik, čuva rezultat.</li>
+      <li>Citat: 03 str. 2.</li>
+    </ul>
+  </div>
+  <div class="level physical">
+    <h4>Fizički (niži)</h4>
+    <ul>
+      <li>Bira algoritam + pristupni put po operatoru.</li>
+      <li>Sken vs. indeks; spoj ugnježdenim petljama / sort-merge / heš.</li>
+      <li>„Nema univerzalno superiorne tehnike“ — 02 str. 4.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Recept (03_Optimizacija str. 3)</h2>
+<ol>
+  <li>Napiši prošireni upit relacione algebre &nbsp;→&nbsp; <b>logički</b></li>
+  <li>Izaberi algoritme najmanje <b>cene</b> za međurezultate &nbsp;→&nbsp; <b>fizički</b></li>
+  <li>Izvrši ih, proizvedi rezultat &nbsp;→&nbsp; <b>izvršavanje</b></li>
+</ol>
+
+<h2>Rečenica koja opravdava ceo rad</h2>
+<div class="note">
+  <span class="lbl">03_Optimizacija str. 2</span>
+  Jedan SQL upit → <strong>više ekvivalentnih planova veoma različite cene</strong>; DBMS mora da
+  <strong>pretražuje i bira</strong> najefikasniji. Sve posle Poglavlja&nbsp;1 pokazuje kako MySQL taj
+  izbor donosi i izvršava.
+</div>
+
+<h2>Citabilna sidra na slajdovima</h2>
+<table>
+  <tr><td>Obrada upita je teret DBMSa (deklarativno → efikasno)</td><td><code>03 str. 2</code></td></tr>
+  <tr><td>Optimizacija na dva nivoa: logički i fizički</td><td><code>03 str. 2</code></td></tr>
+  <tr><td>Arhitektura DBMSa (Parser, Optimizator, Evaluator plana, Katalog) + trostepeni recept</td><td><code>03 str. 3</code></td></tr>
+  <tr><td>Fizička podloga: stranice 4–8 KB, I/O, heap/sortirani/heš fajlovi, B+ stabla</td><td><code>02 str. 2</code></td></tr>
+  <tr><td>Optimizator koristi statistiku sistemskog kataloga za efikasan plan</td><td><code>02 str. 3</code></td></tr>
+  <tr><td>Više algoritama po operatoru; izbor zavisi od podataka; nema univerzalno najboljeg</td><td><code>02 str. 4</code></td></tr>
+</table>
+
+<p class="meta">
+  Termini su zaključani u <a href="../GLOSSARY.md">GLOSSARY.md</a> (plan izvršenja, optimizator upita,
+  cena, selektivnost, pristupni put …). Spoljni izvor (na engleskom, dozvoljeno):
+  <a href="https://pages.cs.wisc.edu/~dbbook/openAccess/thirdEdition/slides/slides3ed-english/Ch12_Overview_Query_Evaluation.pdf">R&amp;G Poglavlje 12</a>.
+  Napravljeno lekcijom <a href="../lessons/0001-uvod-the-gap-and-two-levels.html">0001</a>.
+</p>
+
+<style>
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; margin: 0.8rem 0; }
+  td { border-bottom: 1px solid var(--rule); padding: 0.45rem 0.6rem; vertical-align: top; }
+  td:last-child { text-align: right; white-space: nowrap; color: var(--ink-soft); }
+</style>
+
+<script src="../assets/copy.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Credentials - never commit
+mysql-credentials.cnf
+
+# Generated data (ticket 01 / examples/README.md) - only the SQL scripts are committed
+*.sql.gz
+*.dump
+*.csv
+
+# Intermediate EXPLAIN ANALYZE JSON captured for the myflames figure pipeline (ticket 09) -
+# regenerate from examples/*.sql rather than committing the raw plan
+figures/raw/*.json
+
+# myflames auto-generated algorithm-lesson bundle (not paper content)
+figures/teach/
