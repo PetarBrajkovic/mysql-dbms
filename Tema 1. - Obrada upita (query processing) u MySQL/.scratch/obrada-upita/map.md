@@ -100,6 +100,17 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   truth rule are unchanged; see ticket 09's "Reopened" section and `figures/README.md` for the
   mechanics.
 
+- [Chapter 1. Uvod](issues/10-uvod.md): first chapter written and closed. ~1.5 pages of `rad.md`
+  frame query processing as *crossing a gap* (declarative SQL → physical procedures), optimized on
+  *two levels of one problem* (logical shape-rewrite; physical algorithm + access path) unified by
+  **cena**, motivating the paper via "one query → many plans of very different cost." Grounded in the
+  two Stoimenov decks + R&G 3ed + MySQL 8.4 manual (now the first four entries in `references.bib`,
+  rendering as IEEE [1]–[4]); illustrated by the reused lesson-01 side-by-side figure
+  (`figures/01-uvod-01-jedan-upit-dva-plana.png`); ends with the ch. 2–9 roadmap. First proof that
+  the per-chapter loop (teach → run → write with `academic-research-writer` + `serbian-grammar` →
+  cite → verify with pandoc) works end to end. Flagged for the revisit-after-conclusion pass the
+  ticket called for.
+
 ## Not yet specified
 
 - **Lesson-to-chapter cadence.** One teach lesson per chapter is the assumption, but the thin
