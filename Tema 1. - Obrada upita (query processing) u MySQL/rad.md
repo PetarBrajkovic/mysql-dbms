@@ -9,7 +9,7 @@ csl: ieee.csl
 
 Relacione baze podataka nude korisniku deklarativan jezik: SQL upitom opisuje se *šta* se traži
 kao rezultat, ali ne i *kako* se do tog rezultata dolazi. Sistem za upravljanje bazom podataka
-(SUBP), s druge strane, ume da izvrši isključivo konkretne fizičke procedure — čitanje i upisivanje
+(SUBP), s druge strane, ume da izvrši isključivo konkretne fizičke procedure: čitanje i upisivanje
 stranica na disku, prolazak kroz B+ stablo, sken tabele nad neuređenim fajlom. Obrada upita (query
 processing) obuhvata sve što SUBP radi da bi premostio taj jaz između deklarativnog opisa i fizičkog
 izvršenja; upravo je teret efikasnog odgovaranja na upite time prebačen sa korisnika na sistem
@@ -19,10 +19,10 @@ Jaz se premošćuje optimizacijom na dva nivoa jednog istog problema. Na
 višem, logičkom nivou, polazni izraz relacione algebre preformuliše se u ekvivalentan izraz koji se
 brže izvršava: spuštanjem selekcija naniže, izmenom redosleda spoja ili sažimanjem operacija menja se
 *oblik* izračunavanja, ali nikada sam rezultat. Na nižem, fizičkom nivou, za svaki operator bira se
-konkretan algoritam i pristupni put — sken tabele naspram skena preko indeksa, odnosno spoj sa
+konkretan algoritam i pristupni put: sken tabele naspram skena preko indeksa, odnosno spoj sa
 ugnježdenom petljom, Sort-Merge spoj ili Hash spoj. Pošto ne postoji univerzalno superiorna tehnika,
 najpovoljniji izbor zavisi od svojstava samih podataka. Oba nivoa vođena su
-istim merilom — cenom, procenom količine posla, pre svega ulazno-izlaznih operacija — i taj
+istim merilom, cenom (procenom količine posla, pre svega ulazno-izlaznih operacija), i taj
 zajednički cilj čini ih dvama nivoima jednog problema, a ne dvama odvojenim problemima
 [@ramakrishnan2003].
 
@@ -41,16 +41,16 @@ od približno 3,5 miliona torki.](figures/01-uvod-01-jedan-upit-dva-plana.png)
 
 Slika 1.1 prikazuje ovu pojavu na konkretnom upitu nad sintetičkom tabelom `wide_events`. Isti upit
 `SELECT notes FROM wide_events WHERE country_code = 'US'` MySQL izvršava skenom preko indeksa
-`idx_country_code`, dok se zabranjivanjem tog indeksa dobija sken cele tabele — skuplji plan koji
+`idx_country_code`, dok se zabranjivanjem tog indeksa dobija sken cele tabele, skuplji plan koji
 vraća isti skup od približno 3,5 miliona torki. Iako oba plana daju istovetan rezultat, optimizator
 zadržava jeftiniju varijantu; upravo je ta logika izbora predmet poglavlja koja slede.
 
-Ostatak rada prati istu nit — put od deklarativnog SQL upita do njegovog fizičkog izvršenja u
+Ostatak rada prati istu nit, put od deklarativnog SQL upita do njegovog fizičkog izvršenja u
 MySQL-u:
 
 - U poglavlju 2 opisuje se **arhitektura obrade upita u MySQL-u**: komponente koje premošćuju jaz
   (parser, optimizator, izvršni mehanizam i katalog) i način na koji ih MySQL povezuje.
-- U poglavlju 3 dva nivoa optimizacije prikazuju se opipljivo — kao **put od SQL-a do plana
+- U poglavlju 3 dva nivoa optimizacije prikazuju se opipljivo, kao **put od SQL-a do plana
   izvršavanja**, od upita, preko preformulacije relacione algebre, do fizičkog plana nad stvarnim
   primerom.
 - Poglavlje 4 uvodi **EXPLAIN i EXPLAIN ANALYZE**, alate kojima se izabrani plan čini vidljivim i
@@ -61,7 +61,7 @@ MySQL-u:
   izvršavanju torku po torku, kao i položaj MySQL-a u odnosu na nju.
 - Poglavlje 7 ispituje **paralelno izvršavanje upita**, korišćenje više procesorskih jezgara za
   jedan upit i stvarne granice paralelnosti u MySQL-u.
-- Poglavlje 8 obrađuje **keširanje i ponovnu upotrebu planova** — pitanje može li se izabrani plan
+- Poglavlje 8 obrađuje **keširanje i ponovnu upotrebu planova**: pitanje može li se izabrani plan
   ponovo iskoristiti umesto da se računa iznova i šta MySQL zapravo kešira (keš plana, plan cache).
 - Poglavlje 9 donosi **zaključak**, provlačeći nit do kraja, od deklarativnog SQL-a nazad do
   fizičkog izvršenja.

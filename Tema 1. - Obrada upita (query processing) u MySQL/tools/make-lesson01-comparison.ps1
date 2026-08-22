@@ -111,7 +111,7 @@ $html = @"
 
 <div class="panels">
   <div class="panel a">
-    <div class="hd">(A) Slobodan izbor optimizatora<span class="sub">EXPLAIN ANALYZE &mdash; bez ograni&#269;enja</span></div>
+    <div class="hd">(A) Slobodan izbor optimizatora<span class="sub">EXPLAIN ANALYZE: bez ograni&#269;enja</span></div>
     <div class="sql"><span class="k">SELECT</span> notes <span class="k">FROM</span> wide_events
 <span class="k">WHERE</span>  country_code = <span class="s">'US'</span>;</div>
     <div class="plan">Index lookup &middot; idx_country_code</div>
@@ -123,7 +123,7 @@ $html = @"
     </div>
   </div>
   <div class="panel b">
-    <div class="hd">(B) Zabranjen indeks<span class="sub">EXPLAIN ANALYZE &mdash; IGNORE INDEX (idx_country_code)</span></div>
+    <div class="hd">(B) Zabranjen indeks<span class="sub">EXPLAIN ANALYZE: IGNORE INDEX (idx_country_code)</span></div>
     <div class="sql"><span class="k">SELECT</span> notes <span class="k">FROM</span> wide_events <span class="fn">IGNORE INDEX</span> (idx_country_code)
 <span class="k">WHERE</span>  country_code = <span class="s">'US'</span>;</div>
     <div class="plan">Table scan &middot; cela tabela</div>
@@ -137,7 +137,7 @@ $html = @"
 </div>
 
 <div class="verdict">
-  Isti upit, isti rezultat (~3,5M torki) &mdash; <b>dva razli&#269;ita plana</b>, i <b>cena im se razlikuje</b>:
+  Isti upit i isti rezultat (~3,5M torki), ali <b>dva razli&#269;ita plana</b> i <b>cena im se razlikuje</b>:
   MySQL slobodno bira jeftiniji plan <b>(A)</b>, indeks (&asymp;$costA) naspram skena cele tabele (&asymp;$costB).
 </div>
 

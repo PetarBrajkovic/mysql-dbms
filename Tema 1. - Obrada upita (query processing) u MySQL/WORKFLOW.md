@@ -114,6 +114,9 @@ Roughly 7-9 lessons total.
    SUBP slides). They are for *learning* only. When a claim comes from a deck, cite its published
    origin instead - Ramakrishnan & Gehrke for the theory, the MySQL manual for anything
    MySQL-specific (policy set 2026-08-22, applies to every chapter).
+8. **Never use the em dash (—)** anywhere in the paper or its figures. Use a comma, colon, or
+   parentheses, or restructure the sentence (policy set 2026-08-22; also baked into the
+   `academic-research-writer` skill). Applies to `rad.md` and to figure text.
 
 ---
 
