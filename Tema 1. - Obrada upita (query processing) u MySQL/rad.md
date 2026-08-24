@@ -34,10 +34,8 @@ SUBP-a jeste da među tim ekvivalentnim planovima pronađe i izabere najefikasni
 (cost-based optimizer), koji procenjuje cenu razmatranih planova i zadržava najjeftiniji
 [@mysql84refman].
 
-![Slika 1.1: Jedan SQL upit, dva ekvivalentna plana izvršenja različite cene. Slobodan izbor
-optimizatora (A) koristi indeks `idx_country_code` (procenjena cena ≈ 499373), dok zabranjivanje tog
-indeksa (B) daje skuplji sken cele tabele (procenjena cena ≈ 575645); oba plana vraćaju isti rezultat
-od približno 3,5 miliona torki.](figures/01-uvod-01-jedan-upit-dva-plana.png)
+![Slika 1.1: Dva ekvivalentna plana izvršenja istog SQL upita, različite cene: sken preko indeksa (A)
+naspram skena cele tabele (B).](figures/01-uvod-01-jedan-upit-dva-plana.png)
 
 Slika 1.1 prikazuje ovu pojavu na konkretnom upitu nad sintetičkom tabelom `wide_events`. Isti upit
 `SELECT notes FROM wide_events WHERE country_code = 'US'` MySQL izvršava skenom preko indeksa
@@ -90,10 +88,8 @@ transakcija, MVCC-a *(viševerzijska kontrola konkurentnosti)*, granularnosti za
 klasterovanog indeksa, varira od motora do motora i stoga ne može pripadati zajedničkom sloju
 [@mysql84refman].
 
-![Slika 2.1: Arhitektura MySQL-a sa modularnim mehanizmima skladištenja. Serverski sloj obuhvaćen je
-jedinstvenim procesom (SQL interfejs, parser, optimizator, kešovi i baferi), dok su motori (InnoDB,
-MyISAM, NDB Cluster, Memory) zasebni moduli ispod njega, povezani sa sistemom datoteka. Preuzeto iz
-priručnika [@mysql84refman], Figure 18.3.](figures/02-arhitektura-00-mysql-architecture-official.png)
+![Slika 2.1: Arhitektura MySQL-a: serverski sloj i mehanizmi skladištenja. Preuzeto iz priručnika
+[@mysql84refman], Figure 18.3.](figures/02-arhitektura-00-mysql-architecture-official.png)
 
 Slika 2.1 prikazuje tu podelu onako kako je crta sam priručnik. Sve što serverski sloj radi smešteno
 je u jedinstven proces, dok su motori zasebni i zamenljivi moduli ispod njega, povezani sa sistemom
@@ -130,14 +126,12 @@ motoru, metodom `idx_cond_push`, kroz koju prolazi `Item*`, čvor izraza iz serv
 taj uslov proverava nad torkom indeksa i tek ako je zadovoljen dohvata punu torku iz tabele
 [@mysql84refman; @mysqlsource84].
 
-![Slika 2.2: Plan upita sa uključenim spuštanjem uslova u indeks (ICP): jedan čvor, sken opsega preko
-indeksa `idx_customer_created`, sa uslovom označenim kao `with index condition` unutar samog skena.
-Plameni grafikon dobijen iz `EXPLAIN ANALYZE FORMAT=JSON`, izmereno na živom serveru (MySQL
+![Slika 2.2: Plan upita sa uključenim spuštanjem uslova u indeks (ICP). Plameni grafikon iz `EXPLAIN
+ANALYZE FORMAT=JSON`, izmereno na živom serveru (MySQL
 8.4.11).](figures/02-arhitektura-01-icp-ukljucen.png)
 
-![Slika 2.3: Isti upit sa isključenim spuštanjem uslova: iznad skena se pojavljuje zaseban čvor
-`Filter`, koji obavlja serverski sloj. Sken propušta 499.297 torki, a filter zadržava 165.707;
-razlika od 333.590 torki prelazi granicu samo da bi bila odbačena.](figures/02-arhitektura-02-icp-iskljucen.png)
+![Slika 2.3: Isti upit sa isključenim spuštanjem uslova, sa zasebnim čvorom `Filter` u
+planu.](figures/02-arhitektura-02-icp-iskljucen.png)
 
 Slike 2.2 i 2.3 prikazuju isti upit nad tabelom `wide_events`, sa uključenim i sa isključenim
 spuštanjem uslova. Pristupni put je u oba slučaja isti sken opsega preko istog indeksa, pa se menja
