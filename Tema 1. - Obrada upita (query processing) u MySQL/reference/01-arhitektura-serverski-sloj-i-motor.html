@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referenca — Arhitektura: serverski sloj i skladišni motor</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica</p>
+<h1>Serverski sloj i skladišni motor</h1>
+<p class="subtitle">Sažeta suština za pisanje i odbranu Poglavlja 2. Svaka tvrdnja je citabilna iz priručnika ili izvornog koda.</p>
+
+<div class="arch">
+  <div class="edge">klijent</div>
+  <div class="down">jedna nit po konekciji</div>
+  <div class="tier server">
+    <h5>Serverski sloj — razume SQL</h5>
+    <ul>
+      <li>Konekcija, autentikacija, sesija (<code>THD</code>)</li>
+      <li>Parser → resolver → optimizator → planer → izvršilac</li>
+      <li>Rečnik podataka, histogrami, replikacija, backup</li>
+    </ul>
+  </div>
+  <div class="seam">šav: <code>handler</code> API</div>
+  <div class="tier engine">
+    <h5>Skladišni motor (InnoDB) — razume torke</h5>
+    <ul>
+      <li>Bafer pul, stranice 16 KB, tabelarni prostor</li>
+      <li>Klasterovani indeks, B+ stabla</li>
+      <li>Transakcije, MVCC, zaključavanje na nivou torke</li>
+      <li>Kardinalnost indeksa (procena iz uzorka)</li>
+    </ul>
+  </div>
+  <div class="edge">disk</div>
+</div>
+
+<h2>Test pripadnosti</h2>
+<div class="note">
+  <span class="lbl">Jedno pitanje razrešava svaki spor</span>
+  <strong>Da li se menja kad zameniš motor?</strong> Ako da, motorova je. Priručnik (Table 18.1,
+  fusnota 1) izričito označava kao serversko samo dvoje: <strong>replikaciju</strong> i
+  <strong>backup</strong>. Sve ostalo u toj tabeli varira po motoru.
+</div>
+
+<h2>Put naredbe (imena iz koda 8.4.6)</h2>
+<ol class="stages">
+  <li><b><code>do_command()</code> → <code>dispatch_command()</code></b><span>protokol, još ne SQL</span></li>
+  <li><b><code>dispatch_sql_command()</code></b><span>ulaz u obradu SQL-a</span></li>
+  <li><b>Parser</b><span>tekst → AST, samo sintaksa</span></li>
+  <li><b>Resolver</b><span>imena + trajne transformacije (semi-spoj, izvedene tabele)</span></li>
+  <li><b>Optimizator / planer</b><span>redosled spoja, pristupni put, po ceni</span></li>
+  <li><b>Izvršilac</b><span>stablo iteratora, torka po torku</span></li>
+  <li class="crosses"><b><code>handler</code> → InnoDB</b><span>prelaz preko šava</span></li>
+</ol>
+
+<div class="note">
+  <span class="lbl">Ne citiraj pogrešno</span>
+  <code>mysql_parse()</code> <strong>ne postoji</strong> u 8.4 — preimenovana je u
+  <code>dispatch_sql_command()</code>. Priručnik nigde ne pominje <code>handler</code> ni
+  <code>handlerton</code>: za sve tvrdnje o šavu citira se <strong>izvorni kod</strong>
+  (<code>sql/handler.h</code>, oznaka <code>mysql-8.4.6</code>), ne priručnik.
+</div>
+
+<h2>Šav u jednoj rečenici</h2>
+<div class="note">
+  <span class="lbl">Rečenica koju treba umeti napamet</span>
+  Iteratori izvršioca <strong>ne čitaju stranice</strong> — oni zovu metode klase
+  <code>handler</code> (<code>ha_rnd_next()</code>, <code>ha_index_next()</code>) i čekaju torku.
+  Kako je motor našao tu torku, serverski sloj ne zna i ne treba da zna.
+</div>
+
+<h2>Dva mesta gde šav propušta</h2>
+<div class="levels">
+  <div class="level physical">
+    <h4>ICP — uslov ide naniže</h4>
+    <ul>
+      <li>Server spušta deo <code>WHERE</code> u motor; motor filtrira nad torkom indeksa
+        pre nego što dohvati celu torku.</li>
+      <li>U kodu: <code>idx_cond_push(uint, Item *)</code> — kroz šav prolazi izraz servera.</li>
+      <li>U planu: <code>with index condition</code> unutar skena, umesto zasebnog
+        <code>Filter</code> čvora iznad njega.</li>
+    </ul>
+  </div>
+  <div class="level logical">
+    <h4>Statistika — brojevi idu naviše</h4>
+    <ul>
+      <li><strong>Kardinalnost = motor</strong>, <code>mysql.innodb_index_stats</code>,
+        procenjena „random dives“ uzorkovanjem.</li>
+      <li><strong>Histogram = server</strong>, rečnik podataka,
+        <code>information_schema.COLUMN_STATISTICS</code>.</li>
+      <li>Nose se naviše metodama <code>info()</code> i <code>records_in_range()</code>.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Izmereno uživo (2026-08-24, MySQL 8.4.11, <code>wide_events</code>)</h2>
+<table>
+  <tr><td>ICP uključen: jedan čvor, motor filtrira</td><td><code>rows=165707</code></td></tr>
+  <tr><td>ICP isključen: sken vraća, pa <code>Filter</code> odbacuje</td><td><code>499297 → 165707</code></td></tr>
+  <tr><td>Kardinalnost <code>idx_country_code</code> (motor)</td><td><code>14</code></td></tr>
+  <tr><td>Uzorak na kom je ta procena nastala</td><td><code>16 / 5082 str.</code></td></tr>
+  <tr><td>Histogram na istoj koloni (server)</td><td><code>15 kantica</code></td></tr>
+  <tr><td>Učestalost <code>'US'</code> po histogramu</td><td><code>≈ 0,70</code></td></tr>
+  <tr><td>Procena za <code>'US'</code> sa histogramom i bez njega</td><td><code>2.45e+6, isto</code></td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Zamka</span>
+  Histogram <strong>ne popravlja</strong> procenu kad indeks postoji: „The optimizer prefers range
+  optimizer row estimates to those obtained from histogram statistics.“ Histogrami postoje pre svega
+  za kolone koje <strong>nisu</strong> indeksirane.
+</div>
+
+<p class="meta">
+  Termini su zaključani u <a href="../GLOSSARY.md">GLOSSARY.md</a> §2a (skladišni motor, serverski
+  sloj, šav, bafer pul, spuštanje uslova u indeks …). Izvori:
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/pluggable-storage-overview.html">Pluggable Storage Engine Architecture</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/storage-engines.html">Alternative Storage Engines</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/index-condition-pushdown-optimization.html">ICP</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/optimizer-statistics.html">Optimizer Statistics</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/innodb-persistent-stats.html">InnoDB Persistent Stats</a>;
+  kod: <code>sql/handler.h</code>, <code>sql/iterators/basic_row_iterators.cc</code>,
+  <code>sql/sql_parse.cc</code> (oznaka <code>mysql-8.4.6</code>).
+  Napravljeno lekcijom <a href="../lessons/0002-arhitektura-serverski-sloj-i-motor.html">0002</a>.
+</p>
+
+<style>
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; margin: 0.8rem 0; }
+  td { border-bottom: 1px solid var(--rule); padding: 0.45rem 0.6rem; vertical-align: top; }
+  td:last-child { text-align: right; white-space: nowrap; color: var(--ink-soft); }
+</style>
+
+<script src="../assets/copy.js"></script>
+</body>
+</html>

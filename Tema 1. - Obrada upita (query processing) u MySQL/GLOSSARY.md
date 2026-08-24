@@ -74,6 +74,42 @@ Note: *vectorized execution* and *parallel query execution* need no English glos
 already the exact chapter titles in `rad.md` (chapters 6 and 7) — introducing English there would be
 redundant, not clarifying.
 
+### 2a. Architecture terms (locked 2026-08-24, chapter 2)
+
+Added while teaching chapter 2 (lesson `0002`). Same pattern as §2: Serbian term, English original in
+parentheses on first use only. The decks describe a generic DBMS architecture (Parser, Optimizator,
+Evaluator plana, Katalog — 03_Optimizacija p. 3) but have **no** vocabulary for MySQL's
+server/engine split, so these are new coinage.
+
+| Concept | Serbian term (first use) | After first use |
+|---|---|---|
+| Storage engine | skladišni motor *(storage engine)* | skladišni motor (or just motor) |
+| Server layer | serverski sloj | serverski sloj |
+| Storage engine layer | sloj skladišnog motora | sloj motora |
+| Pluggable storage engine architecture | modularna arhitektura skladišnih motora *(pluggable storage engine architecture)* | modularna arhitektura skladišnih motora |
+| Handler API | `handler` API | `handler` API |
+| Connection | konekcija | konekcija |
+| Session | sesija | sesija |
+| Thread | nit | nit |
+| Thread-per-connection | jedna nit po konekciji | jedna nit po konekciji |
+| Buffer pool | bafer pul *(buffer pool)* | bafer pul |
+| Tablespace | tabelarni prostor *(tablespace)* | tabelarni prostor |
+| Data dictionary | rečnik podataka *(data dictionary)* | rečnik podataka |
+| Index Condition Pushdown | spuštanje uslova u indeks *(index condition pushdown, ICP)* | spuštanje uslova u indeks (ICP) |
+| Histogram | histogram | histogram |
+| Row-level locking | zaključavanje na nivou torke | zaključavanje na nivou torke |
+| MVCC | MVCC *(viševerzijska kontrola konkurentnosti)* | MVCC |
+
+Two deliberate non-choices, recorded so they are not "fixed" later:
+
+- **"pluggable" is not translated adjectivally.** `priključiv` / `priključni` is not well attested in
+  standard Serbian for this sense, so the concept is carried by the noun phrase *modularna
+  arhitektura skladišnih motora* plus one explanatory clause on first use ("motor se priključuje i
+  menja, a serverski sloj ostaje isti"). Do not swap in `priključivi motori` later.
+- **`handler` stays in code font, untranslated.** It is a C++ class name (`sql/handler.h`), not a
+  concept word — translating it would break the link to the source the chapter cites. Same rule as
+  SQL keywords under the lesson-language preference in `NOTES.md`.
+
 ## 3. Hard constraint — plan cache vs. parse-tree cache (chapter 8)
 
 Research ticket 06 confirms, does not contradict, the assumption in ticket 17: MySQL has **no shared

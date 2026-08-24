@@ -98,6 +98,73 @@ a:hover { background: #f3e9e0; }
   display: block; margin: 0.5rem 0; }
 .gap small { color: var(--ink-soft); display:block; margin-top:0.3rem; }
 
+/* --- Layered architecture diagram (.arch) --------------------------------
+   A vertical stack of tiers with a highlighted seam between two of them.
+   Built for chapter 2 (server layer / handler API / storage engine), but the
+   markup is generic, so any "these layers sit on top of each other, and THIS
+   line between them is the interesting one" picture can reuse it.
+
+   <div class="arch">
+     <div class="edge">klijent</div>
+     <div class="down">protokol</div>
+     <div class="tier server"><h5>Serverski sloj</h5><ul><li>…</li></ul></div>
+     <div class="seam">handler API</div>
+     <div class="tier engine"><h5>InnoDB</h5><ul><li>…</li></ul></div>
+     <div class="down">…</div>
+     <div class="edge">disk</div>
+   </div>
+   -------------------------------------------------------------------------- */
+.arch { font-family: ui-sans-serif, system-ui, sans-serif; margin: 1.4rem 0;
+  background: #fff; border: 1px solid var(--rule); border-radius: 4px;
+  padding: 1rem 1rem 1.1rem; }
+.arch .edge { text-align: center; font-size: 0.82rem; font-weight: 700;
+  color: var(--ink-soft); letter-spacing: 0.04em; }
+.arch .down { text-align: center; color: var(--accent); font-size: 0.74rem;
+  letter-spacing: 0.06em; margin: 0.3rem 0; }
+.arch .down::before { content: "\2193"; display: block; font-size: 1.05rem;
+  line-height: 1.1; font-weight: 700; }
+.arch .tier { border: 1px solid var(--rule); border-radius: 4px; padding: 0.7rem 0.9rem;
+  margin: 0.35rem 0; }
+.arch .tier h5 { margin: 0 0 0.35rem; font-size: 0.86rem; letter-spacing: 0.03em; }
+.arch .tier ul { margin: 0; padding-left: 1.05rem; font-size: 0.85rem;
+  color: var(--ink-soft); }
+.arch .tier li { margin: 0.18rem 0; }
+.arch .tier.server { border-top: 4px solid var(--logical); background: #f7fafb; }
+.arch .tier.server h5 { color: var(--logical); }
+.arch .tier.engine { border-top: 4px solid var(--physical); background: #fdf8f7; }
+.arch .tier.engine h5 { color: var(--physical); }
+/* The seam is the point of the whole diagram, so it is the loudest element. */
+.arch .seam { text-align: center; font-size: 0.78rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: #fff;
+  background: var(--accent); border-radius: 3px; padding: 0.35rem 0.6rem;
+  margin: 0.45rem 0; }
+.arch .seam small { display: block; font-weight: 400; text-transform: none;
+  letter-spacing: 0; font-size: 0.76rem; opacity: 0.88; margin-top: 0.1rem; }
+
+/* --- Stage pipeline (.stages) --------------------------------------------
+   The ordered stages a statement passes through. Numbered, vertical, each with
+   a one-line "what comes out of it". Chapter 3 revisits the same five stages,
+   so this is shared rather than inlined.
+
+   <ol class="stages">
+     <li><b>Parser</b><span>parse tree</span></li>
+   </ol>
+   -------------------------------------------------------------------------- */
+ol.stages { counter-reset: st; list-style: none; padding-left: 0; margin: 1.2rem 0; }
+ol.stages li { counter-increment: st; position: relative; padding: 0.45rem 0 0.45rem 2.5rem;
+  border-left: 2px solid var(--rule); margin-left: 0.85rem; }
+ol.stages li:last-child { border-left-color: transparent; }
+ol.stages li::before { content: counter(st); position: absolute; left: -0.85rem; top: 0.4rem;
+  width: 1.7rem; height: 1.7rem; border-radius: 50%; background: var(--slide-bg);
+  border: 1px solid var(--rule); text-align: center; line-height: 1.65rem;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 700;
+  font-size: 0.78rem; color: var(--accent); }
+ol.stages li b { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.92rem; }
+ol.stages li span { display: block; font-size: 0.87rem; color: var(--ink-soft); }
+/* Marks the stage that crosses into the engine, tying this list to .arch's seam. */
+ol.stages li.crosses::before { background: var(--accent); color: #fff;
+  border-color: var(--accent); }
+
 /* --- Callouts ------------------------------------------------------------ */
 .note { background: #fff; border: 1px solid var(--rule); border-left: 4px solid var(--accent);
   padding: 0.8rem 1.1rem; margin: 1.2rem 0; border-radius: 2px; font-size: 0.95rem; }
@@ -190,6 +257,16 @@ pre.sql .c  { color: #7f848e; }  /* comment */
 pre.sql .s  { color: #98c379; }   /* string  */
 pre.sql .fn { color: #61afef; }   /* function/clause emphasis */
 
+/* Server output (EXPLAIN trees, result grids) as opposed to input SQL: light,
+   so a lesson can show "what you typed" and "what came back" without the two
+   looking like the same thing. Chapters 4 and 5 lean on this heavily. */
+pre.out { background: var(--code-bg); color: #2f2a22; border: 1px solid var(--rule);
+  padding: 0.75rem 0.9rem; border-radius: 4px; overflow-x: auto;
+  font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 0.74rem; line-height: 1.55; margin: 0.3rem 0; }
+pre.out .em { color: var(--accent); font-weight: 700; }
+pre.out .dim { color: #8a8578; }
+
 .try .expect, .try .interpret { font-size: 0.95rem; }
 .try .scope { margin-top: 1rem; font-size: 0.85rem; color: var(--ink-soft);
   border-top: 1px dashed var(--rule); padding-top: 0.7rem; }
@@ -211,7 +288,11 @@ pre.sql .fn { color: #61afef; }   /* function/clause emphasis */
   .recall { break-inside: avoid; }
   .recall[open] summary::before, .recall summary::before { content: ""; }
   a { color: var(--ink); text-decoration: none; }
-  .slide, .level, .gap, .note, .try, .quiz { break-inside: avoid; }
+  .slide, .level, .gap, .note, .try, .quiz, .arch { break-inside: avoid; }
+  ol.stages li { break-inside: avoid; }
+  /* The seam's white-on-red does not survive a mono printer; invert it. */
+  .arch .seam { background: none; color: var(--accent);
+    border: 1px solid var(--accent); }
   .quiz .q { break-inside: avoid; }
   .quiz input[type="radio"] { display: none; }
   .quiz .why { display: block !important; }

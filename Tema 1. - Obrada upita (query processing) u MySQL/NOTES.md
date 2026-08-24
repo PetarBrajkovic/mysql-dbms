@@ -91,6 +91,21 @@ graded - `MISSION.md` and `RESOURCES.md` are the documents that matter for plann
   documented in that file's header comment) — so new lessons should link and reuse it rather than
   build another one. Lesson `0001-uvod-*.html` still uses the old open-recall pattern and has not
   been retrofitted; ask the user before touching a chapter already marked done.
+- **Chapter 4, second correction (2026-08-24, live run during lesson 0002):** adding a histogram on
+  `country_code` does **NOT** improve the estimate. Built one
+  (`ANALYZE TABLE wide_events UPDATE HISTOGRAM ON country_code WITH 16 BUCKETS`) and re-ran the
+  lesson-0001 query: `EXPLAIN FORMAT=TREE` still reports `rows=2.45e+6`, byte-identical to the
+  no-histogram run. Reason, from the manual: "The optimizer prefers range optimizer row estimates to
+  those obtained from histogram statistics"
+  (<https://dev.mysql.com/doc/refman/8.4/en/optimizer-statistics.html>) — with an index on the
+  column, the index dive outranks the histogram. **So chapter 4 must not claim, or let the reader
+  infer, that a histogram closes the 2.45M-estimate vs 3.5M-actual gap here.** If a "histograms fix
+  skew" example is wanted, it needs a **non-indexed** skewed column, which is what histograms are
+  actually for. Histogram was dropped afterwards and `COLUMN_STATISTICS` verified back to 0 rows, so
+  the server is in the state chapter 4 expects. Facts captured while there, useful for chapter 4:
+  engine cardinality 14 comes from `mysql.innodb_index_stats.n_diff_pfx01` with `sample_size = 16`
+  out of `n_leaf_pages = 5082`; the server's histogram finds **15** distinct values and puts `'US'`
+  at ≈ **0.70**.
 - **Figure pipeline reopened and automated (2026-08-22):** Workbench's Visual Explain stopped
   rendering on the user's machine, and he'd rather not hand-capture/name/file ~13 figures across
   nine sessions anyway. Ticket 09 reopened - figures are now generated end to end by the agent via

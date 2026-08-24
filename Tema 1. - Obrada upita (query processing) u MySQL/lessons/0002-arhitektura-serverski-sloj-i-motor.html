@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 02 — Arhitektura: serverski sloj i skladišni motor</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 02 · Poglavlje 2 (Arhitektura obrade upita u MySQL-u)</p>
+<h1>Šav: serverski sloj i skladišni motor</h1>
+<p class="subtitle">Jedna arhitektonska odluka objašnjava skoro sve što MySQL radi sa upitom — i, što je za rad važnije, objašnjava gde tačno prestaje da bude „obrada upita“ a počinje da bude „čitanje sa diska“.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Poglavlje&nbsp;2 je most: poglavlja&nbsp;3, 4 i 5 nemaju gde da stanu bez njega. Kad ga završiš,
+  treba da umeš da odgovoriš na tri pitanja bez podsetnika: <strong>(1)</strong> šta radi serverski
+  sloj a šta skladišni motor, <strong>(2)</strong> kojim putem naredba stiže od konekcije do InnoDB-a,
+  i <strong>(3)</strong> gde ta podela namerno propušta. Treće pitanje je ono koje profesor može da
+  postavi da vidi da li si razumeo ili si prepričao.
+</div>
+
+<h2>1 · Jedna odluka: MySQL nije jedan program</h2>
+<p>
+  U Poglavlju&nbsp;1 obrada upita je bila <strong>jaz</strong> koji DBMS premošćuje. MySQL taj jaz
+  premošćuje na način koji većina drugih sistema nema: preseca sam sebe na dva sloja i između njih
+  postavlja standardan interfejs. Iznad je <strong>serverski sloj</strong>, koji razume SQL. Ispod je
+  <strong>skladišni motor</strong> <b>(storage engine)</b>, koji razume torke i stranice, a o SQL-u
+  ne zna ništa.
+</p>
+
+<div class="slide">
+  <span class="sr">MySQL 8.4 Reference Manual · Pluggable Storage Engine Architecture</span>
+  <q>The pluggable storage engine architecture provides a standard set of management and support
+  services that are common among all underlying storage engines. The storage engines themselves are
+  the components of the database server that actually perform actions on the underlying data that is
+  maintained at the physical server level.</q>
+  <span class="gloss">Serverski sloj pruža <strong>zajedničke</strong> usluge svim motorima; motori su
+  te komponente koje <strong>stvarno diraju podatke</strong>. Podela je izričita i dokumentovana, nije
+  naša interpretacija.</span>
+</div>
+
+<p>
+  Zato se ovo zove <strong>modularna arhitektura skladišnih motora</strong>
+  <b>(pluggable storage engine architecture)</b>: motor se priključuje i menja, a serverski sloj
+  iznad njega ostaje isti. Pokreni ovo i videćeš koliko ih tvoj server nosi odjednom.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> nikakav — ovo radi na svakom MySQL serveru, bez ijedne tabele.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql"><span class="k">SHOW</span> <span class="fn">ENGINES</span>;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+    <p class="expect">Jedanaest motora, od kojih tačno jedan u koloni <code>Support</code> nosi
+      <code>DEFAULT</code>. Na tvom serveru (MySQL 8.4.11) to izgleda ovako:</p>
+<pre class="out">Engine              Support   Transactions  XA    Savepoints
+<span class="em">InnoDB              DEFAULT   YES           YES   YES</span>
+MyISAM              YES       NO            NO    NO
+MEMORY              YES       NO            NO    NO
+CSV                 YES       NO            NO    NO
+ARCHIVE             YES       NO            NO    NO
+BLACKHOLE           YES       NO            NO    NO
+<span class="dim">... i još nekoliko, uz ndbcluster/FEDERATED koji nisu ugrađeni (Support = NO)</span></pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Pogledaj kolone <code>Transactions</code>, <code>XA</code> i
+      <code>Savepoints</code>: one se razlikuju od motora do motora. To je dokaz da te osobine
+      <span class="hi">ne pripadaju serverskom sloju</span> — da pripadaju, sve bi imale isto. Isti
+      parser, isti optimizator i isti izvršilac stoje iznad svih ovih redova; transakcije,
+      zaključavanje i klasterovani indeks stižu odozdo, iz motora. MySQL 8.4 podrazumevano pravi
+      <code>InnoDB</code> tabele, pa je za ceo ovaj rad „motor“ praktično sinonim za InnoDB.</p>
+  </div>
+</div>
+
+<h2>2 · Ko šta radi</h2>
+<p>
+  Ovo je slika koju treba da umeš da nacrtaš na tabli. Crvena traka je jedina stvar koju vredi
+  zapamtiti napamet — sve ostalo se izvodi iz nje.
+</p>
+
+<div class="arch">
+  <div class="edge">klijent (Workbench, <code>mysql</code>, aplikacija)</div>
+  <div class="down">MySQL protokol · jedna nit po konekciji</div>
+
+  <div class="tier server">
+    <h5>Serverski sloj — razume SQL</h5>
+    <ul>
+      <li>Prihvatanje konekcije, autentikacija, sesija (<code>THD</code>)</li>
+      <li>Parser, resolver, optimizator, planer</li>
+      <li>Izvršilac: stablo iteratora</li>
+      <li>Rečnik podataka, <strong>histogrami</strong></li>
+      <li>Replikacija i backup (motor ih ne radi)</li>
+    </ul>
+  </div>
+
+  <div class="seam">
+    šav: <code>handler</code> API
+    <small>jedini put naniže — poziv metode, ne čitanje stranice</small>
+  </div>
+
+  <div class="tier engine">
+    <h5>Skladišni motor (InnoDB) — razume torke i stranice</h5>
+    <ul>
+      <li>Bafer pul: keš stranica u memoriji</li>
+      <li>Klasterovani indeks, B+ stabla, stranice od 16&nbsp;KB</li>
+      <li>Transakcije, MVCC, zaključavanje na nivou torke</li>
+      <li><strong>Kardinalnost indeksa</strong> (procenjena uzorkovanjem)</li>
+    </ul>
+  </div>
+
+  <div class="down">tabelarni prostor</div>
+  <div class="edge">disk</div>
+</div>
+
+<p>
+  Test kojim se svaka sporna stavka razrešava: <strong>da li se menja ako zameniš motor?</strong> Ako
+  se menja, motorova je. Priručnik na to pitanje odgovara i izričito, jednom fusnotom uz svoju tabelu
+  osobina motora.
+</p>
+
+<div class="slide">
+  <span class="sr">MySQL 8.4 Reference Manual · Alternative Storage Engines, Table 18.1, fusnota 1</span>
+  <q>Implemented in the server, rather than in the storage engine.</q>
+  <span class="gloss">Ta fusnota stoji uz <strong>tačno dva</strong> reda te tabele: replikaciju i
+  backup. Sve ostalo u toj tabeli — transakcije, MVCC, granularnost zaključavanja, klasterovani
+  indeksi, keširanje podataka, strani ključevi — <strong>varira po motoru</strong>, pa po definiciji
+  ne može biti u serverskom sloju.</span>
+</div>
+
+<h2>3 · Put jedne naredbe</h2>
+<p>
+  Sad isti crtež, ali kao redosled. Ovo su imena koja stvarno postoje u izvornom kodu MySQL-a 8.4,
+  a ne uopšteni nazivi iz udžbenika.
+</p>
+
+<ol class="stages">
+  <li><b><code>do_command()</code> → <code>dispatch_command()</code></b>
+    <span>Nit dodeljena konekciji čita komandu sa mreže. Ovde se još ne zna da je reč o SQL-u —
+      radi se o protokolu.</span></li>
+  <li><b><code>dispatch_sql_command()</code></b>
+    <span>Ulaz u obradu SQL-a. Dokumentacija u kodu: „Parse an SQL command from a text string and
+      pass the resulting AST to the query executor.“</span></li>
+  <li><b>Parser</b>
+    <span>Tekst → stablo (AST). Sintaksa, ništa više: parser ne zna da li tabela postoji.</span></li>
+  <li><b>Resolver (priprema)</b>
+    <span>Razrešavanje imena tabela i kolona, i <strong>trajne transformacije</strong> stabla
+      (semi-spoj, izvedene tabele). Ovde, a ne u optimizatoru.</span></li>
+  <li><b>Optimizator i planer</b>
+    <span>Redosled spoja i pristupni put po tabeli, birani po <strong>ceni</strong> — dva nivoa iz
+      Poglavlja&nbsp;1, sada sa imenima.</span></li>
+  <li><b>Izvršilac: stablo iteratora</b>
+    <span>Plan postaje niz iteratora koji povlače torku po torku. Detaljno u Poglavlju&nbsp;5.</span></li>
+  <li class="crosses"><b><code>handler</code> → InnoDB</b>
+    <span>Prelaz preko šava. Odavde naniže više nema SQL-a, samo „daj mi sledeću torku“.</span></li>
+</ol>
+
+<p>
+  Kroz sve korake putuje jedan te isti objekat, <code>THD</code> — stanje sesije. Priručnik opisuje
+  model niti, a izvorni kod objekat:
+</p>
+
+<div class="slide">
+  <span class="sr">MySQL 8.4 Reference Manual · Connection Interfaces &nbsp;·&nbsp; <code>sql/sql_class.h</code></span>
+  <q>Connection manager threads associate each client connection with a thread dedicated to it that
+  handles authentication and request processing for that connection.</q>
+  <span class="gloss">Sistemska promenljiva <code>thread_handling</code> podrazumevano ima vrednost
+  <code>one-thread-per-connection</code>: <strong>jedna nit po konekciji</strong>. U kodu tome
+  odgovara <code>THD</code>, opisan kao „For each client connection we create a separate thread with
+  THD serving as a thread/connection descriptor“. Upamti ovo za Poglavlje&nbsp;7: paralelnost u
+  MySQL-u je pre svega <strong>po konekciji</strong>, a ne unutar jednog upita.</span>
+</div>
+
+<div class="note">
+  <span class="lbl">Zamka pri pisanju</span>
+  Ako u nekom starijem tekstu na internetu naiđeš na funkciju <code>mysql_parse()</code> kao ulaznu
+  tačku, <strong>nemoj je citirati</strong>: u 8.4 ona više ne postoji. Preimenovana je u
+  <code>dispatch_sql_command()</code>. Ovo je provereno u izvornom kodu na oznaci
+  <code>mysql-8.4.6</code>, u <code>sql/sql_parse.cc</code>.
+</div>
+
+<h2>4 · Šav je klasa <code>handler</code></h2>
+<p>
+  Šav nije metafora — to je jedna C++ klasa. Svaki motor je implementira, a serverski sloj poznaje
+  samo nju.
+</p>
+
+<div class="slide">
+  <span class="sr">Izvorni kod MySQL 8.4.6 · <code>sql/handler.h</code></span>
+  <q>The handler class is the interface for dynamically loadable storage engines.</q>
+  <span class="gloss">Uz nju ide i <code>handlerton</code>: „a singleton structure — one instance per
+  storage engine“, za ono što se tiče motora u celini, dok <code>handler</code> radi
+  <strong>po tabeli</strong>.</span>
+</div>
+
+<p>
+  Evo zašto je to bitno za obradu upita. Iterator koji čita celu tabelu — onaj isti koji ćeš u
+  Poglavlju&nbsp;5 videti u <code>EXPLAIN FORMAT=TREE</code> kao <code>Table scan</code> — u svom telu
+  ne radi ništa što liči na čitanje diska:
+</p>
+
+<pre class="sql"><span class="c">// sql/iterators/basic_row_iterators.cc  (oznaka mysql-8.4.6)</span>
+<span class="k">int</span> TableScanIterator::Read() {
+  ...
+  <span class="k">while</span> ((tmp = table()-&gt;file-&gt;<span class="fn">ha_rnd_next</span>(m_record))) { ... }
+}</pre>
+
+<p>
+  <code>table()-&gt;file</code> je pokazivač na <code>handler</code>. Iterator, dakle,
+  <span class="hi">ne čita stranicu — on zove metodu motora</span> i čeka da mu motor vrati torku.
+  Kako je motor našao tu torku (iz bafer pula, sa diska, kroz B+ stablo) serverski sloj
+  <strong>ne zna i ne treba da zna</strong>. To je cela poenta poglavlja u jednoj rečenici.
+</p>
+
+<p>
+  Sam zaglavlje <code>handler.h</code> deli metode na dva sloja: javne omotače koje zove server
+  (<code>ha_rnd_init</code>, <code>ha_rnd_next</code>, <code>ha_index_read_map</code>,
+  <code>ha_index_next</code> …) i virtuelne metode koje motor mora da napiše:
+</p>
+
+<div class="slide">
+  <span class="sr">Izvorni kod MySQL 8.4.6 · <code>sql/handler.h</code></span>
+  <q>Low-level primitives for storage engines. These should be overridden by the storage engine
+  class. To call these methods, use the corresponding 'ha_*' method above.</q>
+  <span class="gloss">Sken preko indeksa radi po istom obrascu, samo drugim metodama:
+  <code>ha_index_first()</code>, pa <code>ha_index_next()</code>.</span>
+</div>
+
+<h2>5 · Gde šav propušta (a): spuštanje uslova u indeks</h2>
+<p>
+  Da je podela savršeno čista, motor bi vraćao torke a serverski sloj bi ih filtrirao. Ali to znači
+  da torke koje će ionako biti odbačene ipak moraju da pređu šav. Zato MySQL pravi rupu u sopstvenoj
+  apstrakciji: <strong>spuštanje uslova u indeks</strong> <b>(index condition pushdown, ICP)</b>.
+</p>
+
+<div class="slide">
+  <span class="sr">MySQL 8.4 Reference Manual · Index Condition Pushdown Optimization</span>
+  <q>The storage engine then evaluates the pushed index condition by using the index entry and only
+  if this is satisfied is the row read from the table.</q>
+  <span class="gloss">Serverski sloj prosleđuje motoru <strong>deo svog uslova</strong> iz
+  <code>WHERE</code>. U kodu to ide metodom <code>idx_cond_push(uint keyno, Item *idx_cond)</code>:
+  kroz šav prolazi <code>Item*</code>, čvor izraza iz serverskog sloja. Apstrakcija tu očigledno
+  curi, i to namerno.</span>
+</div>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> tabela <code>obrada_upita.wide_events</code> sa indeksom
+      <code>idx_customer_created (customer_id, created_at)</code> iz <code>examples/00-setup/</code>.
+      Traje oko minut po upitu — čita stvarnih pola miliona torki.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql"><span class="k">USE</span> obrada_upita;
+
+<span class="c">-- (A) ICP uključen (podrazumevano stanje):</span>
+<span class="k">EXPLAIN</span> <span class="fn">ANALYZE</span>
+<span class="k">SELECT</span> notes <span class="k">FROM</span> wide_events <span class="fn">FORCE INDEX</span> (idx_customer_created)
+<span class="k">WHERE</span>  customer_id <span class="k">BETWEEN</span> 1 <span class="k">AND</span> 20000
+  <span class="k">AND</span>  created_at &gt;= <span class="s">'2025-01-01'</span>;
+
+<span class="c">-- (B) Isti upit, ali sa zabranjenim spuštanjem:</span>
+<span class="k">SET</span> optimizer_switch = <span class="s">'index_condition_pushdown=off'</span>;
+
+<span class="k">EXPLAIN</span> <span class="fn">ANALYZE</span>
+<span class="k">SELECT</span> notes <span class="k">FROM</span> wide_events <span class="fn">FORCE INDEX</span> (idx_customer_created)
+<span class="k">WHERE</span>  customer_id <span class="k">BETWEEN</span> 1 <span class="k">AND</span> 20000
+  <span class="k">AND</span>  created_at &gt;= <span class="s">'2025-01-01'</span>;
+
+<span class="k">SET</span> optimizer_switch = <span class="s">'index_condition_pushdown=on'</span>;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+    <p class="expect">Plan se ne menja u pristupnom putu — u oba slučaja je isti sken opsega preko
+      istog indeksa. Menja se <strong>broj čvorova</strong>. Ovako je izgledalo uživo na tvom serveru:</p>
+<pre class="out"><span class="dim">(A) ICP uključen — jedan čvor:</span>
+-&gt; Index range scan on wide_events using idx_customer_created ...,
+   <span class="em">with index condition:</span> ((customer_id between 1 and 20000)
+       and (created_at &gt;= TIMESTAMP'2025-01-01 00:00:00'))
+   (actual time=0.856..15283 <span class="em">rows=165707</span> loops=1)
+
+<span class="dim">(B) ICP isključen — dva čvora, jedan iznad drugog:</span>
+-&gt; <span class="em">Filter:</span> ((customer_id between 1 and 20000)
+       and (created_at &gt;= TIMESTAMP'2025-01-01 00:00:00'))
+   (actual time=0.25..45760 <span class="em">rows=165707</span> loops=1)
+    -&gt; Index range scan on wide_events using idx_customer_created ...
+       (actual time=0.249..45718 <span class="em">rows=499297</span> loops=1)</pre>
+    <p class="expect">Vremena zavise od mašine i od toga šta je u bafer pulu, pa ne juri sekunde.
+      Broj torki je ono što se ne menja od pokretanja do pokretanja.</p>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Ovo je najčistiji dokaz da šav postoji, jer se u planu <strong>vidi kao
+      čvor</strong>. U slučaju&nbsp;(B) iznad skena stoji <code>Filter:</code> — to je posao
+      <span class="hi">serverskog sloja</span>. Sken mu dodaje <strong>499.297</strong> torki, filter
+      propušta <strong>165.707</strong>, dakle 333.590 torki je prešlo šav samo da bi odmah bilo
+      bačeno. U slučaju&nbsp;(A) čvor <code>Filter</code> je <strong>nestao</strong>: isti uslov sada
+      piše kao <code>with index condition</code> unutar samog skena, jer ga proverava motor, nad
+      torkom indeksa, pre nego što uopšte dohvati široku torku sa kolonom <code>notes</code>. Isti
+      rezultat, isti indeks, ista 165.707 torki na izlazu — <strong>razlika je samo u tome koji sloj
+      radi filtriranje</strong>. Ovde je to ispalo i oko tri puta brže.</p>
+
+    <p class="scope"><b>Ograničenje.</b> Namerno ignoriši procene (<code>rows=1</code> naspram
+      stvarnih 165.707) i kolonu cene. Zašto procene toliko promašuju i kako se ta razlika čita jeste
+      tema <strong>Poglavlja&nbsp;4</strong>. Ovde te zanima samo jedno: da li <code>Filter</code>
+      čvor postoji ili ne postoji.</p>
+  </div>
+</div>
+
+<h2>6 · Gde šav propušta (b): statistika dolazi iz oba sloja</h2>
+<p>
+  Druga rupa je suptilnija i mnogo korisnija za odbranu rada. Optimizator stalno postavlja pitanje
+  „koliko torki će ovo vratiti?“. Odgovor mu stiže sa <strong>obe strane šava</strong>, iz dva
+  odvojena izvora koji se mogu i ne slagati.
+</p>
+
+<div class="levels">
+  <div class="level physical">
+    <h4>Motor: kardinalnost indeksa</h4>
+    <ul>
+      <li>Koliko <strong>različitih vrednosti</strong> indeks ima.</li>
+      <li>InnoDB je procenjuje <q>random dives</q> — uzorkovanjem stranica, ne čitanjem svih torki.</li>
+      <li>Živi u <code>mysql.innodb_index_stats</code>. Prefiks <code>innodb_</code> nije slučajan.</li>
+    </ul>
+  </div>
+  <div class="level logical">
+    <h4>Server: histogram</h4>
+    <ul>
+      <li><strong>Raspodela</strong> vrednosti po kanticama, ne samo njihov broj.</li>
+      <li>Pravi se izričito: <code>ANALYZE TABLE … UPDATE HISTOGRAM</code>.</li>
+      <li>Živi u rečniku podataka, čita se iz
+        <code>information_schema.COLUMN_STATISTICS</code>.</li>
+    </ul>
+  </div>
+</div>
+
+<p>
+  Mnemonik koji vredi zapamtiti: <strong>statistika indeksa pripada motoru, histogrami kolona
+  pripadaju serveru</strong>. Histogrami i postoje zato da bi dali selektivnost za kolone koje
+  <span class="hi">nisu</span> indeksirane — tamo gde motor nema šta da kaže.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> ista tabela. Nastavak je nalaza iz Lekcije&nbsp;01, gde je
+      kardinalnost na <code>country_code</code> bila 14 a histograma nije bilo — sad se vidi zašto su
+      to dve odvojene stvari.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql"><span class="k">USE</span> obrada_upita;
+
+<span class="c">-- (1) Šta motor misli: broj različitih vrednosti, i na kolikom uzorku.</span>
+<span class="k">SELECT</span> index_name, stat_name, stat_value, sample_size
+<span class="k">FROM</span>   mysql.innodb_index_stats
+<span class="k">WHERE</span>  database_name = <span class="s">'obrada_upita'</span>
+  <span class="k">AND</span>  table_name    = <span class="s">'wide_events'</span>
+  <span class="k">AND</span>  index_name    = <span class="s">'idx_country_code'</span>;
+
+<span class="c">-- (2) Šta server ima: pre nego što histogram zatražiš — ništa.</span>
+<span class="k">SELECT</span> SCHEMA_NAME, TABLE_NAME, COLUMN_NAME
+<span class="k">FROM</span>   information_schema.COLUMN_STATISTICS
+<span class="k">WHERE</span>  SCHEMA_NAME = <span class="s">'obrada_upita'</span>;
+
+<span class="c">-- (3) Zatraži ga. Ovo ne dira indeks i ne pita motor ništa osim podataka.</span>
+<span class="k">ANALYZE</span> <span class="k">TABLE</span> wide_events <span class="fn">UPDATE HISTOGRAM</span> <span class="k">ON</span> country_code <span class="k">WITH</span> 16 <span class="k">BUCKETS</span>;
+
+<span class="c">-- (4) Sada isti upit iz (2) vraća red.</span>
+<span class="k">SELECT</span> COLUMN_NAME,
+       <span class="fn">JSON_UNQUOTE</span>(<span class="fn">JSON_EXTRACT</span>(HISTOGRAM, <span class="s">'$."histogram-type"'</span>)) <span class="k">AS</span> tip,
+       <span class="fn">JSON_LENGTH</span>(<span class="fn">JSON_EXTRACT</span>(HISTOGRAM, <span class="s">'$.buckets'</span>))        <span class="k">AS</span> kantica
+<span class="k">FROM</span>   information_schema.COLUMN_STATISTICS
+<span class="k">WHERE</span>  SCHEMA_NAME = <span class="s">'obrada_upita'</span>;
+
+<span class="c">-- (5) VRATI SERVER U PREĐAŠNJE STANJE. Poglavlje 4 računa na to</span>
+<span class="c">--     da histograma nema, pa ovaj red nije opcion.</span>
+<span class="k">ANALYZE</span> <span class="k">TABLE</span> wide_events <span class="fn">DROP HISTOGRAM</span> <span class="k">ON</span> country_code;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">(1) motor — procena iz uzorka:</span>
+index_name        stat_name      stat_value   sample_size
+idx_country_code  <span class="em">n_diff_pfx01</span>            <span class="em">14</span>            <span class="em">16</span>
+idx_country_code  n_leaf_pages          5082          NULL
+
+<span class="dim">(2) server — prazan skup, nijedan red</span>
+
+<span class="dim">(4) server, posle ANALYZE ... UPDATE HISTOGRAM:</span>
+COLUMN_NAME    tip          kantica
+country_code   singleton    <span class="em">15</span></pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Uporedi dva podebljana broja. Motor kaže da kolona ima
+      <strong>14</strong> različitih vrednosti — i to je zaključio uzorkujući <strong>16</strong>
+      stranica od ukupno 5.082. Server, pošto je napravio histogram, dobija
+      <strong>15</strong> kantica, po jednu za svaku stvarnu vrednost. Motor nije pogrešio nasumično:
+      on <span class="hi">ne broji, nego procenjuje</span>, i to mu je posao. Ali to znači da
+      optimizator radi sa brojem koji je nastao iz 0,3% stranica indeksa.</p>
+    <p class="interpret">Razlika je zapravo veća nego 14 naspram 15. Kardinalnost je samo
+      <strong>broj</strong> vrednosti, pa iz nje optimizator može da izvede jedino ravnomernu
+      raspodelu: 5.000.000 / 14 ≈ 357.000 torki po vrednosti. Histogram nosi
+      <strong>raspodelu</strong>, i za <code>'US'</code> daje kumulativnu učestalost od oko
+      <strong>0,70</strong>, dakle oko 3,5 miliona torki. Vrednost <code>'US'</code> zauzima ~70%
+      tabele, pa je histogram tu tačan a kardinalnost promašuje deset puta. Isto pitanje, dva sloja,
+      dva odgovora.</p>
+
+    <p class="scope"><b>Ograničenje.</b> Primamljivo je zaključiti „znači, napravi histogram i
+      procena se popravi“. Provereno je uživo na ovom serveru i <strong>nije tako</strong>: sa
+      histogramom na <code>country_code</code> procena za upit iz Lekcije&nbsp;01 ostaje
+      <code>rows=2.45e+6</code>, nepromenjena. Priručnik kaže zašto: „The optimizer prefers range
+      optimizer row estimates to those obtained from histogram statistics“ — kad indeks postoji,
+      optimizator radije zaroni u indeks nego što pita histogram. Zbog čega je onda procena i dalje
+      pogrešna jeste <strong>Poglavlje&nbsp;4</strong>; za Poglavlje&nbsp;2 dovoljno je da znaš da
+      brojevi dolaze iz dva različita sloja.</p>
+  </div>
+</div>
+
+<h2>7 · Proveri sebe</h2>
+<p>Sedam pitanja, jedan tačan odgovor po pitanju. Klikni i odmah dobijaš objašnjenje — ako pogrešiš,
+  pročitaj zašto pre nego što pređeš na sledeće.</p>
+
+<div class="quiz">
+  <p>Bez vraćanja na tekst. Cilj je da vidiš šta ti je stvarno ostalo.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Šta je najpouzdaniji test da li neka osobina pripada motoru a ne serveru?</p>
+    <label><input type="radio">Da li je opisana u priručniku, u poglavlju posvećenom InnoDB-u</label>
+    <label><input type="radio">Da li se može isključiti sistemskom promenljivom u toku sesije</label>
+    <label><input type="radio">Da li se menja kada se ista tabela prebaci na drugi motor</label>
+    <label><input type="radio">Da li se pojavljuje u ispisu naredbe EXPLAIN nad tabelom</label>
+    <p class="why">Ako se menja sa motorom, ne može biti u zajedničkom sloju. Zato tabela 18.1 u
+      priručniku, koja te osobine poredi po motorima, i jeste dokaz: transakcije i zaključavanje
+      variraju, pa su motorove.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">2. Šta tačno radi iterator koji čita celu tabelu kada mu zatreba torka?</p>
+    <label><input type="radio">Čita narednu stranicu iz bafer pula i iz nje izdvaja torku</label>
+    <label><input type="radio">Poziva metodu ha_rnd_next() nad objektom klase handler</label>
+    <label><input type="radio">Pomera pokazivač kroz tabelarni prostor do narednog zapisa</label>
+    <label><input type="radio">Spušta se kroz B+ stablo klasterovanog indeksa do lista</label>
+    <p class="why">Iterator nikada ne dodiruje stranicu. On zove metodu motora preko
+      <code>table()-&gt;file</code> i čeka torku; kako je motor nalazi, serverski sloj ne zna.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">3. Kada je ICP isključen, po čemu se to vidi u stablu plana?</p>
+    <label><input type="radio">Pristupni put se menja sa skena preko indeksa na sken tabele</label>
+    <label><input type="radio">Broj torki na izlazu upita raste, jer filter više ne postoji</label>
+    <label><input type="radio">Iznad skena se pojavljuje zaseban čvor filtera, koji radi server</label>
+    <label><input type="radio">Uz sken se ispisuje oznaka da je uslov spušten naniže u motor</label>
+    <p class="why">Uključen ICP uvlači uslov u sam sken (<code>with index condition</code>); isključen
+      ga vraća u serverski sloj, gde postaje vidljiv <code>Filter</code> čvor iznad skena. Izlaz upita
+      je isti u oba slučaja.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">4. Gde se čuvaju histogrami kolona u MySQL-u 8.4?</p>
+    <label><input type="radio">U rečniku podataka servera, nezavisno od izabranog motora</label>
+    <label><input type="radio">U tabelarnom prostoru motora, uz same stranice tog indeksa</label>
+    <label><input type="radio">U bafer pulu motora, odakle ih optimizator čita pri upitu</label>
+    <label><input type="radio">U istoj tabeli motora u kojoj stoji i kardinalnost indeksa</label>
+    <p class="why">Histogrami su serverski: prave se sa <code>ANALYZE TABLE … UPDATE HISTOGRAM</code>
+      i čitaju iz <code>information_schema.COLUMN_STATISTICS</code>. Kardinalnost je motorova i stoji
+      odvojeno, u <code>mysql.innodb_index_stats</code>.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">5. Zašto je kardinalnost 14 na koloni sa 15 stvarnih vrednosti?</p>
+    <label><input type="radio">Jer se jedna vrednost pojavljuje preretko da bi ušla u indeks</label>
+    <label><input type="radio">Jer kardinalnost po pravilu izostavlja vrednost koja je najčešća</label>
+    <label><input type="radio">Jer statistika nije osvežena od poslednjeg punjenja te tabele</label>
+    <label><input type="radio">Jer je InnoDB procenjuje uzorkujući stranice, a ne čitajući sve</label>
+    <p class="why">InnoDB radi „random dives“: ovde 16 uzorkovanih stranica od 5.082. Kardinalnost je
+      procena po konstrukciji, i to je normalno ponašanje, a ne zastarela statistika.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">6. Koja je ulazna tačka za obradu SQL naredbe u MySQL-u 8.4?</p>
+    <label><input type="radio"><code>mysql_parse()</code>, koja tekst naredbe prosleđuje parseru</label>
+    <label><input type="radio"><code>JOIN::optimize()</code>, jer optimizacija prethodi svemu</label>
+    <label><input type="radio"><code>dispatch_sql_command()</code>, koju zove <code>dispatch_command()</code></label>
+    <label><input type="radio"><code>Query_block::prepare()</code>, koja razrešava imena tabela</label>
+    <p class="why"><code>mysql_parse()</code> u 8.4 više ne postoji — preimenovana je u
+      <code>dispatch_sql_command()</code>. Ostale dve funkcije postoje, ali su kasnije faze, ne ulazna
+      tačka.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">7. Šta znači podrazumevana vrednost <code>one-thread-per-connection</code>?</p>
+    <label><input type="radio">Jedan upit se deli na više niti, po jednu za svaku tabelu</label>
+    <label><input type="radio">Svaka konekcija dobija svoju nit, koja obrađuje njene naredbe redom</label>
+    <label><input type="radio">Server drži tačno jednu nit i kroz nju propušta sve konekcije redom</label>
+    <label><input type="radio">Svaka nit otvara svoju konekciju ka motoru radi paralelnog čitanja</label>
+    <p class="why">Nit je vezana za konekciju, a ne za upit. Zato je paralelnost u MySQL-u pre svega
+      između konekcija — granica paralelnosti unutar jednog upita je tema Poglavlja&nbsp;7.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<div class="note">
+  <span class="lbl">Pitaj svog predavača</span>
+  Ako ti je nešto ostalo mutno — najčešće je to razlika između „šta motor zna“ i „šta optimizator
+  misli da zna“ — <strong>pitaj u četu</strong>. Isto važi ako hoćeš da isti ICP eksperiment
+  probamo na nekom Sakila upitu, ili da pogledamo kako izgleda plan kad uslov <span class="hi">ne
+  može</span> da se spusti u indeks.
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong> MySQL 8.4 Reference Manual,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/pluggable-storage-overview.html">Pluggable Storage Engine Architecture</a>
+  (kratko, i sadrži zvaničnu sliku arhitekture — Figure 18.3). Dopuna:
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/index-condition-pushdown-optimization.html">Index Condition Pushdown Optimization</a>
+  i <a href="https://dev.mysql.com/doc/refman/8.4/en/optimizer-statistics.html">Optimizer Statistics</a>.
+  Izvori su na engleskom, što je dozvoljeno — samo lekcija mora biti na srpskom. ·
+  <strong>Vidi još:</strong>
+  <a href="../reference/01-arhitektura-serverski-sloj-i-motor.html">referentna kartica: slojevi, šav i statistika</a>,
+  <a href="0001-uvod-the-gap-and-two-levels.html">Lekcija 01</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §2a.
+</p>
+
+<script src="../assets/copy.js"></script>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
