@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Referenca — Arhitektura: serverski sloj i skladišni motor</title>
+<title>Referenca — Arhitektura: serverski sloj i motor</title>
 <link rel="stylesheet" href="../assets/lesson.css">
 </head>
 <body>
 
 <p class="kicker">Referentna kartica</p>
-<h1>Serverski sloj i skladišni motor</h1>
+<h1>Serverski sloj i motor</h1>
 <p class="subtitle">Sažeta suština za pisanje i odbranu Poglavlja 2. Svaka tvrdnja je citabilna iz priručnika ili izvornog koda.</p>
 
 <div class="arch">
@@ -25,7 +25,7 @@
   </div>
   <div class="seam">šav: <code>handler</code> API</div>
   <div class="tier engine">
-    <h5>Skladišni motor (InnoDB) — razume torke</h5>
+    <h5>Motor (InnoDB) — razume torke</h5>
     <ul>
       <li>Bafer pul, stranice 16 KB, tabelarni prostor</li>
       <li>Klasterovani indeks, B+ stabla</li>
@@ -114,8 +114,8 @@
 </div>
 
 <p class="meta">
-  Termini su zaključani u <a href="../GLOSSARY.md">GLOSSARY.md</a> §2a (skladišni motor, serverski
-  sloj, šav, bafer pul, spuštanje uslova u indeks …). Izvori:
+  Termini su zaključani u <a href="../GLOSSARY.md">GLOSSARY.md</a> §2a (mehanizam skladištenja / motor,
+  serverski sloj, šav, bafer pul, spuštanje uslova u indeks …). Izvori:
   <a href="https://dev.mysql.com/doc/refman/8.4/en/pluggable-storage-overview.html">Pluggable Storage Engine Architecture</a>,
   <a href="https://dev.mysql.com/doc/refman/8.4/en/storage-engines.html">Alternative Storage Engines</a>,
   <a href="https://dev.mysql.com/doc/refman/8.4/en/index-condition-pushdown-optimization.html">ICP</a>,

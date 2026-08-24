@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lekcija 02 — Arhitektura: serverski sloj i skladišni motor</title>
+<title>Lekcija 02 — Arhitektura: serverski sloj i motor</title>
 <link rel="stylesheet" href="../assets/lesson.css">
 </head>
 <body>
 
 <p class="kicker">Lekcija 02 · Poglavlje 2 (Arhitektura obrade upita u MySQL-u)</p>
-<h1>Šav: serverski sloj i skladišni motor</h1>
+<h1>Šav: serverski sloj i motor</h1>
 <p class="subtitle">Jedna arhitektonska odluka objašnjava skoro sve što MySQL radi sa upitom — i, što je za rad važnije, objašnjava gde tačno prestaje da bude „obrada upita“ a počinje da bude „čitanje sa diska“.</p>
 
 <div class="note">
   <span class="lbl">Veza sa ciljem</span>
   Poglavlje&nbsp;2 je most: poglavlja&nbsp;3, 4 i 5 nemaju gde da stanu bez njega. Kad ga završiš,
   treba da umeš da odgovoriš na tri pitanja bez podsetnika: <strong>(1)</strong> šta radi serverski
-  sloj a šta skladišni motor, <strong>(2)</strong> kojim putem naredba stiže od konekcije do InnoDB-a,
+  sloj a šta motor, <strong>(2)</strong> kojim putem naredba stiže od konekcije do InnoDB-a,
   i <strong>(3)</strong> gde ta podela namerno propušta. Treće pitanje je ono koje profesor može da
   postavi da vidi da li si razumeo ili si prepričao.
 </div>
@@ -26,8 +26,8 @@
   U Poglavlju&nbsp;1 obrada upita je bila <strong>jaz</strong> koji DBMS premošćuje. MySQL taj jaz
   premošćuje na način koji većina drugih sistema nema: preseca sam sebe na dva sloja i između njih
   postavlja standardan interfejs. Iznad je <strong>serverski sloj</strong>, koji razume SQL. Ispod je
-  <strong>skladišni motor</strong> <b>(storage engine)</b>, koji razume torke i stranice, a o SQL-u
-  ne zna ništa.
+  <strong>mehanizam skladištenja</strong> <b>(storage engine)</b> — u ovom radu kraće <strong>motor</strong> —
+  koji razume torke i stranice, a o SQL-u ne zna ništa.
 </p>
 
 <div class="slide">
@@ -42,7 +42,7 @@
 </div>
 
 <p>
-  Zato se ovo zove <strong>modularna arhitektura skladišnih motora</strong>
+  Zato se ovo zove <strong>modularna arhitektura motora</strong>
   <b>(pluggable storage engine architecture)</b>: motor se priključuje i menja, a serverski sloj
   iznad njega ostaje isti. Pokreni ovo i videćeš koliko ih tvoj server nosi odjednom.
 </p>
@@ -104,7 +104,7 @@ BLACKHOLE           YES       NO            NO    NO
   </div>
 
   <div class="tier engine">
-    <h5>Skladišni motor (InnoDB) — razume torke i stranice</h5>
+    <h5>Motor (InnoDB) — razume torke i stranice</h5>
     <ul>
       <li>Bafer pul: keš stranica u memoriji</li>
       <li>Klasterovani indeks, B+ stabla, stranice od 16&nbsp;KB</li>

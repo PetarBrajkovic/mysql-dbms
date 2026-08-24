@@ -1,7 +1,7 @@
--- Lekcija 0002 / Poglavlje 2, §2 - modularna arhitektura skladišnih motora.
+-- Lekcija 0002 / Poglavlje 2, §2 - modularna arhitektura motora.
 -- Nema figure: ovo je orijentacioni upit, ne materijal za sliku.
 --
--- Poenta: jedan te isti serverski sloj opslužuje više skladišnih motora, a
+-- Poenta: jedan te isti serverski sloj opslužuje više motora, a
 -- InnoDB je samo onaj koji je podrazumevan. Serverski sloj (parser, optimizator,
 -- izvršilac) ne zna ništa o tome kako bilo koji od ovih motora čuva torke.
 

@@ -83,10 +83,10 @@ server/engine split, so these are new coinage.
 
 | Concept | Serbian term (first use) | After first use |
 |---|---|---|
-| Storage engine | skladišni motor *(storage engine)* | skladišni motor (or just motor) |
+| Storage engine | mehanizam skladištenja *(storage engine)* | motor |
 | Server layer | serverski sloj | serverski sloj |
-| Storage engine layer | sloj skladišnog motora | sloj motora |
-| Pluggable storage engine architecture | modularna arhitektura skladišnih motora *(pluggable storage engine architecture)* | modularna arhitektura skladišnih motora |
+| Storage engine layer | sloj mehanizma skladištenja | sloj motora |
+| Pluggable storage engine architecture | modularna arhitektura motora *(pluggable storage engine architecture)* | modularna arhitektura motora |
 | Handler API | `handler` API | `handler` API |
 | Connection | konekcija | konekcija |
 | Session | sesija | sesija |
@@ -100,15 +100,26 @@ server/engine split, so these are new coinage.
 | Row-level locking | zaključavanje na nivou torke | zaključavanje na nivou torke |
 | MVCC | MVCC *(viševerzijska kontrola konkurentnosti)* | MVCC |
 
-Two deliberate non-choices, recorded so they are not "fixed" later:
+Three deliberate non-choices, recorded so they are not "fixed" later:
 
 - **"pluggable" is not translated adjectivally.** `priključiv` / `priključni` is not well attested in
   standard Serbian for this sense, so the concept is carried by the noun phrase *modularna
-  arhitektura skladišnih motora* plus one explanatory clause on first use ("motor se priključuje i
+  arhitektura motora* plus one explanatory clause on first use ("motor se priključuje i
   menja, a serverski sloj ostaje isti"). Do not swap in `priključivi motori` later.
 - **`handler` stays in code font, untranslated.** It is a C++ class name (`sql/handler.h`), not a
   concept word — translating it would break the link to the source the chapter cites. Same rule as
   SQL keywords under the lesson-language preference in `NOTES.md`.
+- **"storage engine" is not translated as `skladišni motor`, even though that is the literal
+  word-for-word rendering.** `skladišni` collocates with physical storage space in standard Serbian
+  (`skladišni prostor`, `skladišna hala`), not with a mechanical/software engine — the compound
+  parses but reads like "warehouse engine." Same class of problem as the `pluggable` non-choice
+  above: a literal per-word translation that fails the collocation test. Fixed 2026-08-24: the
+  definition uses *mehanizam skladištenja (storage engine)* on first use; everywhere after that,
+  including headings and titles, the short form *motor* carries the concept alone — the lesson body
+  already used `motor` on its own successfully dozens of times, including with agentive verbs
+  ("motor procenjuje", "motor kaže da...") that would read stiffer with `mehanizam`. Do not swap in
+  `skladišni motor` later, and do not replace the short form `motor` with `mehanizam` throughout —
+  only the first-use definition needed fixing.
 
 ## 3. Hard constraint — plan cache vs. parse-tree cache (chapter 8)
 
