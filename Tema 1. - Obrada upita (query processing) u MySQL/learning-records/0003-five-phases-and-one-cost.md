@@ -4,7 +4,7 @@
 **Chapter:** 3 (Od SQL-a do plana izvršavanja)
 **Lesson:** `lessons/0003-od-sql-a-do-plana-izvrsavanja.html`
 **Reference card:** `reference/02-od-sql-a-do-plana.html`
-**Status:** taught (lesson delivered; quiz not yet taken by the user at time of writing)
+**Status:** taught and written (Chapter 3 prose appended to `rad.md` 2026-08-24)
 
 ## What was taught
 
@@ -128,11 +128,27 @@ learning artifacts that said `semi-spoj` in a parenthetical (`lessons/0002-*.htm
 `reference/01-*.html`) were flagged rather than silently edited, and the user asked for them to be
 corrected the same day, so the workspace is consistent with no grandfathered exceptions.
 
+## Write-up (2026-08-24)
+
+Chapter 3 prose written with `academic-research-writer` (+ `serbian-grammar`) and appended to
+`rad.md`, ~3.5 pages across six subsections (3.1 five phases, 3.2 parser/resolution and the
+transformation-vs-strategy line, 3.3 cost model, 3.4 access-path choice, 3.5 join-order search,
+3.6 what is deferred). Two of the four lesson figures were carried into the paper, matching the
+chapter's figure budget of 2:
+
+- **Slika 3.1**, the five-phase pipeline diagram (`...-04-pet-faza-pregled`), rasterized SVG→PNG via
+  headless Edge (the SVG had no PNG twin, since it is a hand-built conceptual diagram, not a myflames
+  output). Two em dashes in the SVG text were removed first, per WORKFLOW rule 8 (applies to figure
+  text too).
+- **Slika 3.2**, the access-path cost crossover (`...-01-ukrstanje-cena`), the worked example the
+  ticket demanded.
+
+The two join-order figures (`...-02/03-redosled-spoja-dubina-62/1`) stayed in the lesson only; the
+150:1 result is carried into §3.5 as cited prose to respect the 2-figure budget. `WL#7082` added to
+`references.bib` as `mysqlwl7082` (a published MySQL worklog, citable; not a lecture deck). DOCX
+export verified clean.
+
 ## Next
 
-Per WORKFLOW's per-chapter loop: the user runs the five scripts in `examples/03-od-sql-a-do-plana/`
-himself (step 2), then Chapter 3's prose is written with `academic-research-writer` (step 3). The
-figure budget for the chapter is 2; three exist, so the write-up should pick the two that carry the
-most argument (the cost-crossing chart is almost certainly one of them). Chapter 4 inherits three
-things from here: the estimated-vs-actual thread, the "cost varies between runs" caveat, and the
-optimizer trace as a tool the user has already used once.
+Chapter 4 inherits three things from here: the estimated-vs-actual thread, the "cost varies between
+runs" caveat, and the optimizer trace as a tool the user has already used once.

@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 680" font-family="'Segoe UI', Verdana, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4a4a4a"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="680" fill="#fbfaf7"/>
+
+  <!-- entry -->
+  <text x="330" y="18" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="1.5" fill="#4a4a4a">TEKST NAREDBE</text>
+  <line x1="330" y1="26" x2="330" y2="50" stroke="#4a4a4a" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Box 1: Parser -->
+  <rect x="40" y="54" width="580" height="68" rx="4" fill="#ffffff" stroke="#d8d3c8"/>
+  <text x="330" y="78" text-anchor="middle" font-size="15" font-weight="700" fill="#1a1a1a">1 · PARSER</text>
+  <text x="330" y="98" text-anchor="middle" font-size="12.5" fill="#4a4a4a">tekst → stablo (AST) · samo gramatika</text>
+  <text x="330" y="114" text-anchor="middle" font-size="12.5" fill="#4a4a4a">nijedno ime iz baze još nije provereno</text>
+
+  <line x1="330" y1="122" x2="330" y2="148" stroke="#4a4a4a" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Box 2: Razresavanje -->
+  <rect x="40" y="150" width="580" height="96" rx="4" fill="#ffffff" stroke="#d8d3c8"/>
+  <rect x="40" y="150" width="580" height="5" rx="2" fill="#1f5c7a"/>
+  <text x="330" y="176" text-anchor="middle" font-size="15" font-weight="700" fill="#1f5c7a">2 · RAZREŠAVANJE (priprema)</text>
+  <text x="330" y="197" text-anchor="middle" font-size="12.5" fill="#4a4a4a">traži imena u rečniku podataka</text>
+  <text x="330" y="215" text-anchor="middle" font-size="12.5" fill="#4a4a4a">+ TRAJNE transformacije stabla (semi-join …)</text>
+  <text x="330" y="233" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1f5c7a">jednom po naredbi · BEZ CENE</text>
+
+  <!-- cost boundary -->
+  <line x1="40" y1="272" x2="620" y2="272" stroke="#7a1f1f" stroke-width="1.5" stroke-dasharray="6,5"/>
+  <rect x="235" y="259" width="190" height="26" rx="13" fill="#7a1f1f"/>
+  <text x="330" y="276" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="0.5" fill="#ffffff">GRANICA CENE</text>
+  <text x="330" y="296" text-anchor="middle" font-size="11" fill="#7a1f1f">od ovde nadalje: svaka odluka ima cenu</text>
+
+  <line x1="330" y1="304" x2="330" y2="322" stroke="#4a4a4a" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Box 3: Optimizator (outer), Planer nested inside -->
+  <rect x="40" y="324" width="580" height="220" rx="4" fill="#ffffff" stroke="#d8d3c8"/>
+  <rect x="40" y="324" width="580" height="5" rx="2" fill="#7a1f1f"/>
+  <text x="330" y="352" text-anchor="middle" font-size="15" font-weight="700" fill="#7a1f1f">3 · OPTIMIZATOR</text>
+  <text x="330" y="374" text-anchor="middle" font-size="12.5" fill="#4a4a4a">priprema uslova, procena broja torki</text>
+  <text x="330" y="394" text-anchor="middle" font-size="12.5" fill="#4a4a4a">bira STRATEGIJE: najjeftiniju od kandidata</text>
+
+  <rect x="110" y="414" width="440" height="110" rx="4" fill="#fdf8f7" stroke="#7a1f1f" stroke-dasharray="4,3"/>
+  <text x="330" y="438" text-anchor="middle" font-size="13.5" font-weight="700" fill="#7a1f1f">4 · PLANER (podfaza optimizatora)</text>
+  <text x="330" y="462" text-anchor="middle" font-size="12" fill="#4a4a4a">redosled spoja + pristupni put po tabeli</text>
+  <text x="330" y="482" text-anchor="middle" font-size="12" fill="#4a4a4a">bira najjeftiniju kombinaciju, po ceni</text>
+
+  <line x1="330" y1="544" x2="330" y2="568" stroke="#4a4a4a" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Box 4: Izvrsilac -->
+  <rect x="40" y="570" width="580" height="76" rx="4" fill="#ffffff" stroke="#d8d3c8"/>
+  <text x="330" y="594" text-anchor="middle" font-size="15" font-weight="700" fill="#1a1a1a">5 · IZVRŠILAC</text>
+  <text x="330" y="616" text-anchor="middle" font-size="12.5" fill="#4a4a4a">plan → stablo iteratora</text>
+  <text x="330" y="634" text-anchor="middle" font-size="12.5" fill="#4a4a4a">torka po torku (Poglavlje 5)</text>
+
+  <!-- right column: what optimizer_trace actually groups these into -->
+  <text x="665" y="108" font-size="11.5" font-weight="700" letter-spacing="0.8" fill="#4a4a4a">OPTIMIZER_TRACE</text>
+  <text x="665" y="124" font-size="10" fill="#4a4a4a">(3 koraka; parser nije u tragu)</text>
+
+  <path d="M660,150 h5 M665,150 V246 M660,246 h5" stroke="#4a4a4a" stroke-width="1.2" fill="none"/>
+  <rect x="678" y="189" width="131" height="18" rx="3" fill="#f4f1ea"/>
+  <text x="684" y="202" font-family="Consolas,'SF Mono',monospace" font-size="12" fill="#1a1a1a">join_preparation</text>
+
+  <path d="M660,324 h5 M665,324 V544 M660,544 h5" stroke="#4a4a4a" stroke-width="1.2" fill="none"/>
+  <rect x="678" y="425" width="146" height="18" rx="3" fill="#f4f1ea"/>
+  <text x="684" y="438" font-family="Consolas,'SF Mono',monospace" font-size="12" fill="#1a1a1a">join_optimization</text>
+  <text x="684" y="456" font-size="10" fill="#4a4a4a">(planer bez svog koraka)</text>
+
+  <path d="M660,570 h5 M665,570 V646 M660,646 h5" stroke="#4a4a4a" stroke-width="1.2" fill="none"/>
+  <rect x="678" y="599" width="117" height="18" rx="3" fill="#f4f1ea"/>
+  <text x="684" y="612" font-family="Consolas,'SF Mono',monospace" font-size="12" fill="#1a1a1a">join_execution</text>
+</svg>

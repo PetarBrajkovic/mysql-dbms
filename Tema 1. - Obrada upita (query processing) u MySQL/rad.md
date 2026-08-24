@@ -164,6 +164,146 @@ plana nad konkretnim primerom.
 
 # 3. Od SQL-a do plana izvršavanja
 
+Prethodno poglavlje pokazalo je *gde* se obrada upita odvija: u serverskom sloju, iznad šava prema
+motoru. Ovo poglavlje pokazuje *šta se u tom sloju odlučuje*, kojim redom i po kom kriterijumu. Teza
+je jednostavna i vodi kroz celo poglavlje: MySQL obradu deli na pet imenovanih faza, a svaka odluka
+koja uopšte ima alternativu razrešava se jednim brojem, cenom [@mysql84refman].
+
+## 3.1. Pet faza obrade
+
+Put naredbe kroz serverski sloj, u poglavlju 2 izložen samo u grubim crtama, deli se na pet faza od
+kojih svaka ima svoj modul i svoju ulaznu funkciju u izvornom kodu MySQL-a. Parser (`parse_sql()`)
+pretvara tekst naredbe u stablo raščlanjivanja *(parse tree, AST)*, isključivo po gramatici.
+Razrešavanje ili priprema (`Query_block::prepare()`) traži imena tabela i kolona u rečniku podataka i
+nad stablom izvodi trajne transformacije. Optimizator (`JOIN::optimize()`) priprema uslove,
+procenjuje broj torki i bira strategije. Planer (`Optimize_table_order`), kao podfaza optimizatora,
+bira redosled spoja i pristupni put po tabeli. Izvršilac (`sql_executor.cc`) izabrani plan pretvara u
+stablo iteratora koje povlači torku po torku [@mysqlsource84]. Ta podela nije naknadna rekonstrukcija:
+svih pet imena su imena modula u dokumentaciji izvornog koda (Parser, Query Resolver, Query
+Optimizer, Query Planner, Query Executor) [@mysqlsource84].
+
+Sam server, uz to, ume da ispiše imena svojih faza. Kada se uključi trag optimizatora *(optimizer
+trace)*, na njegovom vrhu stoje tačno tri koraka: `join_preparation`, `join_optimization` i
+`join_execution` [@mysql84refman]. Ta tri koraka poklapaju se sa pet faza tako što `join_optimization`
+obuhvata i optimizator i planer (planer nema svoj zaseban korak), dok parser ostaje van traga, jer
+trag počinje tek kada stablo već postoji. Trag optimizatora je promenljiva sesije, podrazumevano
+isključena, i predstavlja glavni prozor u odluke optimizatora do kraja rada; njegovo detaljno čitanje
+tema je poglavlja 4 [@mysql84refman].
+
+![Slika 3.1: Pet faza obrade upita i granica cene, sa preslikavanjem na tri koraka u tragu
+optimizatora.](figures/03-od-sql-a-do-plana-04-pet-faza-pregled.png)
+
+Slika 3.1 prikazuje tih pet faza poređanih odozgo naniže, sa jednom linijom povučenom preko sredine.
+Sve iznad te linije menja oblik naredbe i radi se jednom, a sve ispod nje bira se po ceni i ponavlja
+pri svakom izvršavanju. Upravo je ta granica okosnica celog poglavlja.
+
+## 3.2. Parser i razrešavanje: transformacije bez cene
+
+Prva faza gleda samo tekst naredbe. Priručnik je o tome sažet: parser obrađuje SQL niske i gradi
+njihov prikaz u obliku stabla, bez ikakve provere da tabela ili kolona postoji [@mysql84refman].
+Granica prema sledećoj fazi može se i izmeriti. Naredba koja istovremeno ima sintaksnu grešku i
+pogrešno ime kolone vraća samo sintaksnu grešku (`ERROR 1064`), jer se do provere imena u rečniku
+podataka ne stiže dok stablo nije napravljeno [@mysql84refman]. Redosled faza time nije stvar
+tumačenja, već merljiva činjenica.
+
+Najveće iznenađenje ovog poglavlja krije se u drugoj fazi. Očekivalo bi se da logičko prepisivanje
+upita (pretvaranje podupita u spoj, spajanje izvedenih tabela, izbacivanje suvišnih uslova) pripada
+optimizatoru. U MySQL-u ne pripada: ne postoji zasebna faza prepisivanja, već trajne transformacije
+stabla žive u fazi razrešavanja, uz razrešavanje imena [@mysqlsource84]. Komentar iznad same funkcije
+`Query_block::prepare()` nabraja te transformacije, među njima transformaciju poluspoja *(semijoin)* i
+transformaciju izvedenih tabela, rame uz rame sa razrešavanjem imena [@mysqlsource84].
+
+Razlog tom smeštaju je životni vek memorije. Imenovani zadatak WL#7082 namerno je preselio trajne
+transformacije iz `JOIN::optimize()` u `JOIN::prepare()`, uz obrazloženje da se optimizacija izvršava
+pri svakom pokretanju, sa memorijom koja se potom oslobađa, pa bi trajna izmena stabla iz nje bila,
+rečima zadatka, komplikovana i sklona greškama [@mysqlwl7082]. Priručnik istu granicu potvrđuje sa
+korisničke strane, jednom rečenicom: poluspoj je transformacija u fazi pripreme [@mysql84refman].
+
+Ta granica deli dve vrste odluka koje se lako brkaju. Trajna transformacija menja oblik naredbe, radi
+se jednom po naredbi i nema cenu: ne bira se poređenjem, nego se izvede kad god su uslovi za nju
+ispunjeni. Strategija se, nasuprot tome, bira po ceni pri svakom izvršavanju, kao najjeftinija među
+kandidatima. Isti podupit `IN (SELECT)` pokazuje obe strane: njegova transformacija u poluspoj
+pripada pripremi i nema cenu, dok izbor strategije tog poluspoja (na primer FirstMatch,
+MaterializeLookup ili DuplicatesWeedout) pripada optimizaciji i vodi se cenom svakog kandidata
+[@mysql84refman]. Treba, međutim, biti precizan: nije svaka prepravka uslova trajna. Propagacija
+jednakosti, kojom optimizator iz `f.film_id = 42 AND fa.film_id = f.film_id` izvodi i
+`fa.film_id = 42`, radi se u optimizaciji, pri svakom pokretanju, i ne dira stablo naredbe
+[@mysqlsource84]. Tačna formulacija stoga glasi: u pripremi su trajne transformacije, a ne sve
+transformacije.
+
+## 3.3. Model cene
+
+Od granice cene nadalje svaka odluka sa alternativom razrešava se jednim brojem, pa vredi tačno znati
+šta je taj broj. Cena u MySQL-u nije ni vreme u sekundama ni ocena na nekoj skali, nego zbir nekoliko
+konstanti pomnoženih izmerenim veličinama. Te konstante nisu skrivene u kodu: nose ih dve obične
+tabele u bazi `mysql`, koje se čitaju običnim upitom i mogu se izmeniti [@mysql84refman]. Podela na
+dve tabele prati šav iz poglavlja 2: `server_cost` sadrži serverske konstante (na primer
+`row_evaluate_cost` = 0,1 po torki), a `engine_cost` konstante po motoru (na primer
+`io_block_read_cost` = 1,0 po pročitanoj stranici) [@mysql84refman].
+
+Zbog te strukture cena je proverljiva aritmetika. Cena skena tabele `wide_events` sastavlja se kao
+zbir procesorskog dela (0,1 pomnoženo brojem torki) i ulazno-izlaznog dela (1,0 pomnoženo brojem
+stranica), što na tabeli od približno 4,9 miliona torki i 89.216 stranica daje cenu reda 580.000,
+upravo onu koju server i prijavljuje [@mysql84refman]. Jedan ulaz tog računa je stanje bafer pula:
+stranica koja je već u memoriji košta `memory_block_read_cost` = 0,25 umesto 1,0, pa se ista cena
+razlikuje između dva pokretanja istog upita [@mysql84refman]. Ta zavisnost od trenutnog stanja
+memorije objašnjava zašto se u nastavku porede odnosi cena, a ne njihove apsolutne vrednosti.
+
+## 3.4. Prva odluka po ceni: pristupni put
+
+Za svaku tabelu planer bira pristupni put: sken tabele, sken opsega *(range scan)* preko indeksa,
+pretragu po jednakosti i slično. Funkcija koja to radi opisana je kao pronalaženje najboljeg
+pristupnog puta za proširenje delimičnog plana, čime se naglašava da je reč o koraku u pretrazi, a ne
+o izolovanoj odluci [@mysqlsource84]. Rasprostranjena zabluda je da optimizator uzima indeks kad god
+indeks postoji; on zapravo bira jeftiniji od dva izračunata puta, a koji je jeftiniji zavisi od broja
+torki koje filter obuhvata [@mysql84refman].
+
+![Slika 3.2: Ukrštanje cene skena tabele i cene skena opsega preko indeksa za isti upit, pri
+rastućem opsegu.](figures/03-od-sql-a-do-plana-01-ukrstanje-cena.png)
+
+Slika 3.2 prikazuje obe cene za upit `SELECT notes FROM wide_events WHERE customer_id BETWEEN 1 AND N`,
+pri rastućem N. Cena skena tabele je konstantna, jer sken čita celu tabelu bez obzira na uslov, dok
+cena skena opsega raste sa brojem obuhvaćenih torki i u jednoj tački pretekne konstantu. Na
+posmatranom serveru indeks pobeđuje do granice od 10.000 torki, a gubi od 11.000. U tragu optimizatora
+odbijeni indeks nosi oznaku `cause: "cost"`, koja znači da kandidat nije neupotrebljiv, nego uredno
+izračunat i skuplji od pobednika [@mysql84refman]. Upravo zato ovaj primer vredi: pokazuje da je česta
+pritužba da optimizator ne koristi zadati indeks najčešće tačna odluka doneta po ceni, a ne kvar. Da
+upit traži samo kolonu `customer_id`, indeks bi ga pokrivao, cena mu ne bi rasla tako brzo i do
+ukrštanja ne bi ni došlo, što je isti nalaz koji se u uvodnom poglavlju pokazao suprotnim od
+očekivanog.
+
+## 3.5. Druga odluka po ceni: redosled spoja
+
+Kod jedne tabele postoji nekoliko kandidata za pristupni put; kod više tabela broj mogućih redosleda
+spoja raste faktorijelno, pa se odluka pretvara u pretragu. Priručnik navodi da većina optimizatora,
+uključujući MySQL-ov, sprovodi manje-više iscrpnu pretragu među svim planovima, uz upozorenje da kod
+velikih upita vreme provedeno u optimizaciji lako postane glavno usko grlo [@mysql84refman]. Ceo
+algoritam stoji u tom „manje-više”: spoljna petlja je pohlepna pretraga *(greedy search)*
+(`greedy_search()`), ali svaki njen korak radi ograničeno iscrpan pogled unapred
+(`best_extension_by_limited_search()`), dubok onoliko koliko nalaže promenljiva
+`optimizer_search_depth` [@mysqlsource84].
+
+Podrazumevana vrednost te dubine je 62, što je `MAX_TABLES + 1` (uz `MAX_TABLES` = 61), pa je
+istovremeno i najveća moguća vrednost: MySQL podrazumevano ne ograničava dubinu pretrage
+[@mysqlsource84]. Efekat ograničavanja može se pokazati na upitu nad šest tabela baze `sakila`. Sa
+podrazumevanom dubinom optimizator kreće od tabele sa selektivnim filterom i dalje se širi tako da je
+svaki korak pretraga po indeksu vođena već pribavljenom kolonom. Sa dubinom svedenom na 1, pohlepni
+izbor kreće od male tabele bez ijednog uslova, uslov spoja spada na kraj kao zaseban filter, a plan
+postaje udžbenički loš, iako su podaci, indeksi i upit isti [@mysql84refman]. Odnos cena dva plana je
+reda 150 prema 1, i taj odnos, a ne apsolutne cene zavisne od stanja bafer pula, jeste ono što je
+stabilno.
+
+## 3.6. Šta je ostavljeno za naredna poglavlja
+
+Tri teme su ovde dodirnute, a namerno nedovršene, da poglavlje ne bi preuzelo posao narednih.
+Čitanje `EXPLAIN` ispisa kao dijagnostike, zajedno sa razlikom između procenjenog i stvarnog broja
+torki, predmet je poglavlja 4; ovde je `EXPLAIN` korišćen samo kao prozor u odluku. Način na koji se
+izabrani plan izvršava, kroz stablo iteratora, obrađuje poglavlje 5. Najzad, hipergrafski optimizator
+spoja *(hypergraph join optimizer)*, novi planer koji bi trebalo da zameni opisanu pretragu, postoji
+u kodu MySQL-a 8.4, ali je u izdanjima koja nisu razvojna isključen već pri prevođenju: pokušaj da se
+uključi vraća grešku, a ne upozorenje [@mysql84refman]. U ovom radu navodi se kao dokumentovana
+činjenica vezana za verziju 8.4, a ne kao nešto što je demonstrirano.
+
 # 4. EXPLAIN i EXPLAIN ANALYZE
 
 # 5. Iterator model i pipeline operatora

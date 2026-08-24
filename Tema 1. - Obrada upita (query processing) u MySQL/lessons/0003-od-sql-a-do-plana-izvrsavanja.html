@@ -40,7 +40,7 @@
     <span>Priprema uslova, procena broja torki, izbor strategija. Odavde nadalje sve odluke imaju
       <strong>cenu</strong>.</span></li>
   <li><b>Planer · <code>Optimize_table_order</code>, <code>sql_planner.cc</code></b>
-    <span><strong>Redosled spoja</strong> i <strong>pristupni put</strong> po tabeli. Potfaza koju
+    <span><strong>Redosled spoja</strong> i <strong>pristupni put</strong> po tabeli. Podfaza koju
       poziva optimizator, ali sa svojim imenom i svojim algoritmom.</span></li>
   <li><b>Izvršilac · <code>sql_executor.cc</code>, <code>sql/iterators/</code></b>
     <span>Plan postaje stablo iteratora koje povlači torku po torku. Cela Lekcija 05.</span></li>
@@ -85,7 +85,7 @@
     <p class="interpret"><code>optimizer_trace</code> je dnevnik koji optimizator vodi o samom sebi.
       Na njegovom vrhu stoje <strong>tačno tri</strong> koraka, a imena im daje server, ne mi.
       <code>join_preparation</code> je faza 2 iz spiska gore; <code>join_optimization</code> pokriva
-      faze 3 i 4 (planer je potfaza optimizatora, pa nema svoj korak u tragu);
+      faze 3 i 4 (planer je podfaza optimizatora, pa nema svoj korak u tragu);
       <code>join_execution</code> je faza 5. Parser nije u tragu jer trag počinje tek kad stablo
       već postoji. Taj isti trag ostaje nam prozor u odluke optimizatora do kraja lekcije.</p>
 
@@ -95,6 +95,22 @@
       traga je tema <strong>Poglavlja 4</strong>; ovde nam treba samo kao dokaz.</p>
   </div>
 </div>
+
+<figure class="fig">
+  <img src="../figures/03-od-sql-a-do-plana-04-pet-faza-pregled.svg"
+       alt="Dijagram: pet faza obrade upita kao cevovod odozgo nadole. Parser, pa Razrešavanje
+            (plava traka, obeleženo kao BEZ CENE, trajne transformacije). Isprekidana crvena linija
+            sa etiketom GRANICA CENE deli dijagram: od nje nadalje svaka odluka ima cenu. Ispod
+            granice, veliki okvir Optimizator (crvena traka) sadrži unutar sebe manji isprekidani
+            okvir Planer, obeležen kao njegova podfaza. Na dnu je Izvršilac. Desno od cevovoda,
+            uglaste zagrade pokazuju koji deo cevovoda pokriva svaki od tri koraka u
+            optimizer_trace: join_preparation pored Razrešavanja, join_optimization pored celog
+            okvira Optimizator+Planer, join_execution pored Izvršioca; napomena da parser nije u
+            tragu.">
+  <figcaption>Isti pet faza kao gore, ali sa jednom linijom povučenom preko sredine: sve iznad nje
+    menja oblik i radi se jednom, sve ispod nje bira po ceni i radi se pri svakom izvršavanju. Desna
+    kolona pokazuje kako se to poklapa sa tri koraka u <code>optimizer_trace</code> iz probe gore.</figcaption>
+</figure>
 
 <h2>2 · Parser: samo gramatika, nijedno ime</h2>
 <p>

@@ -131,6 +131,21 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   budget (reused official Figure 18.3 + ICP flame-graph pair). `mysql_parse()` deliberately not
   written (gone in 8.4). Second clean pass of the per-chapter loop.
 
+- [Chapter 3. Od SQL-a do plana izvršavanja](issues/12-sql-u-plan.md): the chapter where *how the
+  system chooses* becomes visible, written and closed. ~3.5 pages of `rad.md` in six subsections
+  built on one spine: **five named phases (parser, razrešavanje, optimizator, planer, izvršilac),
+  one cost line**. Everything above the line (parsing, and the *permanent* tree transformations that
+  live in **resolution**, not a separate rewrite pass, per WL#7082's memory-lifetime reason) changes
+  the statement's shape once; everything below (access path, join order) is chosen by **cena**, a sum
+  of published `server_cost`/`engine_cost` constants times measured quantities. Two cost decisions
+  shown flipping live: the access-path crossover (`cause: "cost"`, the ticket's required two-path
+  example, Slika 3.2) and join-order search (depth 62 = MAX_TABLES+1, the 150:1 depth-1 result). New
+  citation `mysqlwl7082` (WL#7082, a citable published worklog) added, alongside the manual and source
+  tree. Two of four lesson figures carried at the 2-figure budget; Slika 3.1 (pipeline diagram) was a
+  hand-built SVG rasterized to PNG, with two em dashes stripped from the figure text first (rule 8).
+  Third clean pass of the per-chapter loop; the transformation-vs-strategy line and the "cost varies
+  between runs" caveat hand off to chapter 4.
+
 ## Not yet specified
 
 - **Lesson-to-chapter cadence.** One teach lesson per chapter is the assumption, but the thin
