@@ -1,0 +1,133 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' width='1300' height='1016' viewBox='0 0 1300 1016'>
+<rect width='1300' height='1016' fill='#ffffff'/>
+<text x='650' y='44' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='25' font-weight='bold' fill='#1a1a1a'>Dvanaest tipova pristupa, od najboljeg do najgoreg</text>
+<text x='650' y='70' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' fill='#5a564c'>sve vrednosti koje kolona type mo&#382;e da uzme, svaka izmerena na svom upitu nad bazom sakila (MySQL 8.4.11)</text>
+<text x='84' y='106' font-family="Georgia, 'Times New Roman', serif" font-size='12' font-weight='bold' fill='#8a8578' letter-spacing='0.08em'>TYPE</text>
+<text x='272' y='106' font-family="Georgia, 'Times New Roman', serif" font-size='12' font-weight='bold' fill='#8a8578' letter-spacing='0.08em'>KEY</text>
+<text x='594' y='106' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='12' font-weight='bold' fill='#8a8578' letter-spacing='0.08em'>ROWS</text>
+<text x='636' y='106' font-family="Georgia, 'Times New Roman', serif" font-size='12' font-weight='bold' fill='#8a8578' letter-spacing='0.08em'>FILTERED</text>
+<text x='716' y='106' font-family="Georgia, 'Times New Roman', serif" font-size='12' font-weight='bold' fill='#8a8578' letter-spacing='0.08em'>EXTRA</text>
+<line x1='26' y1='114' x2='1274' y2='114' stroke='#1a1a1a' stroke-width='1.2'/>
+<rect x='26' y='134' width='5' height='46' fill='#1f5c7a'/>
+<text x='64' y='155' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#8a8578'>1.</text>
+<text x='84' y='156' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16.5' font-weight='bold' fill='#1f5c7a'>system</text>
+<text x='272' y='155' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>-</text>
+<text x='594' y='155' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>1</text>
+<text x='636' y='155' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>100.00</text>
+<text x='716' y='155' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>-</text>
+<text x='84' y='176' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#8a8578'>SELECT * FROM (SELECT 1 AS x) AS d</text>
+<line x1='26' y1='188' x2='1274' y2='188' stroke='#d8d3c8' stroke-width='1'/>
+<rect x='26' y='194' width='5' height='46' fill='#1f5c7a'/>
+<text x='64' y='215' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#8a8578'>2.</text>
+<text x='84' y='216' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16.5' font-weight='bold' fill='#1f5c7a'>const</text>
+<text x='272' y='215' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>PRIMARY</text>
+<text x='594' y='215' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>1</text>
+<text x='636' y='215' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>100.00</text>
+<text x='716' y='215' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>-</text>
+<text x='84' y='236' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#8a8578'>SELECT * FROM film_actor WHERE actor_id = 1 AND film_id = 1</text>
+<line x1='26' y1='248' x2='1274' y2='248' stroke='#d8d3c8' stroke-width='1'/>
+<rect x='26' y='254' width='5' height='46' fill='#2e6b2e'/>
+<text x='64' y='275' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#8a8578'>3.</text>
+<text x='84' y='276' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16.5' font-weight='bold' fill='#2e6b2e'>eq_ref</text>
+<text x='272' y='275' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>PRIMARY</text>
+<text x='594' y='275' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>1</text>
+<text x='636' y='275' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>100.00</text>
+<text x='716' y='275' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>-</text>
+<text x='84' y='296' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#8a8578'>... film_actor fa JOIN film f ON f.film_id = fa.film_id WHERE fa.actor_id = 1</text>
+<line x1='26' y1='308' x2='1274' y2='308' stroke='#d8d3c8' stroke-width='1'/>
+<rect x='26' y='314' width='5' height='46' fill='#b07d1a'/>
+<text x='64' y='335' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#8a8578'>4.</text>
+<text x='84' y='336' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16.5' font-weight='bold' fill='#b07d1a'>ref</text>
+<text x='272' y='335' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>PRIMARY</text>
+<text x='594' y='335' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>19</text>
+<text x='636' y='335' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>100.00</text>
+<text x='716' y='335' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>-</text>
+<text x='84' y='356' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#8a8578'>SELECT * FROM film_actor WHERE actor_id = 1</text>
+<line x1='26' y1='368' x2='1274' y2='368' stroke='#d8d3c8' stroke-width='1'/>
+<rect x='26' y='374' width='5' height='46' fill='#b07d1a'/>
+<text x='64' y='395' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#8a8578'>5.</text>
+<text x='84' y='396' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16.5' font-weight='bold' fill='#b07d1a'>fulltext</text>
+<text x='272' y='395' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>idx_title_description</text>
+<text x='594' y='395' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>1</text>
+<text x='636' y='395' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>100.00</text>
+<text x='716' y='395' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>Using where; Ft_hints: sorted</text>
+<text x='84' y='416' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#8a8578'>... film_text WHERE MATCH(title, description) AGAINST ('astronaut')</text>
+<line x1='26' y1='428' x2='1274' y2='428' stroke='#d8d3c8' stroke-width='1'/>
+<rect x='26' y='434' width='5' height='46' fill='#b07d1a'/>
+<text x='64' y='455' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#8a8578'>6.</text>
+<text x='84' y='456' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16.5' font-weight='bold' fill='#b07d1a'>ref_or_null</text>
+<text x='272' y='455' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>fk_payment_rental</text>
+<text x='594' y='455' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>2</text>
+<text x='636' y='455' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>100.00</text>
+<text x='716' y='455' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>Using index condition</text>
+<text x='84' y='476' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#8a8578'>SELECT * FROM payment WHERE rental_id = 1 OR rental_id IS NULL</text>
+<line x1='26' y1='488' x2='1274' y2='488' stroke='#d8d3c8' stroke-width='1'/>
+<rect x='26' y='494' width='5' height='46' fill='#b07d1a'/>
+<text x='64' y='515' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#8a8578'>7.</text>
+<text x='84' y='516' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16.5' font-weight='bold' fill='#b07d1a'>index_merge</text>
+<text x='272' y='515' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>idx_fk_customer_id,idx_fk_inventory_id</text>
+<text x='594' y='515' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>36</text>
+<text x='636' y='515' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>100.00</text>
+<text x='716' y='515' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>Using union(idx_fk_customer_id,idx_fk_inventory_id); Using where</text>
+<text x='84' y='536' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#8a8578'>SELECT * FROM rental WHERE customer_id = 1 OR inventory_id = 100</text>
+<line x1='26' y1='548' x2='1274' y2='548' stroke='#d8d3c8' stroke-width='1'/>
+<rect x='26' y='554' width='5' height='46' fill='#2e6b2e'/>
+<text x='64' y='575' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#8a8578'>8.</text>
+<text x='84' y='576' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16.5' font-weight='bold' fill='#2e6b2e'>unique_subquery</text>
+<text x='272' y='575' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>PRIMARY</text>
+<text x='594' y='575' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>1</text>
+<text x='636' y='575' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>100.00</text>
+<text x='716' y='575' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>Using index</text>
+<text x='84' y='596' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#8a8578'>... actor a WHERE a.actor_id IN (SELECT fa.actor_id FROM film_actor fa WHERE fa.film_id = 42)  &#183;  uz semijoin=off</text>
+<line x1='26' y1='608' x2='1274' y2='608' stroke='#d8d3c8' stroke-width='1'/>
+<rect x='26' y='614' width='5' height='46' fill='#b07d1a'/>
+<text x='64' y='635' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#8a8578'>9.</text>
+<text x='84' y='636' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16.5' font-weight='bold' fill='#b07d1a'>index_subquery</text>
+<text x='272' y='635' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>idx_fk_country_id</text>
+<text x='594' y='635' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>5</text>
+<text x='636' y='635' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>100.00</text>
+<text x='716' y='635' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>Using index</text>
+<text x='84' y='656' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#8a8578'>... country c WHERE c.country_id IN (SELECT ci.country_id FROM city ci)  &#183;  uz semijoin=off</text>
+<line x1='26' y1='668' x2='1274' y2='668' stroke='#d8d3c8' stroke-width='1'/>
+<rect x='26' y='674' width='5' height='46' fill='#b07d1a'/>
+<text x='64' y='695' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#8a8578'>10.</text>
+<text x='84' y='696' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16.5' font-weight='bold' fill='#b07d1a'>range</text>
+<text x='272' y='695' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>PRIMARY</text>
+<text x='594' y='695' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>50</text>
+<text x='636' y='695' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>100.00</text>
+<text x='716' y='695' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>Using where</text>
+<text x='84' y='716' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#8a8578'>SELECT * FROM film WHERE film_id BETWEEN 1 AND 50</text>
+<line x1='26' y1='728' x2='1274' y2='728' stroke='#d8d3c8' stroke-width='1'/>
+<rect x='26' y='734' width='5' height='46' fill='#7a1f1f'/>
+<text x='64' y='755' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#8a8578'>11.</text>
+<text x='84' y='756' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16.5' font-weight='bold' fill='#7a1f1f'>index</text>
+<text x='272' y='755' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>idx_title</text>
+<text x='594' y='755' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>1000</text>
+<text x='636' y='755' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>100.00</text>
+<text x='716' y='755' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>Using index</text>
+<text x='84' y='776' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#8a8578'>SELECT title FROM film ORDER BY title</text>
+<line x1='26' y1='788' x2='1274' y2='788' stroke='#d8d3c8' stroke-width='1'/>
+<rect x='26' y='794' width='5' height='46' fill='#7a1f1f'/>
+<text x='64' y='815' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#8a8578'>12.</text>
+<text x='84' y='816' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16.5' font-weight='bold' fill='#7a1f1f'>ALL</text>
+<text x='272' y='815' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>-</text>
+<text x='594' y='815' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>1000</text>
+<text x='636' y='815' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>11.11</text>
+<text x='716' y='815' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>Using where</text>
+<text x='84' y='836' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#8a8578'>SELECT * FROM film WHERE description LIKE '%robot%'</text>
+<line x1='26' y1='848' x2='1274' y2='848' stroke='#1a1a1a' stroke-width='1.2'/>
+<text x='26' y='882' font-family="Georgia, 'Times New Roman', serif" font-size='13' font-weight='bold' fill='#1a1a1a'>Boja ka&#382;e koliko torki jedan pristup mo&#382;e da vrati:</text>
+<rect x='26' y='898' width='11' height='11' fill='#1f5c7a'/>
+<text x='46' y='908' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#5a564c'>najvi&#353;e jedna torka, jednom po upitu</text>
+<rect x='26' y='919' width='11' height='11' fill='#2e6b2e'/>
+<text x='46' y='929' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#5a564c'>najvi&#353;e jedna torka, po spoljnoj torki</text>
+<rect x='26' y='940' width='11' height='11' fill='#b07d1a'/>
+<text x='46' y='950' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#5a564c'>vi&#353;e torki, ali kroz indeks</text>
+<rect x='26' y='961' width='11' height='11' fill='#7a1f1f'/>
+<text x='46' y='971' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#5a564c'>cela struktura se pro&#269;ita</text>
+<text x='1274' y='908' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='12.5' fill='#5a564c'>Redosled je onaj iz priru&#269;nika, a ne redosled cena: range nad 50 torki je jeftiniji</text>
+<text x='1274' y='927' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='12.5' fill='#5a564c'>od ref nad pet miliona. Tip govori o obliku pristupa, cenu ra&#269;una model cene.</text>
+<text x='1274' y='953' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='12.5' fill='#5a564c'>Rangovi 8 i 9 postoje samo ako se transformacija u poluspoj isklju&#269;i: ina&#269;e</text>
+<text x='1274' y='972' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='12.5' fill='#5a564c'>ona pojede podupit pre nego &#353;to se tip pristupa uop&#353;te bira.</text>
+</svg>
+

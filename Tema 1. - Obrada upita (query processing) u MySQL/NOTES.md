@@ -152,4 +152,25 @@ graded - `MISSION.md` and `RESOURCES.md` are the documents that matter for plann
   - **4c - optimizer_trace**: `optimizer_trace` + `EXPLAIN FOR CONNECTION`, what trace shows that
     `EXPLAIN` never does (rejected plans and their costs). Smaller; may fold into 4b if thin -
     decide after 4b is taught.
-  Next session: run 4a's prompt above.
+  Next session: run 4b's prompt (`/teach EXPLAIN ANALYZE in MySQL`). 4a is taught, see LR-0004.
+- **`explain_json_format_version = 2` WORKS on 8.4.11 (verified 2026-08-24, during lesson 0004).**
+  This closes one of the two things `WORKFLOW.md` listed as "still needs checking against your live
+  server once it is installed". Default on this server is `1`; `SET explain_json_format_version = 2`
+  is accepted and produces the iterator-shaped JSON (the same tree `FORMAT=TREE` prints). Session
+  scope. **The trap chapter 4 must not fall into:** the key `access_type` means two different things
+  in the two versions. In v1 it holds the traditional access type (`ALL`, `eq_ref`); in v2 it holds
+  the **iterator kind** (`table`, `filter`, `join`, `index`) and the traditional value moves to
+  `index_access_type` (`index_lookup`). Any JSON output quoted in `rad.md` has to name its version.
+  (The other still-unchecked item from ticket 01, the "estimates off by 3x" rule of thumb, is 4b's
+  business.)
+- **Self-verifying figure scripts (pattern introduced 2026-08-24, lesson 0004):**
+  `tools/make-lesson04-access-types.ps1` declares, per figure row, the `EXPLAIN` access type that
+  row is supposed to produce, and throws if the live server produces anything else. So a query that
+  goes stale (schema change, optimizer change, different dataset) breaks the figure build instead of
+  silently rendering a wrong figure. Worth copying in later chapters wherever a figure asserts a
+  specific value rather than just plotting whatever comes back.
+- **`table.exp` is no longer scoped to `.try` (`assets/lesson.css`, 2026-08-24).** Lesson 04 needed
+  the same two-column term/meaning table in the lesson body (for `EXPLAIN`'s 12 columns and the
+  `Extra` values), not only inside a "Probaj u Workbench-u" block. The selector is now unscoped,
+  with `body > table.exp td:first-child` getting a wider first column since a code identifier needs
+  more room than a short label. Existing `.try` tables are unaffected.

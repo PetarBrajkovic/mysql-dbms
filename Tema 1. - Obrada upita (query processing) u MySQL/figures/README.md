@@ -44,6 +44,16 @@ headless-Edge rasterization step for the PNG the Word doc needs:
   case where myflames' own runtime-based `compare` view would mislead). Same output convention:
   PNG + SVG twin into `figures/`, raw JSON + sidecar into `figures/raw/`.
 
+- **Comparisons across many separate plans** (rather than one plan's shape) -> also a dedicated
+  script, since myflames only ever draws one plan. `tools/make-lesson04-access-types.ps1` runs
+  twelve `EXPLAIN`s to build the ranked access-type ladder, and
+  `tools/make-lesson04-three-formats.ps1` runs the same query in all three formats to show that two
+  of them are table-shaped and one is iterator-shaped. Both hand-write the SVG, then rasterize
+  through the same headless-Edge step. **The access-type script is self-verifying**: each row
+  declares the access type it must produce and the script throws if the live server produces
+  anything else, so a stale query breaks the build instead of silently rendering a wrong figure -
+  worth copying wherever a figure asserts a specific value.
+
 All scripts write the figure straight into `figures/` under the naming convention below - nothing
 to rename or file by hand.
 

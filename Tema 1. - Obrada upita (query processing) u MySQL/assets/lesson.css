@@ -279,10 +279,15 @@ pre.out .dim { color: #8a8578; }
 .try .scope { margin-top: 1rem; font-size: 0.85rem; color: var(--ink-soft);
   border-top: 1px dashed var(--rule); padding-top: 0.7rem; }
 .try .scope b { color: var(--ink); }
-.try table.exp { border-collapse: collapse; width: 100%; font-size: 0.88rem; margin: 0.4rem 0; }
-.try table.exp td { border: 1px solid var(--rule); padding: 0.45rem 0.6rem; vertical-align: top; }
-.try table.exp td:first-child { width: 8.5rem; font-weight: 600;
+/* Two-column term/meaning table. Started life inside .try blocks; unscoped since lesson 04, which
+   needs the same table in the body to lay out EXPLAIN's columns and Extra values. */
+table.exp { border-collapse: collapse; width: 100%; font-size: 0.88rem; margin: 1rem 0; }
+table.exp td { border: 1px solid var(--rule); padding: 0.45rem 0.6rem; vertical-align: top; }
+table.exp td:first-child { width: 8.5rem; font-weight: 600;
   font-family: ui-sans-serif, system-ui, sans-serif; }
+.try table.exp { margin: 0.4rem 0; }
+/* In the body the first column carries a code identifier, which needs more room than a label. */
+body > table.exp td:first-child { width: 12.5rem; }
 
 /* --- Figures --------------------------------------------------------------- */
 .fig { margin: 0.9rem 0 1.2rem; text-align: center; }

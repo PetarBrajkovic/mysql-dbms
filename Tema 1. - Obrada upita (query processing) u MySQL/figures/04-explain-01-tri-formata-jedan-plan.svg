@@ -1,0 +1,64 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' width='1260' height='764' viewBox='0 0 1260 764'>
+<rect width='1260' height='764' fill='#ffffff'/>
+<text x='630' y='42' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='25' font-weight='bold' fill='#1a1a1a'>Jedan plan, tri formata, dva razli&#269;ita oblika</text>
+<text x='630' y='68' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#5a564c'>SELECT c.first_name, c.last_name, p.amount FROM customer c JOIN payment p ON p.customer_id = c.customer_id WHERE p.amount &gt; 10</text>
+<text x='210' y='96' font-family="Georgia, 'Times New Roman', serif" font-size='15' font-weight='bold' fill='#1f5c7a'>1 &#183; EXPLAIN (podrazumevano, tabelarno)</text>
+<text x='540' y='96' font-family="Georgia, 'Times New Roman', serif" font-size='12.5' fill='#8a8578'>prikazano 6 od 12 kolona</text>
+<text x='210' y='122' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' font-weight='bold' fill='#8a8578' letter-spacing='0.07em'>TABLE</text>
+<text x='306' y='122' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' font-weight='bold' fill='#8a8578' letter-spacing='0.07em'>TYPE</text>
+<text x='446' y='122' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' font-weight='bold' fill='#8a8578' letter-spacing='0.07em'>KEY</text>
+<text x='610' y='122' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' font-weight='bold' fill='#8a8578' letter-spacing='0.07em'>ROWS</text>
+<text x='700' y='122' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' font-weight='bold' fill='#8a8578' letter-spacing='0.07em'>FILTERED</text>
+<text x='800' y='122' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' font-weight='bold' fill='#8a8578' letter-spacing='0.07em'>EXTRA</text>
+<line x1='210' y1='128' x2='1226' y2='128' stroke='#d8d3c8' stroke-width='1'/>
+<text x='210' y='153' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan>p</tspan></text>
+<text x='306' y='153' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan>ALL</tspan></text>
+<text x='446' y='153' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan>NULL</tspan></text>
+<text x='610' y='153' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan fill='#7a1f1f' font-weight='bold'>16500</tspan></text>
+<text x='700' y='153' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan fill='#7a1f1f' font-weight='bold'>33.33</tspan></text>
+<text x='800' y='153' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan>Using where</tspan></text>
+<text x='210' y='178' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan>c</tspan></text>
+<text x='306' y='178' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan>eq_ref</tspan></text>
+<text x='446' y='178' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan>PRIMARY</tspan></text>
+<text x='610' y='178' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan>1</tspan></text>
+<text x='700' y='178' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan>100.00</tspan></text>
+<text x='800' y='178' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan>NULL</tspan></text>
+<line x1='210' y1='188' x2='1226' y2='188' stroke='#d8d3c8' stroke-width='1'/>
+<text x='210' y='232' font-family="Georgia, 'Times New Roman', serif" font-size='15' font-weight='bold' fill='#1f5c7a'>2 &#183; EXPLAIN FORMAT=JSON (verzija 1, podrazumevana)</text>
+<text x='700' y='232' font-family="Georgia, 'Times New Roman', serif" font-size='12.5' fill='#8a8578'>skra&#269;eno na polja koja nose odluku</text>
+<text x='210' y='259' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'><tspan>{ "query_block": {</tspan></text>
+<text x='210' y='278' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'><tspan>    "cost_info": { "query_cost": "3671.81" },</tspan></text>
+<text x='210' y='297' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'><tspan>    "nested_loop": [</tspan></text>
+<text x='210' y='316' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'><tspan>      { "table": {</tspan></text>
+<text x='210' y='335' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'><tspan>          "table_name": "p", "access_type": "ALL",</tspan></text>
+<text x='210' y='354' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'><tspan>          "rows_examined_per_scan": </tspan><tspan fill='#7a1f1f' font-weight='bold'>16500</tspan><tspan>, "filtered": "</tspan><tspan fill='#7a1f1f' font-weight='bold'>33.33</tspan><tspan>",</tspan></text>
+<text x='210' y='373' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'><tspan>          "rows_produced_per_join": </tspan><tspan fill='#7a1f1f' font-weight='bold'>5499</tspan><tspan>,</tspan></text>
+<text x='210' y='392' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'><tspan>          "attached_condition": "(sakila.p.amount &gt; 10.00)" } },</tspan></text>
+<text x='210' y='411' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'><tspan>      { "table": {</tspan></text>
+<text x='210' y='430' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'><tspan>          "table_name": "c", "access_type": "eq_ref",</tspan></text>
+<text x='210' y='449' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'><tspan>          "key": "PRIMARY", "key_length": "2",</tspan></text>
+<text x='210' y='468' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'><tspan>          "ref": ["sakila.p.customer_id"],</tspan></text>
+<text x='210' y='487' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'><tspan>          "rows_examined_per_scan": 1, "filtered": "100.00" } }</tspan></text>
+<text x='210' y='506' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'><tspan>    ] } }</tspan></text>
+<text x='210' y='560' font-family="Georgia, 'Times New Roman', serif" font-size='15' font-weight='bold' fill='#2e6b2e'>3 &#183; EXPLAIN FORMAT=TREE (isti sadr&#382;aj kao FORMAT=JSON verzije 2)</text>
+<text x='210' y='590' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan>-&gt; Nested loop inner join  (cost=3672 rows=</tspan><tspan fill='#7a1f1f' font-weight='bold'>5499</tspan><tspan>)</tspan></text>
+<text x='210' y='612' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan>    -&gt; Filter: (p.amount &gt; 10.00)  (cost=1747 rows=</tspan><tspan fill='#7a1f1f' font-weight='bold'>5499</tspan><tspan>)</tspan></text>
+<text x='210' y='634' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan>        -&gt; Table scan on p  (cost=1747 rows=</tspan><tspan fill='#7a1f1f' font-weight='bold'>16500</tspan><tspan>)</tspan></text>
+<text x='210' y='656' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'><tspan>    -&gt; Single-row index lookup on c using PRIMARY (customer_id=p.customer_id)  (cost=0.25 rows=1)</tspan></text>
+<line x1='42' y1='82' x2='42' y2='516' stroke='#1f5c7a' stroke-width='3'/>
+<text x='56' y='228' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' font-weight='bold' fill='#1f5c7a'>jedan red</text>
+<text x='56' y='247' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' font-weight='bold' fill='#1f5c7a'>po TABELI</text>
+<text x='56' y='270' font-family="Georgia, 'Times New Roman', serif" font-size='12.5' fill='#5a564c'>2 reda, 2 tabele</text>
+<text x='56' y='292' font-family="Georgia, 'Times New Roman', serif" font-size='12' fill='#8a8578'>oblik iz 5.6:</text>
+<text x='56' y='308' font-family="Georgia, 'Times New Roman', serif" font-size='12' fill='#8a8578'>filter nema red</text>
+<line x1='42' y1='546' x2='42' y2='666' stroke='#2e6b2e' stroke-width='3'/>
+<text x='56' y='587' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' font-weight='bold' fill='#2e6b2e'>jedan &#269;vor</text>
+<text x='56' y='606' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' font-weight='bold' fill='#2e6b2e'>po ITERATORU</text>
+<text x='56' y='629' font-family="Georgia, 'Times New Roman', serif" font-size='12.5' fill='#5a564c'>4 &#269;vora, iste tabele</text>
+<text x='56' y='651' font-family="Georgia, 'Times New Roman', serif" font-size='12' fill='#8a8578'>oblik koji se</text>
+<text x='56' y='667' font-family="Georgia, 'Times New Roman', serif" font-size='12' fill='#8a8578'>stvarno izvr&#353;ava</text>
+<rect x='34' y='684' width='1192' height='54' fill='#7a1f1f' opacity='0.06'/>
+<text x='630' y='708' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16' font-weight='bold' fill='#7a1f1f'>16500 &#215; 33.33% = 5499</text>
+<text x='630' y='730' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>Isti broj u sva tri formata. U tabelarnom ga treba izra&#269;unati, u JSON-u stoji kao rows_produced_per_join, a u stablu ima svoj &#269;vor: Filter.</text>
+</svg>
+

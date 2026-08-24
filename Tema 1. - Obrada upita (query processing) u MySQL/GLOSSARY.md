@@ -175,6 +175,51 @@ Four deliberate non-choices, recorded so they are not "fixed" later:
   is what the search actually does to a branch of the plan tree, and it reads as a search-algorithm
   term rather than a gardening one.
 
+### 2c. EXPLAIN vocabulary (locked 2026-08-24, chapter 4)
+
+Added while teaching chapter 4, first lesson (lesson `0004`). Same pattern as §2: Serbian term,
+English original in parentheses on first use only. The decks have *pristupni put* and *sken preko
+indeksa* (§1), but nothing for `EXPLAIN`'s own output vocabulary, so the rest is new coinage.
+
+| Concept | Serbian term (first use) | After first use |
+|---|---|---|
+| Access type (the `type` column) | tip pristupa *(access type)* | tip pristupa |
+| Output format (of `EXPLAIN`) | format ispisa | format ispisa |
+| Tabular / traditional format | tabelarni format | tabelarni format |
+| Covering index | pokrivajući indeks *(covering index)* | pokrivajući indeks |
+| Index lookup | pretraga po indeksu *(index lookup)* | pretraga po indeksu |
+| Index merge | spajanje indeksa *(index merge)* | spajanje indeksa |
+| Key length | dužina ključa (`key_len`) | dužina ključa |
+| Leftmost prefix (of a key) | levi prefiks ključa | levi prefiks |
+| Row estimate | procena broja torki | procena broja torki |
+| Temporary table | privremena tabela | privremena tabela |
+| Join buffer | bafer spoja *(join buffer)* | bafer spoja |
+| Full-text index | `FULLTEXT` indeks | `FULLTEXT` indeks |
+| Iterator (one node of the tree) | iterator | iterator |
+
+Four deliberate non-choices, recorded so they are not "fixed" later:
+
+- **"access type" is `tip pristupa`, not `tip spoja`, even though the manual's own column
+  documentation calls `type` the "join type".** The value describes how *one* table is reached, not
+  how *two* tables are joined, and `tip spoja` would collide head-on with §1's join algorithms
+  (*spoj sa ugnježdenom petljom* and the rest). The manual's name is a historical artifact; using it
+  in Serbian would import a confusion that the English does not force on a careful reader.
+- **`pretraga po indeksu` (index lookup) is a different term from §1's `sken preko indeksa`
+  (index scan), and the two must not be merged.** A lookup is one targeted probe that lands on a
+  key; a scan reads a run of entries. Chapter 4 turns on exactly that difference (`ref`/`eq_ref`
+  against `index`/`range`), so collapsing them into one Serbian word would erase the chapter's
+  point.
+- **`filesort` stays untranslated, in code font.** It is the literal string MySQL prints in
+  `Extra`, and every plausible translation (*sortiranje u fajl*) asserts something false: MySQL
+  sorts in memory whenever the result fits and only spills to disk when it does not. Same class of
+  decision as `handler` in §2a: a name, not a concept word.
+- **Column names and `Extra` values stay verbatim, in code font**, and are never translated:
+  `type`, `key`, `key_len`, `rows`, `filtered`, `possible_keys`, `Extra`, `Using index`,
+  `Using index condition`, `Using where`, `Using temporary`, `Using filesort`. Same rule as the
+  `optimizer_trace` keys in §2b: the reader has to recognise these strings in real output, so a
+  translation would break the link to what the server actually prints. Serbian prose explains them,
+  it does not replace them.
+
 ## 3. Hard constraint — plan cache vs. parse-tree cache (chapter 8)
 
 Research ticket 06 confirms, does not contradict, the assumption in ticket 17: MySQL has **no shared

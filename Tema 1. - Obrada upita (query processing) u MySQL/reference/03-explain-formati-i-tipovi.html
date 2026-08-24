@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referenca — EXPLAIN: formati, kolone, tipovi pristupa</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica</p>
+<h1>Kako se čita <code>EXPLAIN</code></h1>
+<p class="subtitle">Sažeta suština za pisanje i odbranu Poglavlja 4. Sve vrednosti su iz priručnika za 8.4, a sve izmerene brojke sa tvog servera nad bazom <code>sakila</code>.</p>
+
+<h2>Tri formata</h2>
+<table>
+  <tr><td><code>EXPLAIN</code> (podrazumevano)</td><td>tabelarno · po tabeli · 12 kolona</td></tr>
+  <tr><td><code>EXPLAIN FORMAT=JSON</code> (verzija 1)</td><td>po tabeli · isto + cene</td></tr>
+  <tr><td><code>EXPLAIN FORMAT=JSON</code> (verzija 2, od 8.3)</td><td>po iteratoru · stablo u JSON-u</td></tr>
+  <tr><td><code>EXPLAIN FORMAT=TREE</code></td><td>po iteratoru · isto, za čitanje</td></tr>
+  <tr><td>prebacivanje verzije JSON-a</td><td><code>SET explain_json_format_version = 2</code></td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Rečenica koju treba umeti napamet</span>
+  Tabelarni format i JSON verzije 1 daju <strong>jedan red po tabeli</strong>, i to je oblik iz
+  MySQL-a 5.6, u kom filter nema svoj red. <code>FORMAT=TREE</code> i JSON verzije 2 daju
+  <strong>jedan čvor po iteratoru</strong>, dakle oblik koji se stvarno izvršava. Most je
+  aritmetika: <code>rows × filtered / 100</code> iz tabelarnog ispisa jednako je proceni čvora
+  <code>Filter</code> u stablu (izmereno: <code>16.500 × 33,33% = 5.499</code>).
+</div>
+
+<h2>Dvanaest kolona tabelarnog ispisa</h2>
+<table>
+  <tr><td><code>id</code></td><td>redni broj bloka upita</td></tr>
+  <tr><td><code>select_type</code></td><td><code>SIMPLE</code>, <code>PRIMARY</code>, <code>SUBQUERY</code>, <code>DEPENDENT SUBQUERY</code>, <code>DERIVED</code>, <code>UNION</code></td></tr>
+  <tr><td><code>table</code></td><td>tabela, alias, ili <code>&lt;derivedN&gt;</code></td></tr>
+  <tr><td><code>partitions</code></td><td>particije; <code>NULL</code> ako tabela nije particionisana</td></tr>
+  <tr><td><code>type</code> <span class="hi">odluka</span></td><td>tip pristupa; spisak ispod</td></tr>
+  <tr><td><code>possible_keys</code></td><td>upotrebljivi <strong>kandidati</strong></td></tr>
+  <tr><td><code>key</code> <span class="hi">odluka</span></td><td><strong>pobednik</strong>; <code>NULL</code> = nijedan</td></tr>
+  <tr><td><code>key_len</code></td><td>bajtova ključa u upotrebi; kolona sa <code>NULL</code>-om troši +1</td></tr>
+  <tr><td><code>ref</code></td><td><code>const</code>, kolona prethodne tabele, ili <code>func</code></td></tr>
+  <tr><td><code>rows</code> <span class="hi">odluka</span></td><td>procena pročitanih torki</td></tr>
+  <tr><td><code>filtered</code> <span class="hi">odluka</span></td><td>procena, u procentima, koliko ih preživi uslov</td></tr>
+  <tr><td><code>Extra</code></td><td>sve ostalo; spisak ispod</td></tr>
+</table>
+
+<h2>Dvanaest tipova pristupa, redom iz priručnika</h2>
+<table>
+  <tr><td>1 · <code>system</code></td><td>tabela ima najviše jednu torku</td></tr>
+  <tr><td>2 · <code>const</code></td><td>ceo jedinstveni ključ = konstanta; čita se <strong>jednom po upitu</strong></td></tr>
+  <tr><td>3 · <code>eq_ref</code></td><td>ceo jedinstveni ključ = kolona; najviše jedna torka <strong>po spoljnoj torki</strong></td></tr>
+  <tr><td>4 · <code>ref</code></td><td>indeks nije jedinstven, ili samo levi prefiks; više torki</td></tr>
+  <tr><td>5 · <code>fulltext</code></td><td>preko <code>FULLTEXT</code> indeksa</td></tr>
+  <tr><td>6 · <code>ref_or_null</code></td><td>kao <code>ref</code>, uz dodatnu pretragu <code>NULL</code>-a</td></tr>
+  <tr><td>7 · <code>index_merge</code></td><td>dva indeksa odvojeno, pa spajanje rezultata</td></tr>
+  <tr><td>8 · <code>unique_subquery</code></td><td>podupit u <code>IN</code>, jedinstveni ključ</td></tr>
+  <tr><td>9 · <code>index_subquery</code></td><td>podupit u <code>IN</code>, indeks koji nije jedinstven</td></tr>
+  <tr><td>10 · <code>range</code></td><td>opseg kroz jedan indeks</td></tr>
+  <tr><td>11 · <code>index</code></td><td>ceo indeks od početka do kraja</td></tr>
+  <tr><td>12 · <code>ALL</code></td><td>sken tabele</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Ne napiši pogrešno</span>
+  <strong>(1)</strong> Redosled je <span class="hi">redosled oblika, ne redosled cena</span>.
+  <code>range</code> nad 50 torki je jeftiniji od <code>ref</code> nad pet miliona, a
+  <code>ALL</code> nad tabelom od tri reda je najjeftinije što postoji. Tip kaže koliko torki jedna
+  pretraga može da vrati; cenu računa model cene iz Poglavlja 3.
+  <strong>(2)</strong> Rangovi 8 i 9 se sa podrazumevanim podešavanjima <strong>ne mogu videti</strong>:
+  transformacija u poluspoj prepiše podupit još u fazi pripreme, dakle pre nego što se tip pristupa
+  bira. Za demonstraciju je potrebno <code>optimizer_switch='semijoin=off,materialization=off'</code>,
+  i to se navodi kao uslov merenja.
+  <strong>(3)</strong> <code>index</code> i <code>ALL</code> pregledaju <strong>isti broj zapisa</strong>;
+  <code>index</code> je jeftiniji samo zato što je indeks manji od torki.
+</div>
+
+<h2><code>Extra</code>: vrednosti koje nose značenje</h2>
+<table>
+  <tr><td><code>Using index</code></td><td>pokrivajući indeks; tabela se <strong>ne čita</strong></td></tr>
+  <tr><td><code>Using index condition</code></td><td>ICP: motor proverava uslov nad zapisom indeksa</td></tr>
+  <tr><td><code>Using where</code></td><td>serverski sloj filtrira posle motora</td></tr>
+  <tr><td><code>Using temporary</code></td><td>privremena tabela (<code>DISTINCT</code>, <code>GROUP BY</code>)</td></tr>
+  <tr><td><code>Using filesort</code></td><td>sortiranje bez indeksa; ime vara, ne mora da bude disk</td></tr>
+  <tr><td><code>Using join buffer (hash join)</code></td><td>uslov spoja bez indeksa</td></tr>
+  <tr><td><code>Using union(...)</code></td><td>ide uz <code>index_merge</code>; i <code>intersect</code>, <code>sort_union</code></td></tr>
+  <tr><td><code>Ft_hints: sorted</code></td><td>ide uz <code>fulltext</code></td></tr>
+  <tr><td><code>no matching row in const table</code></td><td>tabela sa <code>const</code> pristupom nema tu torku</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Tri reči koje liče</span>
+  Iste tri provere na tri različita mesta, i to je tačno šav iz Poglavlja 2:
+  <code>Using index</code> = uslov proveren <strong>u indeksu i samo u indeksu</strong>;
+  <code>Using index condition</code> = uslov proveren <strong>u motoru</strong>, nad zapisom indeksa,
+  pre nego što se uzme torka;
+  <code>Using where</code> = uslov proveren <strong>u serverskom sloju</strong>, nad torkom koju je
+  motor već predao.
+</div>
+
+<h2>Zamke JSON formata</h2>
+<table>
+  <tr><td>verzija 1 · <code>access_type</code></td><td><code>ALL</code>, <code>eq_ref</code> … (tip pristupa)</td></tr>
+  <tr><td>verzija 2 · <code>access_type</code></td><td><code>table</code>, <code>filter</code>, <code>join</code>, <code>index</code> (vrsta iteratora)</td></tr>
+  <tr><td>verzija 2 · <code>index_access_type</code></td><td><code>index_lookup</code> … (tip pristupa)</td></tr>
+  <tr><td>verzija 1 · koren i deca</td><td><code>query_block</code> → niz <code>nested_loop</code></td></tr>
+  <tr><td>verzija 2 · koren i deca</td><td>čvor → niz <code>inputs</code></td></tr>
+  <tr><td>verzija 1 · broj koji izlazi</td><td><code>rows_produced_per_join</code></td></tr>
+</table>
+
+<h2>Izmereno uživo (2026-08-24, MySQL 8.4.11, <code>sakila</code>)</h2>
+<table class="vals">
+  <tr><td><code>explain_json_format_version</code>, podrazumevano / moguće</td><td><code>1 / 2</code></td></tr>
+  <tr><td>Isti plan: redova tabelarno naspram čvorova u stablu</td><td><code>2 / 4</code></td></tr>
+  <tr><td><code>rows × filtered</code> = procena čvora <code>Filter</code></td><td><code>16.500 × 33,33% = 5.499</code></td></tr>
+  <tr><td><code>film_actor</code>, levi prefiks naspram celog ključa</td><td><code>key_len 2 / 4</code></td></tr>
+  <tr><td>Isti <code>key_len</code>, drugi tip pristupa</td><td><code>ref (19) / const (1)</code></td></tr>
+  <tr><td><code>payment.rental_id</code>, <code>INT</code> sa <code>NULL</code>-om</td><td><code>key_len 5</code></td></tr>
+  <tr><td>Podupit u <code>IN</code>: podrazumevano naspram <code>semijoin=off</code></td><td><code>SIMPLE / DEPENDENT SUBQUERY</code></td></tr>
+</table>
+
+<p class="meta">
+  Termini su zaključani u <a href="../GLOSSARY.md">GLOSSARY.md</a> §2c (tip pristupa, pokrivajući
+  indeks, pretraga po indeksu, spajanje indeksa, dužina ključa, privremena tabela …). Izvori:
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/explain-output.html">EXPLAIN Output Format</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/explain.html">EXPLAIN Statement</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/using-explain.html">Using EXPLAIN to Optimize Queries</a>,
+  <a href="https://dev.mysql.com/blog-archive/new-json-format-for-explain/">New JSON format for EXPLAIN</a>.
+  Upiti iza svake brojke: <code>examples/04-explain/01…03-*.sql</code>.
+  Napravljeno lekcijom <a href="../lessons/0004-explain-formati-i-tipovi-pristupa.html">0004</a>.
+</p>
+
+<style>
+  /* Same look as reference card 02, but the right column here holds a definition rather than a
+     single value, so it wraps and stays left-aligned. Tables whose right column really is one
+     short value get class="vals" and the old right-aligned treatment. */
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; margin: 0.8rem 0; }
+  td { border-bottom: 1px solid var(--rule); padding: 0.45rem 0.6rem; vertical-align: top; }
+  td:first-child { width: 15rem; }
+  td:last-child { color: var(--ink-soft); }
+  table.vals td:last-child { text-align: right; white-space: nowrap; }
+</style>
+
+<script src="../assets/copy.js"></script>
+</body>
+</html>

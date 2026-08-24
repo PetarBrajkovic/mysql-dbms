@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 04 — EXPLAIN: formati ispisa i tipovi pristupa</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 04 · Poglavlje 4 (EXPLAIN i EXPLAIN ANALYZE), prvi deo</p>
+<h1>Tri formata i dvanaest tipova pristupa</h1>
+<p class="subtitle">Poglavlje 3 je pokazalo <strong>kako</strong> se plan bira. Ovo poglavlje je o tome kako se gotov plan <strong>čita</strong>. Pre svake dijagnostike ide rečnik: koje formate ispisa <code>EXPLAIN</code> ima, šta znači svaka kolona, i šta tačno govori ono jedno polje u koje svi prvo gledaju.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Poglavlje 4 je najveće u radu, pa je podeljeno na tri lekcije. Ovo je <strong>prva</strong>, i ona
+  je namerno <span class="hi">samo rečnik</span>: nijedan stvarni broj se ovde ne meri, nego se uči
+  kako se ispis čita. Kad je završiš, treba da umeš da odgovoriš bez podsetnika:
+  <strong>(1)</strong> po čemu se tri formata razlikuju i zašto to nije stvar ukusa,
+  <strong>(2)</strong> koje kolone tabelarnog ispisa nose odluku, a koje su samo opis, i
+  <strong>(3)</strong> šta lestvica tipova pristupa jeste, a šta nije.
+  Merenje stvarnog naspram procenjenog dolazi u <strong>Lekciji 05</strong>
+  (<code>EXPLAIN ANALYZE</code>), a odbijeni planovi u <strong>Lekciji 06</strong>
+  (<code>optimizer_trace</code>).
+</div>
+
+<h2>1 · Tri formata, i zašto to nije stvar ukusa</h2>
+<p>
+  <code>EXPLAIN</code> ima tri formata ispisa: podrazumevani tabelarni,
+  <code>FORMAT=JSON</code> i <code>FORMAT=TREE</code>. Lako je pomisliti da su to tri pogleda na
+  istu stvar, pa da je izbor između njih pitanje toga šta se lepše čita. Nije. Dva od tri formata
+  prikazuju plan <strong>po tabeli</strong>, a treći <strong>po iteratoru</strong>, i to je razlika
+  u tome šta se uopšte može videti.
+</p>
+
+<p>
+  Najbrži način da se to oseti jeste pustiti isti upit kroz sva tri formata i prebrojati redove.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>sakila</code>. Nijedna naredba ne izvršava upit,
+      pa sve tri traju trenutak.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> sakila;
+
+<span class="c">-- (1) Tabelarni format, podrazumevani.</span>
+<span class="k">EXPLAIN SELECT</span> c.first_name, c.last_name, p.amount
+<span class="k">FROM</span>   customer c
+<span class="k">JOIN</span>   payment p <span class="k">ON</span> p.customer_id = c.customer_id
+<span class="k">WHERE</span>  p.amount &gt; 10;
+
+<span class="c">-- (2) Isti upit, JSON.</span>
+<span class="k">EXPLAIN FORMAT</span>=JSON <span class="k">SELECT</span> c.first_name, c.last_name, p.amount
+<span class="k">FROM</span>   customer c
+<span class="k">JOIN</span>   payment p <span class="k">ON</span> p.customer_id = c.customer_id
+<span class="k">WHERE</span>  p.amount &gt; 10;
+
+<span class="c">-- (3) Isti upit, stablo.</span>
+<span class="k">EXPLAIN FORMAT</span>=TREE <span class="k">SELECT</span> c.first_name, c.last_name, p.amount
+<span class="k">FROM</span>   customer c
+<span class="k">JOIN</span>   payment p <span class="k">ON</span> p.customer_id = c.customer_id
+<span class="k">WHERE</span>  p.amount &gt; 10;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">(1) tabelarno: dva reda, po jedan za svaku tabelu</span>
+table  type    key      rows   filtered  Extra
+p      ALL     NULL     <span class="em">16500</span>  <span class="em">33.33</span>     Using where
+c      eq_ref  PRIMARY      1  100.00    NULL
+
+<span class="dim">(3) stablo: cetiri cvora, i filter ima svoj</span>
+-&gt; Nested loop inner join  (cost=3672 rows=<span class="em">5499</span>)
+    -&gt; <span class="em">Filter: (p.amount &gt; 10.00)</span>  (cost=1747 rows=<span class="em">5499</span>)
+        -&gt; Table scan on p  (cost=1747 rows=<span class="em">16500</span>)
+    -&gt; Single-row index lookup on c using PRIMARY (customer_id=p.customer_id)  (cost=0.25 rows=1)</pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Isti plan, dva različita oblika. Tabelarni ispis ima
+      <strong>dva reda za dve tabele</strong> i filter u njemu <span class="hi">nema svoj red</span>:
+      on je sabijen u reč <code>Using where</code> i u broj <code>filtered</code>. Stablo ima
+      <strong>četiri čvora</strong>, jer su filter i spoj takođe operacije, ne osobine tabele.
+      Most između ta dva oblika je aritmetika: <code>16500 × 33,33% = 5499</code>, a to je tačno
+      procena čvora <code>Filter</code>. Ono što tabelarni format tera da izračunaš, stablo ti
+      pokazuje kao poseban čvor.</p>
+  </div>
+</div>
+
+<figure class="fig">
+  <img src="../figures/04-explain-01-tri-formata-jedan-plan.png"
+       alt="Tri panela jedan ispod drugog, sva tri za isti upit nad bazom sakila. Prvi panel je
+            tabelarni EXPLAIN ispis sa dva reda, po jedan za tabele p i c. Drugi panel je skraćeni
+            FORMAT=JSON ispis verzije 1, takođe organizovan po tabeli, sa poljima
+            rows_examined_per_scan, filtered i rows_produced_per_join. Treći panel je FORMAT=TREE
+            ispis sa četiri čvora: Nested loop inner join, Filter, Table scan i Single-row index
+            lookup. Leva margina grupiše prva dva panela plavom linijom i etiketom jedan red po
+            TABELI, a treći zelenom linijom i etiketom jedan čvor po ITERATORU. Na dnu je istaknuta
+            jednačina 16500 puta 33,33 posto jednako 5499, sa napomenom da je to isti broj u sva tri
+            formata.">
+  <figcaption>Isti upit i isti plan, ispisani na tri načina. Brojevi 16.500, 33,33 i 5.499
+    obojeni su gde god se pojave, da se vidi da je reč o istoj veličini na tri mesta.</figcaption>
+</figure>
+
+<h3>Zamka koju vredi znati napamet</h3>
+<p>
+  Od verzije 8.3 JSON format ima i drugu verziju, koja umesto oblika po tabeli daje isto stablo
+  koje pokazuje <code>FORMAT=TREE</code>, samo mašinski čitljivo. Bira se promenljivom sesije
+  <code>explain_json_format_version</code>. Na tvom serveru (8.4.11) podrazumevana vrednost je
+  <code>1</code>, a vrednost <code>2</code> radi.
+</p>
+<p>
+  Zamka je u tome što obe verzije imaju ključ koji se zove <code>access_type</code>, a
+  <span class="hi">ne znače isto</span>. U verziji 1 to je vrednost tipa pristupa iz tabelarnog
+  ispisa (<code>ALL</code>, <code>eq_ref</code>). U verziji 2 to je <strong>vrsta iteratora</strong>
+  (<code>table</code>, <code>filter</code>, <code>join</code>, <code>index</code>), a tip pristupa
+  se tamo zove <code>index_access_type</code>. Ako u radu citiraš JSON ispis, obavezno reci koju
+  verziju citiraš.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>sakila</code>, MySQL 8.3 ili noviji.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">SET</span> explain_json_format_version = 2;
+
+<span class="k">EXPLAIN FORMAT</span>=JSON <span class="k">SELECT</span> c.first_name, p.amount
+<span class="k">FROM</span>   customer c
+<span class="k">JOIN</span>   payment p <span class="k">ON</span> p.customer_id = c.customer_id
+<span class="k">WHERE</span>  p.amount &gt; 10;
+
+<span class="k">SET</span> explain_json_format_version = 1;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">{
+  "operation": "Nested loop inner join",
+  "<span class="em">access_type": "join</span>",          <span class="dim">&lt;- vrsta iteratora, ne tip pristupa</span>
+  "join_algorithm": "nested_loop",
+  "inputs": [
+    { "operation": "Filter: (p.amount &gt; 10.00)",
+      "<span class="em">access_type": "filter</span>", ...
+      "inputs": [ { "operation": "Table scan on p",
+                    "<span class="em">access_type": "table</span>", ... } ] },
+    { "operation": "Single-row index lookup on c using PRIMARY ...",
+      "<span class="em">access_type": "index</span>",
+      "<span class="em">index_access_type": "index_lookup</span>", ... }
+  ]
+}</pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Deca čvora stoje u nizu <code>inputs</code>, pa je ugnježdavanje eksplicitno
+      umesto uvučeno. Uporedi to sa JSON-om verzije 1 iz prethodne probe, gde je koren
+      <code>query_block</code>, a tabele stoje u nizu <code>nested_loop</code>: ista dva imena
+      (<code>access_type</code>), dva potpuno različita skupa vrednosti. Uz to,
+      <code>FORMAT=TREE</code> jedini kaže i <strong>koji algoritam spoja</strong> se koristi
+      (<code>nested_loop</code>); tabelarni ispis to nikad ne izgovori.</p>
+
+    <p class="scope"><b>Ograničenje.</b> <code>explain_json_format_version</code> je promenljiva
+      <span class="hi">sesije</span>. Vrati je na <code>1</code> kad završiš, da ti sledeći primeri
+      u istoj sesiji ne bi ispisali drugi oblik nego što lekcija očekuje.</p>
+  </div>
+</div>
+
+<h2>2 · Kolone koje nose odluku</h2>
+<p>
+  Tabelarni ispis ima dvanaest kolona, ali one nisu jednako važne. Četiri od njih nose odluku
+  optimizatora, ostale je opisuju ili identifikuju.
+</p>
+
+<table class="exp">
+  <tr><td><code>id</code></td><td>Redni broj bloka upita. Isti broj znači da su tabele u istom bloku, veći broj znači ugnježden blok.</td></tr>
+  <tr><td><code>select_type</code></td><td>Vrsta bloka: <code>SIMPLE</code>, <code>PRIMARY</code>, <code>SUBQUERY</code>, <code>DEPENDENT SUBQUERY</code>, <code>DERIVED</code>, <code>UNION</code>.</td></tr>
+  <tr><td><code>table</code></td><td>Tabela ili njen alias. Za izvedene tabele oblik <code>&lt;derived2&gt;</code>, gde je broj <code>id</code> bloka koji je proizvodi.</td></tr>
+  <tr><td><code>partitions</code></td><td>Particije koje se čitaju. Na nepartisanoj tabeli uvek <code>NULL</code>.</td></tr>
+  <tr><td><code>type</code></td><td><strong>Odluka.</strong> Tip pristupa toj tabeli. Odeljak 3 je ceo o ovoj koloni.</td></tr>
+  <tr><td><code>possible_keys</code></td><td>Indeksi koje je optimizator smatrao <strong>upotrebljivim</strong> kandidatima.</td></tr>
+  <tr><td><code>key</code></td><td><strong>Odluka.</strong> Indeks koji je zaista izabran. <code>NULL</code> znači: nijedan.</td></tr>
+  <tr><td><code>key_len</code></td><td>Koliko je <strong>bajtova</strong> ključa iskorišćeno. Otkriva koliko je kolona složenog indeksa stvarno u igri.</td></tr>
+  <tr><td><code>ref</code></td><td>Sa čim se indeks poredi: <code>const</code>, ime kolone iz prethodne tabele, ili <code>func</code>.</td></tr>
+  <tr><td><code>rows</code></td><td><strong>Odluka.</strong> Procena koliko torki ovaj pristup pročita. Sve cene se u krajnjoj liniji svode na ovaj broj.</td></tr>
+  <tr><td><code>filtered</code></td><td><strong>Odluka.</strong> Procena, u procentima, koliko pročitanih torki preživi uslov.</td></tr>
+  <tr><td><code>Extra</code></td><td>Sve što se nije uklopilo u ostale kolone. Odeljak 4.</td></tr>
+</table>
+
+<p>
+  Dve stvari se najčešće pogrešno pročitaju, i obe se mogu proveriti za pola minuta.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>sakila</code>. Primarni ključ tabele
+      <code>film_actor</code> je složen: <code>(actor_id, film_id)</code>, obe kolone
+      <code>SMALLINT UNSIGNED</code>, dakle 2 + 2 bajta.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="c">-- A. key_len kao rendgen: isti indeks, dva različita iskorišćenja.</span>
+<span class="k">EXPLAIN SELECT</span> * <span class="k">FROM</span> film_actor <span class="k">WHERE</span> actor_id = 1;
+<span class="k">EXPLAIN SELECT</span> * <span class="k">FROM</span> film_actor <span class="k">WHERE</span> actor_id = 1 <span class="k">AND</span> film_id = 1;
+
+<span class="c">-- B. possible_keys naspram key: indeks postoji, a plan ga ne uzima.</span>
+<span class="k">EXPLAIN SELECT</span> * <span class="k">FROM</span> film
+<span class="k">WHERE</span>  original_language_id = 1 <span class="k">OR</span> original_language_id <span class="k">IS NULL</span>;
+
+<span class="c">-- C. rows i filtered se množe. Isti indeks, ista procena rows, drugi filtered.</span>
+<span class="k">EXPLAIN SELECT</span> <span class="fn">COUNT</span>(*) <span class="k">FROM</span> payment <span class="k">WHERE</span> customer_id = 1;
+<span class="k">EXPLAIN SELECT</span> * <span class="k">FROM</span> payment <span class="k">WHERE</span> customer_id = 1 <span class="k">AND</span> amount &gt; 5;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">A.</span> type    key      key_len  rows
+   ref     PRIMARY  <span class="em">2</span>          19      <span class="dim">&lt;- samo actor_id</span>
+   const   PRIMARY  <span class="em">4</span>           1      <span class="dim">&lt;- ceo kljuc</span>
+
+<span class="dim">B.</span> type  possible_keys                key
+   ALL   <span class="em">idx_fk_original_language_id</span>  <span class="em">NULL</span>
+
+<span class="dim">C.</span> type  key                 rows  filtered  Extra
+   ref   idx_fk_customer_id    32  <span class="em">100.00</span>    Using index
+   ref   idx_fk_customer_id    32  <span class="em">33.33</span>     Using where</pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret"><b>A.</b> U oba reda piše <code>key: PRIMARY</code>, pa bi po toj koloni
+      izgledalo da se dešava isto. <code>key_len</code> kaže da ne: 2 bajta znači da je iskorišćena
+      samo prva kolona složenog ključa, pa jedna pretraga vraća devetnaest torki; 4 bajta znači ceo
+      ključ, pa najviše jednu. <strong>Kolona <code>key</code> kaže <span class="hi">koji</span> indeks,
+      a <code>key_len</code> <span class="hi">koliko</span> od njega.</strong> (Kolona koja dopušta <code>NULL</code> troši
+      jedan bajt više od svog tipa, otud <code>key_len: 5</code> za <code>INT</code> u odeljku 3.)</p>
+    <p class="interpret"><b>B.</b> Indeks je u <code>possible_keys</code>, dakle upotrebljiv je, a
+      <code>key</code> je ipak <code>NULL</code>. To nije nedostatak indeksa nego odluka po ceni,
+      ista ona koju je Poglavlje 3 videlo u tragu kao <code>cause: "cost"</code>.
+      <code>possible_keys</code> su kandidati, <code>key</code> je pobednik.</p>
+    <p class="interpret"><b>C.</b> Oba reda čitaju istih 32 torke istim indeksom. Razlikuju se u
+      tome koliko ih preživi: prvi upit traži samo ono što je u indeksu, drugi ima još jedan uslov
+      koji odbacuje oko dve trećine. Procena koliko torki ide dalje u plan nije
+      <code>rows</code>, nego <code>rows × filtered / 100</code>.</p>
+  </div>
+</div>
+
+<h2>3 · Dvanaest tipova pristupa</h2>
+<p>
+  Kolona <code>type</code> je jedno polje u koje svi prvo gledaju, i ona može da uzme tačno dvanaest
+  vrednosti. Priručnik ih navodi <q>ordered from the best type to the worst</q>, i taj redosled
+  vredi znati napamet, jer se po njemu čita svaki plan.
+</p>
+
+<figure class="fig">
+  <img src="../figures/04-explain-02-lestvica-tipova-pristupa.png"
+       alt="Lestvica sa dvanaest redova, po jedan za svaku vrednost kolone type, poređanih od
+            najboljeg do najgoreg: system, const, eq_ref, ref, fulltext, ref_or_null, index_merge,
+            unique_subquery, index_subquery, range, index i ALL. Svaki red prikazuje izmerene
+            vrednosti kolona key, rows, filtered i Extra, a ispod njih upit nad bazom sakila koji je
+            taj tip proizveo. Levo od svakog reda stoji obojena traka koja označava jednu od četiri
+            grupe: najviše jedna torka jednom po upitu (plavo), najviše jedna torka po spoljnoj torki
+            (zeleno), više torki kroz indeks (žuto) i cela struktura se pročita (crveno). U dnu su
+            legenda tih grupa i napomena da redosled nije redosled cena.">
+  <figcaption>Svih dvanaest vrednosti, svaka izmerena na svom upitu nad bazom <code>sakila</code>.
+    Boja grupiše tipove po tome koliko torki jedan pristup može da vrati, i te grupe se
+    <strong>ne poklapaju</strong> sa redosledom iz priručnika.</figcaption>
+</figure>
+
+<p>
+  Iz slike se vidi nešto što se iz spiska u priručniku ne vidi: rangovi nisu jedan gladak niz.
+  Rang 8 (<code>unique_subquery</code>) vraća najviše jednu torku, isto što i rang 3
+  (<code>eq_ref</code>), a stoji pet mesta niže. Redosled je, dakle, praktično uputstvo, a ne
+  merna skala.
+</p>
+
+<div class="note">
+  <span class="lbl">Rečenica koju treba umeti odbraniti</span>
+  Lestvica <span class="hi">nije redosled cena</span>. <code>range</code> nad 50 torki je jeftiniji
+  od <code>ref</code> nad pet miliona, a <code>ALL</code> nad tabelom od tri reda je najjeftinije
+  što postoji. Tip govori o <strong>obliku</strong> pristupa, to jest o tome koliko torki jedna
+  pretraga može da vrati; cenu računa model cene iz Poglavlja 3. Ako profesor pita zašto plan sa
+  boljim tipom nije uvek brži, ovo je odgovor.
+</div>
+
+<h3>Četiri para koja se najčešće mešaju</h3>
+<ul>
+  <li><b><code>eq_ref</code> naspram <code>ref</code>.</b> Oba su pretraga po indeksu. Razlika je u
+    jedinstvenosti: <code>eq_ref</code> koristi ceo primarni ili jedinstveni ključ, pa vraća najviše
+    jednu torku po spoljnoj torki; <code>ref</code> koristi indeks koji nije jedinstven, ili samo
+    levi prefiks složenog ključa, pa može da vrati više njih.</li>
+  <li><b><code>const</code> naspram <code>eq_ref</code>.</b> Oba vraćaju najviše jednu torku, ali
+    <code>const</code> je pročita <strong>jednom za ceo upit</strong>, pre ostatka plana, jer je
+    poredi sa konstantom; <code>eq_ref</code> je čita <strong>iznova za svaku torku</strong>
+    prethodne tabele, jer se poredi sa njenom kolonom.</li>
+  <li><b><code>index</code> naspram <code>ALL</code>.</b> Oba čitaju celu strukturu od početka do
+    kraja i oba pregledaju isti broj zapisa. <code>index</code> je jeftiniji samo zato što je
+    indeks manji od torki. Ako uz njega stoji <code>Using index</code>, tabela nije ni dirana.</li>
+  <li><b><code>range</code> naspram <code>index_merge</code>.</b> <code>range</code> je jedan opseg
+    kroz jedan indeks. <code>index_merge</code> znači da su dva indeksa korišćena odvojeno, pa su
+    im rezultati spojeni, a kolona <code>Extra</code> kaže i kako:
+    <code>Using union(...)</code>, <code>Using intersect(...)</code> ili
+    <code>Using sort_union(...)</code>.</li>
+</ul>
+
+<h3>Dva tipa koja na 8.4 gotovo ne postoje</h3>
+<p>
+  <code>unique_subquery</code> i <code>index_subquery</code> postoje samo za podupite u
+  <code>IN</code>, i sa podrazumevanim podešavanjima ih je nemoguće videti. Razlog dolazi pravo iz
+  Poglavlja 3: transformacija u <strong>poluspoj</strong> prepiše podupit u spoj još u fazi
+  pripreme, dakle <span class="hi">pre nego što se tip pristupa uopšte bira</span>. Da bi se videli,
+  transformacija se mora isključiti.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>sakila</code>. Isti upit, dva puta, sa jednom
+      promenjenom postavkom sesije između.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="c">-- (1) Podrazumevano: podupita nema, jer ga je transformacija pojela.</span>
+<span class="k">EXPLAIN SELECT</span> * <span class="k">FROM</span> actor a
+<span class="k">WHERE</span>  a.actor_id <span class="k">IN</span> (<span class="k">SELECT</span> fa.actor_id
+                      <span class="k">FROM</span>   film_actor fa
+                      <span class="k">WHERE</span>  fa.film_id = 42);
+
+<span class="c">-- (2) Isti upit, bez transformacije u poluspoj.</span>
+<span class="k">SET</span> optimizer_switch = <span class="s">'semijoin=off,materialization=off'</span>;
+
+<span class="k">EXPLAIN SELECT</span> * <span class="k">FROM</span> actor a
+<span class="k">WHERE</span>  a.actor_id <span class="k">IN</span> (<span class="k">SELECT</span> fa.actor_id
+                      <span class="k">FROM</span>   film_actor fa
+                      <span class="k">WHERE</span>  fa.film_id = 42);
+
+<span class="k">SET</span> optimizer_switch = <span class="s">'default'</span>;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">(1)</span> id  select_type  table  type    key
+    1   <span class="em">SIMPLE</span>       fa     ref     idx_fk_film_id
+    1   <span class="em">SIMPLE</span>       a      eq_ref  PRIMARY
+
+<span class="dim">(2)</span> id  select_type         table  type              key
+    1   PRIMARY             a      ALL               NULL
+    2   <span class="em">DEPENDENT SUBQUERY</span>  fa     <span class="em">unique_subquery</span>   PRIMARY</pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">U prvom ispisu nema drugog bloka: oba reda imaju <code>id: 1</code> i
+      <code>select_type: SIMPLE</code>, dakle podupit više ne postoji, prepisan je u obično
+      spajanje dve tabele. U drugom se pojavljuje <code>id: 2</code> sa oznakom
+      <code>DEPENDENT SUBQUERY</code>, i tek tu tip pristupa može da bude
+      <code>unique_subquery</code>. To je isti zaključak koji je Poglavlje 3 izvelo iz traga
+      optimizatora, samo viđen sa druge strane: <span class="hi">transformacija se dogodi pre
+      izbora pristupnog puta</span>, pa određuje šta uopšte može da se pojavi u koloni
+      <code>type</code>.</p>
+
+    <p class="scope"><b>Ograničenje.</b> <code>optimizer_switch</code> se ovde koristi kao alat za
+      posmatranje, ne kao savet za podešavanje. Isključivanje poluspoja proizvodi lošiji plan; radi
+      se samo da bi se video oblik koji je transformacija inače sakrila. Vrati na
+      <code>'default'</code> odmah.</p>
+  </div>
+</div>
+
+<h2>4 · <code>Extra</code>: mesto gde plan prizna šta ga muči</h2>
+<p>
+  Kolona <code>Extra</code> je smetlište za sve što se nije uklopilo u ostale kolone, ali baš zato
+  u njoj završe najkorisnije reči u celom ispisu. Tri koje liče, a znače potpuno različite stvari,
+  vrede posebno.
+</p>
+
+<table class="exp">
+  <tr><td><code>Using index</code></td><td>Pokrivajući indeks. Sve tražene kolone su u indeksu, pa se <strong>tabela ne čita uopšte</strong>. Najbolja vest u koloni.</td></tr>
+  <tr><td><code>Using index condition</code></td><td>Spuštanje uslova u indeks (ICP, Poglavlje 2). Motor proverava uslov nad zapisom indeksa, <strong>pre</strong> nego što uzme celu torku.</td></tr>
+  <tr><td><code>Using where</code></td><td>Serverski sloj filtrira <strong>posle</strong> toga, nad torkama koje mu je motor već predao. Sam po sebi nije problem, ali uz <code>ALL</code> jeste.</td></tr>
+  <tr><td><code>Using temporary</code></td><td>Pravi se privremena tabela, obično zbog <code>DISTINCT</code> ili <code>GROUP BY</code>.</td></tr>
+  <tr><td><code>Using filesort</code></td><td>Sortiranje koje nijedan indeks ne isporučuje već uređeno. Ime vara: ne mora da znači fajl na disku.</td></tr>
+  <tr><td><code>Using join buffer (hash join)</code></td><td>Uslov spoja nije podržan indeksom, pa se gradi heš tabela u baferu spoja.</td></tr>
+  <tr><td><code>Using union(...)</code></td><td>Ide uz <code>index_merge</code>, i imenuje operaciju kojom su rezultati dva indeksa spojeni.</td></tr>
+</table>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>sakila</code>.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="c">-- Tri koje lice: pokrivajuci indeks, ICP, i filtriranje u serveru.</span>
+<span class="k">EXPLAIN SELECT</span> film_id <span class="k">FROM</span> film_actor <span class="k">WHERE</span> actor_id = 1;
+<span class="k">EXPLAIN SELECT</span> * <span class="k">FROM</span> payment <span class="k">WHERE</span> rental_id = 1 <span class="k">OR</span> rental_id <span class="k">IS NULL</span>;
+<span class="k">EXPLAIN SELECT</span> * <span class="k">FROM</span> film <span class="k">WHERE</span> description <span class="k">LIKE</span> <span class="s">'%robot%'</span>;
+
+<span class="c">-- Dve koje su upozorenje, i jedan upit koji ih dobije obe.</span>
+<span class="k">EXPLAIN SELECT DISTINCT</span> rating <span class="k">FROM</span> film;
+<span class="k">EXPLAIN SELECT</span> * <span class="k">FROM</span> film <span class="k">ORDER BY</span> length <span class="k">LIMIT</span> 10;
+
+<span class="k">EXPLAIN SELECT</span> c.first_name, <span class="fn">COUNT</span>(*)
+<span class="k">FROM</span>     customer c
+<span class="k">JOIN</span>     rental r <span class="k">ON</span> r.customer_id = c.customer_id
+<span class="k">GROUP BY</span> c.first_name
+<span class="k">ORDER BY</span> <span class="fn">COUNT</span>(*) <span class="k">DESC</span>;
+
+<span class="c">-- Spoj bez indeksa nad uslovom spoja.</span>
+<span class="k">EXPLAIN SELECT</span> <span class="fn">COUNT</span>(*) <span class="k">FROM</span> film f <span class="k">JOIN</span> film f2 <span class="k">ON</span> f.length = f2.length;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">type  key                 Extra
+ref   PRIMARY             <span class="em">Using index</span>
+ref   fk_payment_rental   <span class="em">Using index condition</span>
+ALL   NULL                <span class="em">Using where</span>
+
+ALL   NULL                <span class="em">Using temporary</span>
+ALL   NULL                <span class="em">Using filesort</span>
+ALL   NULL                <span class="em">Using temporary; Using filesort</span>
+ALL   NULL                <span class="em">Using where; Using join buffer (hash join)</span></pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Prva tri reda su ista radnja na tri različita mesta: uslov proveren
+      <strong>u indeksu i samo u indeksu</strong>, uslov proveren <strong>u motoru nad zapisom
+      indeksa</strong>, i uslov proveren <strong>u serverskom sloju nad gotovom torkom</strong>. To
+      je tačno šav iz Poglavlja 2, samo sada vidljiv u jednoj reči ispisa.</p>
+    <p class="interpret">Poslednja četiri reda su upozorenja. <code>Using temporary</code> uz
+      <code>Using filesort</code> u istom redu je najskuplji od uobičajenih ishoda: grupiše se po
+      jednoj koloni, a sortira po veličini koja postoji tek posle grupisanja, pa se rezultat mora
+      celi materijalizovati pre sortiranja. Ime <code>filesort</code> pritom vara: MySQL sortira u
+      memoriji kad god staje, a na disk prelazi tek kad ne staje.</p>
+  </div>
+</div>
+
+<h2>5 · Šta <code>EXPLAIN</code> ne kaže</h2>
+<p>
+  Sve što je do sada pročitano je <strong>procena</strong>. <code>EXPLAIN</code> nad
+  <code>SELECT</code> naredbom ne izvršava upit, i to je istovremeno njegova najveća prednost i
+  njegovo jedino ozbiljno ograničenje. Tri stvari ostaju izvan njegovog domašaja, i svaka ima svoju
+  lekciju.
+</p>
+<ul>
+  <li><strong>Koliko je torki stvarno prošlo.</strong> Kolone <code>rows</code> i
+    <code>filtered</code> su procene, a procena ume da promaši. Merenje stvarnog naspram
+    procenjenog je <code>EXPLAIN ANALYZE</code>, <strong>Lekcija 05</strong>. Do tada nemoj ni u
+    jednoj rečenici napisati da plan „čita toliko torki“; napiši da ih „procenjuje na toliko“.</li>
+  <li><strong>Zašto baš ovaj plan, a ne neki drugi.</strong> <code>EXPLAIN</code> ispisuje
+    pobednika i ćuti o poraženima. Odbijeni planovi i njihove cene su u
+    <code>optimizer_trace</code>, <strong>Lekcija 06</strong>.</li>
+  <li><strong>Da je ista cena isti broj.</strong> Nije: Poglavlje 3 je pokazalo da se cena istog
+    skena menja između pokretanja, jer zavisi i od toga koliko je stranica tabele zateknuto u
+    bafer pulu. Ako u radu navodiš apsolutnu cenu, uz nju ide i uslov pod kojim je izmerena; ako
+    navodiš odnos dve cene, on ostaje stabilan.</li>
+</ul>
+
+<h2>6 · Proveri sebe</h2>
+<p>Osam pitanja, jedan tačan odgovor po pitanju. Klikni i odmah dobijaš objašnjenje; ako pogrešiš,
+  pročitaj zašto pre nego što pređeš na sledeće.</p>
+
+<div class="quiz">
+  <p>Bez vraćanja na tekst. Cilj je da vidiš šta ti je stvarno ostalo.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Po čemu se <code>FORMAT=TREE</code> suštinski razlikuje od tabelarnog ispisa?</p>
+    <label><input type="radio">Prikazuje iste podatke, ali ih sortira po ceni umesto po tabelama</label>
+    <label><input type="radio">Sadrži izmerena vremena, dok tabelarni ispis ima samo procene</label>
+    <label><input type="radio">Ima jedan čvor po iteratoru, a ne jedan red po tabeli u upitu</label>
+    <label><input type="radio">Radi i nad naredbama koje tabelarni format ne ume da objasni</label>
+    <p class="why">Isti plan, drugi oblik. Filter u stablu ima svoj čvor, a u tabelarnom ispisu ga
+      nema: tamo je sveden na reč <code>Using where</code> i na broj <code>filtered</code>.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">2. U tabelarnom ispisu stoji <code>rows: 16500</code> i <code>filtered: 33.33</code>. Šta to znači?</p>
+    <label><input type="radio">Pristup čita oko 16.500 torki, a dalje u plan ide oko 5.499 njih</label>
+    <label><input type="radio">Pristup čita oko 5.499 torki, jer indeks odbaci ostale pre čitanja</label>
+    <label><input type="radio">Tabela ima 16.500 torki, od kojih trećina zadovoljava ceo upit</label>
+    <label><input type="radio">Uslov je odbacio 16.500 torki, a preostala trećina ide u rezultat</label>
+    <p class="why"><code>rows × filtered / 100</code> je procena onoga što izlazi. U stablu isti
+      broj stoji sam za sebe, kao procena čvora <code>Filter</code>.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. <code>possible_keys</code> imenuje indeks, a <code>key</code> je <code>NULL</code>. Zaključak?</p>
+    <label><input type="radio">Indeks je oštećen ili mu statistika nije osvežena, pa se preskače</label>
+    <label><input type="radio">Indeks ne pokriva kolone koje su navedene u listi za izdvajanje</label>
+    <label><input type="radio">Indeks je neupotrebljiv za uslov onako kako je napisan u upitu</label>
+    <label><input type="radio">Indeks je bio upotrebljiv kandidat, ali je izračunat kao skuplji</label>
+    <p class="why">Da je neupotrebljiv, ne bi ni ušao u <code>possible_keys</code>. Ovo je odluka po
+      ceni, ista ona koju trag optimizatora obrazlaže sa <code>cause: "cost"</code>.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">4. U dva plana piše <code>key: PRIMARY</code>, ali <code>key_len</code> je 2 pa 4. Šta se razlikuje?</p>
+    <label><input type="radio">Prvi plan čita indeks, a drugi uz njega mora da otvori i samu tabelu</label>
+    <label><input type="radio">Prvi koristi samo prvu kolonu složenog ključa, a drugi ceo ključ</label>
+    <label><input type="radio">Prvi poredi ključ sa konstantom, a drugi sa kolonom druge tabele</label>
+    <label><input type="radio">Prvi radi nad kolonom bez NULL-a, a drugi nad kolonom sa NULL-om</label>
+    <p class="why">Ključ <code>(actor_id, film_id)</code> ima 2 + 2 bajta. Dva bajta znače levi
+      prefiks, četiri ceo ključ, i tek tada pretraga vraća najviše jednu torku.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">5. Plan sa tipom <code>range</code> uvek je brži od plana sa tipom <code>ref</code>?</p>
+    <label><input type="radio">Da, jer je <code>range</code> viši na lestvici tipova iz priručnika</label>
+    <label><input type="radio">Ne, sem ako obe tabele imaju uporediv broj torki i istu širinu</label>
+    <label><input type="radio">Ne, jer lestvica govori o obliku pristupa, a cenu računa model cene</label>
+    <label><input type="radio">Da, ali samo kad je opseg zadat preko primarnog ključa tabele</label>
+    <p class="why">Lestvica je praktično uputstvo, ne merna skala. <code>range</code> nad 50 torki je
+      jeftiniji od <code>ref</code> nad pet miliona, a <code>ALL</code> nad tri reda je najjeftinije
+      što postoji.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">6. Koja je razlika između tipova <code>const</code> i <code>eq_ref</code>?</p>
+    <label><input type="radio"><code>const</code> koristi primarni ključ, a <code>eq_ref</code> bilo koji jedinstveni indeks</label>
+    <label><input type="radio"><code>const</code> se pročita jednom za ceo upit, <code>eq_ref</code> po svakoj spoljnoj torki</label>
+    <label><input type="radio"><code>const</code> vraća najviše jednu torku, dok <code>eq_ref</code> može da vrati i više</label>
+    <label><input type="radio"><code>const</code> se javlja nad malim tabelama, a <code>eq_ref</code> nad velikim tabelama</label>
+    <p class="why">Oba vraćaju najviše jednu torku. <code>const</code> se poredi sa konstantom, pa se
+      čita pre ostatka plana; <code>eq_ref</code> se poredi sa kolonom prethodne tabele, pa se
+      ponavlja.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">7. Zašto se <code>unique_subquery</code> ne vidi sa podrazumevanim podešavanjima?</p>
+    <label><input type="radio">Jer transformacija u poluspoj prepiše podupit pre izbora pristupa</label>
+    <label><input type="radio">Jer je taj tip pristupa uklonjen iz MySQL-a počev od izdanja 8.0</label>
+    <label><input type="radio">Jer se pojavljuje samo nad tabelama koje imaju jedinstven indeks</label>
+    <label><input type="radio">Jer ga tabelarni format ne ispisuje, nego se vidi samo u stablu</label>
+    <p class="why">Poglavlje 3: trajne transformacije žive u fazi pripreme, dakle pre optimizacije.
+      Ono što transformacija pojede ne može se pojaviti u koloni <code>type</code>.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">8. Šta znači <code>Using index</code> u koloni <code>Extra</code>?</p>
+    <label><input type="radio">Da je za pristup tabeli iskorišćen indeks, umesto skena cele tabele</label>
+    <label><input type="radio">Da je uslov iz upita spušten u motor i proveren nad zapisom indeksa</label>
+    <label><input type="radio">Da je pročitan ceo indeks od početka do kraja, umesto samo opsega</label>
+    <label><input type="radio">Da su sve tražene kolone u indeksu, pa se sama tabela ne čita uopšte</label>
+    <p class="why">To je pokrivajući indeks. Spuštanje uslova u motor je <code>Using index
+      condition</code>, a čitanje celog indeksa je tip <code>index</code> u koloni
+      <code>type</code>, ne vrednost u <code>Extra</code>.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<div class="note">
+  <span class="lbl">Pitaj svog predavača</span>
+  Ako ti je nešto ostalo mutno (najčešće je to razlika između <code>Using index</code> i
+  <code>Using index condition</code>, ili to kako se <code>id</code> i <code>select_type</code>
+  čitaju na upitu sa više blokova), <strong>pitaj u četu</strong>. Isto važi ako hoćeš da isti
+  spisak tipova probamo na tvojoj tabeli <code>wide_events</code> umesto na bazi
+  <code>sakila</code>, ili da pogledamo kako izgleda plan sa <code>UNION</code>-om i izvedenim
+  tabelama, koji ovde nije stigao.
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong> MySQL 8.4 Reference Manual,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/explain-output.html">EXPLAIN Output Format</a>
+  (jedini potpun spisak vrednosti za <code>type</code> i <code>Extra</code>, i mesto odakle dolazi
+  redosled sa lestvice). Dopuna:
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/explain.html">EXPLAIN Statement</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/using-explain.html">Using EXPLAIN to Optimize Queries</a>
+  i objava tima
+  <a href="https://dev.mysql.com/blog-archive/new-json-format-for-explain/">New JSON format for EXPLAIN</a>
+  (za drugu verziju JSON formata).
+  Izvori su na engleskom, što je dozvoljeno: samo lekcija mora biti na srpskom. ·
+  <strong>Vidi još:</strong>
+  <a href="../reference/03-explain-formati-i-tipovi.html">referentna kartica: formati, kolone, tipovi i <code>Extra</code></a>,
+  <a href="0003-od-sql-a-do-plana-izvrsavanja.html">Lekcija 03</a>,
+  <a href="0002-arhitektura-serverski-sloj-i-motor.html">Lekcija 02</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §2c.
+</p>
+
+<script src="../assets/copy.js"></script>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
