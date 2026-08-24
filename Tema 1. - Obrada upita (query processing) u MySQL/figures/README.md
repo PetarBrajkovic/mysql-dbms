@@ -32,8 +32,19 @@ headless-Edge rasterization step for the PNG the Word doc needs:
 - **Non-SQL diagrams** (architecture, conceptual comparisons): unchanged - search first for a
   suitable official/existing diagram (MySQL reference manual, a citable paper) to reuse; fall back
   to an original diagram made for this paper only if nothing suitable turns up.
+  `02-arhitektura-00-mysql-architecture-official.png` is the first case of this: Figure 18.3 from
+  the 8.4 Reference Manual's Pluggable Storage Engine Architecture page, fetched verbatim (no
+  re-drawing, no relabeling) and cited by name/link in the lesson prose, same as any other quoted
+  manual source in a `.slide` block.
+- **Before/after plan-shape pairs** where the "after" state needs a session-scoped `SET` (e.g.
+  `optimizer_switch=...`) that has to run in the *same* connection as the `EXPLAIN ANALYZE` ->
+  `tools/make-figure.ps1` doesn't fit (it assumes one bare query per file), so these get a small
+  dedicated script instead - see `tools/make-lesson02-icp-comparison.ps1` (ICP on vs. off,
+  `--type flamegraph`) and `tools/make-lesson01-comparison.ps1` (a hand-built comparison page, for the
+  case where myflames' own runtime-based `compare` view would mislead). Same output convention:
+  PNG + SVG twin into `figures/`, raw JSON + sidecar into `figures/raw/`.
 
-Both scripts write the figure straight into `figures/` under the naming convention below - nothing
+All scripts write the figure straight into `figures/` under the naming convention below - nothing
 to rename or file by hand.
 
 **One-time setup** (already done as of this reopening): `pip install myflames`; MySQL's
@@ -57,7 +68,7 @@ In practice the agent runs these during the write-up step of the per-chapter loo
 | Chapter | Expected | What it's for |
 |---|---|---|
 | 1 Uvod | 0 | no SQL runs here |
-| 2 Arhitektura | 1 | pipeline diagram (official reused, or original) |
+| 2 Arhitektura | 3 | official reused architecture diagram, plus an ICP-on/ICP-off flame graph pair (lesson only, more visual than the ~13-figure paper budget calls for) |
 | 3 Od SQL-a do plana | 2 | parse/resolve stage, then optimized plan |
 | 4 EXPLAIN i EXPLAIN ANALYZE | 4 | ranked access-type showcase, estimated-vs-actual divergence, JSON/TREE format, optimizer_trace rejected-plan excerpt |
 | 5 Iterator model | 2 | iterator/pipeline diagram, one EXPLAIN ANALYZE tree read as an iterator chain |

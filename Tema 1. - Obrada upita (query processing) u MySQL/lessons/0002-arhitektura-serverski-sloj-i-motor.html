@@ -79,8 +79,26 @@ BLACKHOLE           YES       NO            NO    NO
 
 <h2>2 · Ko šta radi</h2>
 <p>
-  Ovo je slika koju treba da umeš da nacrtaš na tabli. Crvena traka je jedina stvar koju vredi
-  zapamtiti napamet — sve ostalo se izvodi iz nje.
+  Pre pojednostavljene skice, evo kako istu podelu crta sam priručnik — sa svim konektorima,
+  kešovima i motorima koje ovaj rad ne pominje, ali koji pokazuju da je slika iznad stvarna, ne
+  izmišljena za potrebe predavanja.
+</p>
+
+<figure class="fig">
+  <img src="../figures/02-arhitektura-00-mysql-architecture-official.png"
+       alt="Zvanična MySQL arhitektura: konektori i MySQL Shell na vrhu, MySQL Server Process u
+            sredini (SQL interfejs, parser, optimizator, kešovi i baferi), modularni mehanizmi
+            skladištenja (InnoDB, MyISAM, NDB Cluster, Memory) ispod njega, i sistem datoteka na
+            dnu.">
+  <figcaption>Figure 18.3 iz MySQL 8.4 Reference Manual, „MySQL Architecture with Pluggable Storage
+    Engines”. Sve što server radi stoji u jednoj sivoj kutiji (<code>MySQL Server Process</code>);
+    motori su zasebni, zamenljivi moduli ispod nje.</figcaption>
+</figure>
+
+<p>
+  Za ovaj rad je bitna samo jedna linija iz te slike — granica između sive kutije i modula ispod
+  nje. Ovo je pojednostavljena skica te iste granice, ona koju treba da umeš da nacrtaš na tabli:
+  crvena traka je jedina stvar koju vredi zapamtiti napamet — sve ostalo se izvodi iz nje.
 </p>
 
 <div class="arch">
@@ -291,12 +309,29 @@ BLACKHOLE           YES       NO            NO    NO
     <p class="expect">Vremena zavise od mašine i od toga šta je u bafer pulu, pa ne juri sekunde.
       Broj torki je ono što se ne menja od pokretanja do pokretanja.</p>
 
+    <figure class="fig">
+      <img src="../figures/02-arhitektura-01-icp-ukljucen.png"
+           alt="Plameni grafikon sa ICP uključenim: jedan okvir, Index range scan na
+                idx_customer_created, bez odvojenog Filter okvira iznad njega.">
+      <figcaption>(A) ICP uključen — <strong>jedan</strong> okvir. Plameni grafikon iz
+        <code>EXPLAIN ANALYZE FORMAT=JSON</code> za ovaj upit, uživo sa ovog servera, iscrtan
+        alatom <code>myflames</code>.</figcaption>
+    </figure>
+
+    <figure class="fig">
+      <img src="../figures/02-arhitektura-02-icp-iskljucen.png"
+           alt="Plameni grafikon sa ICP isključenim: Filter okvir naslagan iznad Index range scan
+                okvira, dva nivoa umesto jednog.">
+      <figcaption>(B) ICP isključen — <strong>Filter</strong> okvir se odvaja i sedi iznad skena.
+        Isti upit, isti indeks — jedina razlika je ovaj dodatni okvir.</figcaption>
+    </figure>
+
     <h3 class="lab">Kako da ga pročitaš</h3>
     <p class="interpret">Ovo je najčistiji dokaz da šav postoji, jer se u planu <strong>vidi kao
-      čvor</strong>. U slučaju&nbsp;(B) iznad skena stoji <code>Filter:</code> — to je posao
+      okvir</strong>. U slučaju&nbsp;(B) iznad skena stoji <code>Filter:</code> — to je posao
       <span class="hi">serverskog sloja</span>. Sken mu dodaje <strong>499.297</strong> torki, filter
       propušta <strong>165.707</strong>, dakle 333.590 torki je prešlo šav samo da bi odmah bilo
-      bačeno. U slučaju&nbsp;(A) čvor <code>Filter</code> je <strong>nestao</strong>: isti uslov sada
+      bačeno. U slučaju&nbsp;(A) okvir <code>Filter</code> je <strong>nestao</strong>: isti uslov sada
       piše kao <code>with index condition</code> unutar samog skena, jer ga proverava motor, nad
       torkom indeksa, pre nego što uopšte dohvati široku torku sa kolonom <code>notes</code>. Isti
       rezultat, isti indeks, ista 165.707 torki na izlazu — <strong>razlika je samo u tome koji sloj
