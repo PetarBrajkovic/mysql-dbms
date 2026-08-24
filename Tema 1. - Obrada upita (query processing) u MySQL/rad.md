@@ -199,8 +199,9 @@ pri svakom izvršavanju. Upravo je ta granica okosnica celog poglavlja.
 
 ## 3.2. Parser i razrešavanje: transformacije bez cene
 
-Prva faza gleda samo tekst naredbe. Priručnik je o tome sažet: parser obrađuje SQL niske i gradi
-njihov prikaz u obliku stabla, bez ikakve provere da tabela ili kolona postoji [@mysql84refman].
+Prva faza gleda samo tekst naredbe. Priručnik je o tome sažet: parser obrađuje SQL naredbu kao niz
+znakova i gradi njen prikaz u obliku stabla, bez ikakve provere da tabela ili kolona postoji
+[@mysql84refman].
 Granica prema sledećoj fazi može se i izmeriti. Naredba koja istovremeno ima sintaksnu grešku i
 pogrešno ime kolone vraća samo sintaksnu grešku (`ERROR 1064`), jer se do provere imena u rečniku
 podataka ne stiže dok stablo nije napravljeno [@mysql84refman]. Redosled faza time nije stvar
