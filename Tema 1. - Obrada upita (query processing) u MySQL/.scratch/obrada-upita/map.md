@@ -118,6 +118,19 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   cite → verify with pandoc) works end to end. Flagged for the revisit-after-conclusion pass the
   ticket called for.
 
+- [Chapter 2. Arhitektura obrade upita u MySQL-u](issues/11-arhitektura.md): bridge chapter written
+  and closed. ~2 pages of `rad.md` frame MySQL as **two layers with a documented seam**: the server
+  layer that understands SQL, the storage engine (motor) that understands rows and pages, and the
+  falsifiable membership test (*does the feature change if you swap the engine?* — Table 18.1 fn 1).
+  Traces the statement path (`do_command` → `dispatch_command` → `dispatch_sql_command`, `THD`,
+  thread-per-connection), identifies the seam as the `handler` class (iterators call `ha_rnd_next`,
+  never touch a page), and shows the two deliberate **leaks** live: ICP (`idx_cond_push(Item*)`,
+  Slike 2.2/2.3) and the engine-cardinality-vs-server-histogram statistics split. New citation
+  `mysqlsource84` (the **`mysql-8.4.6` source tree**) added and cited for every `handler`-level
+  claim, since the manual never documents that C++ interface; renders IEEE [3]. Three figures at
+  budget (reused official Figure 18.3 + ICP flame-graph pair). `mysql_parse()` deliberately not
+  written (gone in 8.4). Second clean pass of the per-chapter loop.
+
 ## Not yet specified
 
 - **Lesson-to-chapter cadence.** One teach lesson per chapter is the assumption, but the thin
