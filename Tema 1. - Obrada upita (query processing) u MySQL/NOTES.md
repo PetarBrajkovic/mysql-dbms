@@ -140,3 +140,16 @@ graded - `MISSION.md` and `RESOURCES.md` are the documents that matter for plann
   mechanics in `figures/README.md`; decision record in ticket 09's "Reopened" section. Naming
   convention, budget, captions, and the examples/-is-the-source-of-truth rule are unchanged - only
   the capture mechanism changed.
+- **Chapter 4 lesson breakdown (decided 2026-08-24):** chapter 4 is "the big one" (2-3 lessons per
+  `WORKFLOW.md`'s budget), so split it along research ticket 05's spine instead of one `/teach`:
+  - **4a - formats/types**: traditional / `FORMAT=JSON` / `FORMAT=TREE`, the 12 access `type` values
+    ranked `system`->`ALL`, `key`/`rows`/`filtered`/`Extra`. Pure vocabulary, no `ANALYZE` yet.
+    Prompt: `/teach EXPLAIN output formats and access types in MySQL`.
+  - **4b - EXPLAIN ANALYZE**: estimated-vs-actual row divergence, `actual time`/`rows`/`loops`; the
+    worked example is the `wide_events` `country_code` case already captured live in this file
+    (index-dive 2.45M est. vs 3.5M actual, histogram doesn't close the gap). Don't let 4a reach for
+    this data - it's reserved for 4b.
+  - **4c - optimizer_trace**: `optimizer_trace` + `EXPLAIN FOR CONNECTION`, what trace shows that
+    `EXPLAIN` never does (rejected plans and their costs). Smaller; may fold into 4b if thin -
+    decide after 4b is taught.
+  Next session: run 4a's prompt above.
