@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 03 — Od SQL-a do plana izvršavanja</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 03 · Poglavlje 3 (Od SQL-a do plana izvršavanja)</p>
+<h1>Pet faza i jedna cena</h1>
+<p class="subtitle">Poglavlje 2 je pokazalo <strong>gde</strong> se obrada upita odvija. Ovo poglavlje pokazuje <strong>šta se u njoj odlučuje</strong>, kojim redom, i po kom kriterijumu: sve odluke koje uopšte imaju alternativu razrešavaju se jednim brojem, cenom.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Ovo je poglavlje koje profesor može najdublje da propita, jer je jedino u radu u kom se
+  <span class="hi">vidi kako sistem bira</span>. Kad ga završiš, treba da umeš da odgovoriš bez
+  podsetnika: <strong>(1)</strong> koje su faze i po čemu se granica između njih meri,
+  <strong>(2)</strong> gde žive logičke transformacije i zašto baš tu, i <strong>(3)</strong> šta
+  tačno znači da je odluka doneta „po ceni“, uz primer u kom se vidi kako se izbor prevrće.
+</div>
+
+<h2>1 · Pet faza, sa imenima koja stvarno postoje</h2>
+<p>
+  U Lekciji 02 put naredbe bio je izložen samo u grubim crtama, da bi se videlo gde je šav prema
+  motoru. Sada se isti put gleda izbliza, i to samo njegov srednji deo: koraci 3, 4 i 5. MySQL obradu deli
+  na <strong>pet</strong> imenovanih faza, i svaka od njih ima svoj fajl i svoju ulaznu funkciju u
+  izvornom kodu.
+</p>
+
+<ol class="stages">
+  <li><b>Parser · <code>parse_sql()</code>, gramatika u <code>sql_yacc.yy</code></b>
+    <span>Tekst naredbe postaje <strong>stablo raščlanjivanja</strong> <b>(parse tree, AST)</b>.
+      Isključivo gramatika: parser ne zna nijedno ime iz baze.</span></li>
+  <li><b>Razrešavanje (priprema) · <code>Query_block::prepare()</code>, <code>sql_resolver.cc</code></b>
+    <span>Imena tabela i kolona traže se u rečniku podataka, i tu se rade
+      <strong>trajne transformacije</strong> stabla. Ovo je faza koja najviše iznenađuje.</span></li>
+  <li><b>Optimizator · <code>JOIN::optimize()</code>, <code>sql_optimizer.cc</code></b>
+    <span>Priprema uslova, procena broja torki, izbor strategija. Odavde nadalje sve odluke imaju
+      <strong>cenu</strong>.</span></li>
+  <li><b>Planer · <code>Optimize_table_order</code>, <code>sql_planner.cc</code></b>
+    <span><strong>Redosled spoja</strong> i <strong>pristupni put</strong> po tabeli. Potfaza koju
+      poziva optimizator, ali sa svojim imenom i svojim algoritmom.</span></li>
+  <li><b>Izvršilac · <code>sql_executor.cc</code>, <code>sql/iterators/</code></b>
+    <span>Plan postaje stablo iteratora koje povlači torku po torku. Cela Lekcija 05.</span></li>
+</ol>
+
+<p>
+  Ova podela nije naša rekonstrukcija: svih pet imena su imena modula u dokumentaciji izvornog koda
+  (Parser, Query Resolver, Query Optimizer, Query Planner, Query Executor). A i sam server ispisuje
+  imena svojih faza, ako ga zamoliš — s tim što ih grupiše u tri — i to je prvo što vredi videti
+  uživo.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>sakila</code>. Traje trenutak.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> sakila;
+
+<span class="k">SET</span> optimizer_trace_max_mem_size = 16777216;
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=on'</span>;
+
+<span class="k">SELECT</span> c.first_name, c.last_name
+<span class="k">FROM</span>   customer c
+<span class="k">WHERE</span>  c.customer_id <span class="k">IN</span> (<span class="k">SELECT</span> r.customer_id
+                         <span class="k">FROM</span>   rental r
+                         <span class="k">WHERE</span>  r.return_date <span class="k">IS NULL</span>);
+
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=off'</span>;
+
+<span class="k">SELECT</span> <span class="fn">JSON_KEYS</span>(<span class="fn">JSON_EXTRACT</span>(TRACE, <span class="s">'$.steps[0]'</span>)) <span class="k">AS</span> faza_1,
+       <span class="fn">JSON_KEYS</span>(<span class="fn">JSON_EXTRACT</span>(TRACE, <span class="s">'$.steps[1]'</span>)) <span class="k">AS</span> faza_2,
+       <span class="fn">JSON_KEYS</span>(<span class="fn">JSON_EXTRACT</span>(TRACE, <span class="s">'$.steps[2]'</span>)) <span class="k">AS</span> faza_3
+<span class="k">FROM</span>   information_schema.OPTIMIZER_TRACE;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">faza_1                 faza_2                   faza_3
+<span class="em">["join_preparation"]   ["join_optimization"]    ["join_execution"]</span></pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret"><code>optimizer_trace</code> je dnevnik koji optimizator vodi o samom sebi.
+      Na njegovom vrhu stoje <strong>tačno tri</strong> koraka, a imena im daje server, ne mi.
+      <code>join_preparation</code> je faza 2 iz spiska gore; <code>join_optimization</code> pokriva
+      faze 3 i 4 (planer je potfaza optimizatora, pa nema svoj korak u tragu);
+      <code>join_execution</code> je faza 5. Parser nije u tragu jer trag počinje tek kad stablo
+      već postoji. Taj isti trag ostaje nam prozor u odluke optimizatora do kraja lekcije.</p>
+
+    <p class="scope"><b>Ograničenje.</b> <code>optimizer_trace</code> je promenljiva
+      <span class="hi">sesije</span> i podrazumevano je isključena. Uključi je, pokreni jedan upit,
+      pa je odmah isključi: trag se pravi za svaki upit i ume da bude ogroman. Detaljno čitanje
+      traga je tema <strong>Poglavlja 4</strong>; ovde nam treba samo kao dokaz.</p>
+  </div>
+</div>
+
+<h2>2 · Parser: samo gramatika, nijedno ime</h2>
+<p>
+  Prva faza gleda tekst i ništa osim teksta. Izvorna dokumentacija je o tome škrta koliko i precizna:
+  parser <q>processes SQL strings and builds a tree representation of them</q>. Nikakvo tumačenje,
+  nikakva provera da tabela postoji.
+</p>
+
+<p>
+  Granica prema sledećoj fazi ne mora se uzimati na veru. Može se <strong>izmeriti</strong>, i to
+  naredbom koja greši na oba načina odjednom.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>obrada_upita</code>. Sve tri naredbe namerno
+      padaju, pa ih pokreni jednu po jednu.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> obrada_upita;
+
+<span class="c">-- (1) Gramatika je pokvarena (WHERE bez uslova), a kolona takođe ne postoji.</span>
+<span class="k">SELECT</span> nepostojeca <span class="k">FROM</span> wide_events <span class="k">WHERE</span>;
+
+<span class="c">-- (2) Ista naredba, popravljena samo gramatički.</span>
+<span class="k">SELECT</span> nepostojeca <span class="k">FROM</span> wide_events <span class="k">WHERE</span> id = 1;
+
+<span class="c">-- (3) Isti sloj, samo druga vrsta imena.</span>
+<span class="k">SELECT</span> id <span class="k">FROM</span> nepostojeca_tabela <span class="k">WHERE</span> id = 1;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">(1) ERROR <span class="em">1064</span> (42000): You have an error in your SQL syntax ...
+(2) ERROR <span class="em">1054</span> (42S22): Unknown column 'nepostojeca' in 'field list'
+(3) ERROR <span class="em">1146</span> (42S02): Table 'obrada_upita.nepostojeca_tabela' doesn't exist</pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Naredba (1) ima <strong>dve</strong> greške, a server prijavljuje samo
+      onu gramatičku. Greška 1054 nikad ne stigne na red, jer se do provere imena ne dolazi dok
+      stablo nije napravljeno. To je merljiv dokaz redosleda: <span class="hi">parser radi pre
+      razrešavanja</span>, i to nije stvar tumačenja. Greške 1054 i 1146 dolaze iz sledeće faze, one
+      koja jedina otvara rečnik podataka.</p>
+  </div>
+</div>
+
+<h2>3 · Razrešavanje: imena, i trajne transformacije</h2>
+<p>
+  Ovde je najveće iznenađenje celog poglavlja. Očekivalo bi se da logičko prepisivanje upita
+  (podupit u spoj, spajanje izvedenih tabela, izbacivanje suvišnih uslova) pripada optimizatoru.
+  U MySQL-u <strong>ne pripada</strong>. Ne postoji zasebna faza „prepisivanja“: trajne
+  transformacije stabla žive u fazi razrešavanja, uz razrešavanje imena.
+</p>
+
+<div class="slide">
+  <span class="sr">MySQL Server, izvorni kod · komentar iznad <code>Query_block::prepare()</code>,
+  <code>sql_resolver.cc</code></span>
+  <q>Prepare query block for optimization. Resolve table and column information. ... Apply permanent
+  transformations to the abstract syntax tree, such as semi-join transformation, derived table
+  transformation, elimination of constant values and redundant clauses (e.g ORDER BY, GROUP BY).</q>
+  <span class="gloss">Ovo piše iznad same funkcije koja radi pripremu, i kaže baš ono što se ne
+  očekuje: <strong>trajne prepravke stabla</strong> nabrojane su kao posao pripreme, rame uz rame sa
+  razrešavanjem imena. Grupa izvornog koda kojoj ta funkcija pripada zove se <i>Query Resolver</i>,
+  a u njoj stoje i transformacija poluspoja, transformacija izvedenih tabela, pretvaranje skalarnog
+  podupita u izvedenu tabelu i spuštanje uslova u izvedene tabele.</span>
+</div>
+
+<p>
+  I nije slučajno tu. Postoji imenovani zadatak koji ih je preselio iz optimizatora u pripremu, a
+  njegovo obrazloženje je najkorisnija rečenica u celom ovom poglavlju.
+</p>
+
+<div class="slide">
+  <span class="sr">MySQL worklog WL#7082 · „Move permanent transformations from JOIN::optimize() to JOIN::prepare()”</span>
+  <q>[JOIN::optimize] contains a few query transformations which are actually permanent; they are
+  permanent but because optimization happens in execution phase (with execution memroot), making them
+  permanent forces complicated and buggy code.</q>
+  <span class="gloss">Razlog je životni vek. Optimizacija se pokreće <strong>pri svakom
+  izvršavanju</strong> i njena memorija se posle oslobađa; priprema se radi <strong>jednom po
+  naredbi</strong>. Trajna prepravka stabla zato pripada pripremi. Poglavlje 8, o ponovnoj upotrebi
+  pripremljenih naredbi, stoji tačno na ovoj razlici.</span>
+</div>
+
+<p>
+  Priručnik istu granicu potvrđuje sa korisničke strane, u jednoj rečenici o poluspoju
+  <b>(semijoin)</b>: <q>A semijoin is a preparation-time transformation.</q> Pogledaj sada kako to
+  izgleda na tvom serveru.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>sakila</code>, i trag iz odeljka 1 (isti upit).</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> sakila;
+
+<span class="c">-- (1) Najkraći dokaz: EXPLAIN ostavlja belešku sa naredbom POSLE transformacija.</span>
+<span class="k">EXPLAIN</span>
+<span class="k">SELECT</span> c.first_name, c.last_name
+<span class="k">FROM</span>   customer c
+<span class="k">WHERE</span>  c.customer_id <span class="k">IN</span> (<span class="k">SELECT</span> r.customer_id
+                         <span class="k">FROM</span>   rental r
+                         <span class="k">WHERE</span>  r.return_date <span class="k">IS NULL</span>);
+
+<span class="k">SHOW</span> <span class="fn">WARNINGS</span>;
+
+<span class="c">-- (2) Detaljan dokaz: ista transformacija, ali unutar faze pripreme.</span>
+<span class="c">--     (trag se uključuje kao u odeljku 1)</span>
+<span class="k">SELECT</span> <span class="fn">JSON_PRETTY</span>(<span class="fn">JSON_EXTRACT</span>(TRACE,
+       <span class="s">'$.steps[0].join_preparation.steps[*].transformation'</span>))
+<span class="k">FROM</span>   information_schema.OPTIMIZER_TRACE;
+
+<span class="c">-- (3) A izbor STRATEGIJE tog poluspoja stoji u fazi optimizacije, sa cenama.</span>
+<span class="k">SELECT</span> <span class="fn">JSON_PRETTY</span>(<span class="fn">JSON_EXTRACT</span>(TRACE, <span class="s">'$**.semijoin_strategy_choice'</span>))
+<span class="k">FROM</span>   information_schema.OPTIMIZER_TRACE;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">(1) SHOW WARNINGS, Note 1003 — naredba kakva je posle transformacija:</span>
+select ... from `sakila`.`customer` `c` <span class="em">semi join</span> (`sakila`.`rental` `r`)
+where ((`&lt;subquery2&gt;`.`customer_id` = `c`.`customer_id`) and (`r`.`return_date` is null))
+
+<span class="dim">(2) trag, unutar join_preparation:</span>
+"to": <span class="em">"semijoin"</span>,  "from": <span class="em">"IN (SELECT)"</span>,  "chosen": true,
+"decorrelated_predicates": [ { "inner": "`r`.`customer_id`",
+                               "outer": "`c`.`customer_id`" } ]
+
+<span class="dim">(3) trag, unutar join_optimization:</span>
+strategija            cena       izabrana
+FirstMatch            18124.9    ne
+<span class="em">MaterializeLookup      2027.95    da</span>
+DuplicatesWeedout     18350      ne</pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">U upitu nigde ne piše <code>JOIN</code>. U ispisu piše
+      <code>semi join</code>. Podupit je <span class="hi">nestao kao podupit</span> i postao član
+      spoja, a uslov koji ga je vezivao za spoljni upit izvučen je napolje
+      (<strong>dekorelacija</strong>). To je logička transformacija: rezultat je isti, oblik nije.</p>
+    <p class="interpret">Obrati pažnju na to gde su brojevi. Uz transformaciju u koraku (2) ne stoji
+      nijedna cena, samo <code>chosen: true</code>: nju server ne poredi ni sa čim, nego je uradi kad
+      god sme. („Sme“ znači da su uslovi transformacije ispunjeni i da nije isključena prekidačem u
+      <code>optimizer_switch</code>, kao <code>semijoin</code> ili <code>derived_merge</code> — ali
+      ni prekidač nije cena.) Uz strategiju u koraku (3) stoje <strong>tri</strong> kandidata i tri
+      cene. To je ista podela sa kojom je počelo Poglavlje 1: prvo se menja oblik, pa se tek onda
+      bira postupak.</p>
+
+    <p class="scope"><b>Ograničenje.</b> Beleška iz koraka (1) ispisuje se <span class="hi">posle
+      optimizacije</span>, a ne posle pripreme. Vidi se to i po imenu <code>&lt;subquery2&gt;</code>
+      u njoj: ono dolazi od materijalizacije, a materijalizacija je strategija izabrana po ceni tek
+      u koraku (3). Zato je (1) najkraći dokaz da je transformacija <em>urađena</em>; da je urađena
+      baš u pripremi, dokazuje tek trag u koraku (2).</p>
+  </div>
+</div>
+
+<div class="levels">
+  <div class="level logical">
+    <h4>Priprema: transformacija</h4>
+    <ul>
+      <li>Menja <strong>oblik</strong> naredbe, trajno.</li>
+      <li>Radi se <strong>jednom</strong> po naredbi.</li>
+      <li>Bez cene: ne bira se poređenjem.</li>
+      <li>Primeri: poluspoj, antispoj, spajanje izvedenih tabela.</li>
+    </ul>
+  </div>
+  <div class="level physical">
+    <h4>Optimizacija: strategija</h4>
+    <ul>
+      <li>Menja <strong>način</strong> izvršavanja, privremeno.</li>
+      <li>Radi se <strong>pri svakom</strong> izvršavanju.</li>
+      <li>Po ceni: bira najjeftiniju od kandidata.</li>
+      <li>Primeri: FirstMatch, MaterializeLookup, DuplicatesWeedout.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="note">
+  <span class="lbl">Zamka pri pisanju</span>
+  Nije svaka prepravka uslova trajna. Propagacija jednakosti radi se u
+  <strong>optimizaciji</strong>, pri svakom pokretanju, i ne dira stablo naredbe. Iz uslova
+  <code>f.film_id = 42 AND fa.film_id = f.film_id</code> optimizator izvede
+  <code>multiple equal(42, f.film_id, fa.film_id)</code>, dakle i <code>fa.film_id = 42</code>, uslov
+  koji niko nije napisao, a koji tabeli <code>fa</code> otvara pretragu po indeksu. Ako u radu
+  napišeš „sve transformacije su u pripremi“, ovo je kontraprimer koji te čeka. Tačna formulacija je:
+  <span class="hi">trajne</span> transformacije su u pripremi.
+</div>
+
+<h2>4 · Cena nije ocena, nego zbir</h2>
+<p>
+  Od ovog trenutka svaka odluka koja ima alternativu razrešava se jednim brojem. Vredi tačno znati
+  šta je taj broj, jer se baš oko njega najlakše pogreši: cena nije ni sekunda, ni ocena od
+  jedan do deset, nego zbir nekoliko konstanti pomnoženih izmerenim veličinama.
+</p>
+
+<div class="slide">
+  <span class="sr">MySQL 8.4 Reference Manual · The Optimizer Cost Model</span>
+  <q>The optimizer has a set of compiled-in default 'cost constants' available to it to make decisions
+  regarding execution plans. ... These estimates are stored in the <code>server_cost</code> and
+  <code>engine_cost</code> tables in the <code>mysql</code> system database.</q>
+  <span class="gloss">Konstante nisu skrivene u kodu. Nose ih <strong>dve obične tabele</strong> u
+  bazi <code>mysql</code>, čitaju se SELECT-om i mogu se promeniti. Podela na dve tabele prati šav iz Poglavlja 2:
+  <code>server_cost</code> je serverska, <code>engine_cost</code> je po motoru.</span>
+</div>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> tabela <code>obrada_upita.wide_events</code> iz
+      <code>examples/00-setup/</code>. Ništa se ne menja, samo se čita.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="c">-- (1) Konstante. Dok je cost_value NULL, važi default_value; čim upišeš vrednost, važi ona.</span>
+<span class="k">SELECT</span> cost_name, cost_value, default_value <span class="k">FROM</span> mysql.server_cost <span class="k">ORDER BY</span> cost_name;
+<span class="k">SELECT</span> engine_name, cost_name, cost_value, default_value <span class="k">FROM</span> mysql.engine_cost;
+
+<span class="k">USE</span> obrada_upita;
+
+<span class="c">-- (2) Ulazne veličine: broj torki i broj stranica klasterovanog indeksa.</span>
+<span class="k">SELECT</span> TABLE_ROWS <span class="k">AS</span> torki, DATA_LENGTH / @@innodb_page_size <span class="k">AS</span> stranica
+<span class="k">FROM</span>   information_schema.TABLES
+<span class="k">WHERE</span>  TABLE_SCHEMA = <span class="s">'obrada_upita'</span> <span class="k">AND</span> TABLE_NAME = <span class="s">'wide_events'</span>;
+
+<span class="c">-- (3) Sastavi cenu skena tabele sam, kao da nijedna stranica nije u bafer pulu.</span>
+<span class="k">SELECT</span> 0.1 * 4909177 <span class="k">AS</span> procesorski_deo,
+       1.0 * 89216   <span class="k">AS</span> ulazno_izlazni_deo,
+       0.1 * 4909177 + 1 * 89216 <span class="k">AS</span> ukupno;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">(1) mysql.server_cost i mysql.engine_cost:</span>
+row_evaluate_cost            0.1        io_block_read_cost      1
+key_compare_cost             0.05       memory_block_read_cost  0.25
+memory_temptable_create_cost 1
+memory_temptable_row_cost    0.1
+disk_temptable_create_cost   20
+disk_temptable_row_cost      0.5
+
+<span class="dim">(2) veličine tabele:</span>
+torki = 4.909.177     stranica = 89.216
+
+<span class="dim">(3) sastavljena cena:</span>
+490.917,7  +  89.216  =  <span class="em">580.133,7</span></pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Broj <strong>580.134</strong> je tačno ona cena skena tabele koju je server
+      prijavio u Lekciji 01. Nije procenjen, nego <span class="hi">sastavljen</span>: svaka torka
+      košta <code>row_evaluate_cost</code> = 0,1 da bi joj se proverio uslov, svaka stranica košta
+      <code>io_block_read_cost</code> = 1,0 da bi se pročitala.</p>
+    <p class="interpret">Danas isti sken košta oko <strong>578.220</strong>, dakle oko 1.914 manje.
+      Razlika ima ime: stranica koja je već u bafer pulu košta <code>memory_block_read_cost</code> =
+      0,25 umesto 1,0, pa svaka takva stranica skida 0,75. Odatle 1.914 / 0,75 ≈ 2.550 stranica u
+      memoriji, a upit nad <code>information_schema.INNODB_BUFFER_PAGE</code> ih tog trenutka broji
+      2.651. Račun se sklapa onoliko koliko uopšte može: optimizator ne broji stranice jednu po
+      jednu, nego radi sa uzorkovanom procenom toga koliki je deo tabele u memoriji, pa poklapanje
+      na cifru ne treba ni očekivati. Zapamti i posledicu: <strong>ista cena nije ista između pokretanja</strong>,
+      jer joj je jedan ulaz stanje bafer pula.</p>
+
+    <p class="scope"><b>Ograničenje.</b> Ceo račun je u <code>examples/03-od-sql-a-do-plana/05-model-cene.sql</code>,
+      zajedno sa proverom broja stranica u bafer pulu. Ovde je skraćen, jer nam treba samo zaključak:
+      cena je aritmetika nad objavljenim konstantama, pa je proverljiva.</p>
+  </div>
+</div>
+
+<h2>5 · Prva odluka po ceni: pristupni put</h2>
+<p>
+  Planer za svaku tabelu bira <strong>pristupni put</strong>: sken tabele, sken opsega preko indeksa,
+  pretragu po jednakosti, i tako dalje. Funkcija koja to radi opisana je jednom rečenicom koja lepo
+  pokazuje da je reč o <strong>proširivanju delimičnog plana</strong>, a ne o izolovanoj odluci:
+  <q>Find the best access path for an extension of a partial execution plan and add this path to the
+  plan.</q>
+</p>
+
+<p>
+  Najlakše je poverovati da optimizator uzima indeks kad god indeks postoji. Ne uzima. Uzima
+  jeftiniji od dva izračunata puta, a koji je jeftiniji zavisi od toga koliko torki filter obuhvata.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> <code>obrada_upita.wide_events</code> sa indeksima iz
+      <code>examples/00-setup/</code>. Samo <code>EXPLAIN</code>, pa ide brzo.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> obrada_upita;
+
+<span class="c">-- (A) Uzak opseg.</span>
+<span class="k">EXPLAIN</span> <span class="fn">FORMAT=TREE</span>
+<span class="k">SELECT</span> notes <span class="k">FROM</span> wide_events <span class="k">WHERE</span> customer_id <span class="k">BETWEEN</span> 1 <span class="k">AND</span> 9000;
+
+<span class="c">-- (B) Isti upit, samo šira granica.</span>
+<span class="k">EXPLAIN</span> <span class="fn">FORMAT=TREE</span>
+<span class="k">SELECT</span> notes <span class="k">FROM</span> wide_events <span class="k">WHERE</span> customer_id <span class="k">BETWEEN</span> 1 <span class="k">AND</span> 12000;
+
+<span class="c">-- (C) Zašto: trag daje obe cene koje je poredio, i razlog odbijanja.</span>
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=on'</span>;
+<span class="k">EXPLAIN</span> <span class="k">SELECT</span> notes <span class="k">FROM</span> wide_events <span class="k">WHERE</span> customer_id <span class="k">BETWEEN</span> 1 <span class="k">AND</span> 12000;
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=off'</span>;
+
+<span class="k">SELECT</span> <span class="fn">JSON_PRETTY</span>(<span class="fn">JSON_EXTRACT</span>(TRACE, <span class="s">'$**.analyzing_range_alternatives'</span>)) <span class="k">AS</span> alternative,
+       <span class="fn">JSON_EXTRACT</span>(TRACE, <span class="s">'$**.range_analysis[0].table_scan.cost'</span>)        <span class="k">AS</span> sken_tabele
+<span class="k">FROM</span>   information_schema.OPTIMIZER_TRACE;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">(A) do 9000 — indeks:</span>
+-&gt; <span class="em">Index range scan</span> on wide_events using idx_customer_id
+   over (1 &lt;= customer_id &lt;= 9000)  (cost=507887 rows=450380)
+
+<span class="dim">(B) do 12000 — tabela:</span>
+-&gt; Filter: (wide_events.customer_id between 1 and 12000)
+    -&gt; <span class="em">Table scan</span> on wide_events  (cost=578218 rows=4.91e+6)
+
+<span class="dim">(C) trag za slučaj (B), sve tri cene na jednom mestu:</span>
+sken tabele                       <span class="em">578220</span>
+idx_customer_id       660854   chosen: false,  <span class="em">cause: "cost"</span>
+idx_customer_created  667299   chosen: false,  <span class="em">cause: "cost"</span></pre>
+
+    <figure class="fig">
+      <img src="../figures/03-od-sql-a-do-plana-01-ukrstanje-cena.png"
+           alt="Grafikon sa dve krive cene za isti upit: vodoravna linija na 578.220 za sken tabele,
+                koja ne zavisi od N, i rastuća kriva za sken opsega preko idx_customer_id, koja je
+                ispod nje do N = 10.000 a iznad nje od N = 11.000. Tačke na kojima je optimizator
+                izabrao indeks su pune, tačke na kojima ga je odbio su prazne.">
+      <figcaption>Dve cene za isti upit, i tačka u kojoj se ukrštaju. Svaka tačka je jedno
+        pokretanje, a obe cene su pročitane iz traga optimizatora.</figcaption>
+    </figure>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Cena skena tabele je <span class="hi">ista u oba slučaja</span>: 578.220.
+      Naravno da jeste, jer sken tabele čita celu tabelu bez obzira na to šta traži. Cena skena
+      opsega raste sa brojem torki koje opseg obuhvata, i u nekom trenutku pretekne konstantu. Na
+      ovom serveru poslednja granica na kojoj indeks pobeđuje je 10.000, prva na kojoj gubi je 11.000.</p>
+    <p class="interpret">Jedna zamka u brojevima, da te ne zatekne: uz stablo u (A) piše cena
+      507.887, a u tragu za isti taj sken opsega stoji 462.848. Nisu u sukobu — razlika je
+      ≈ 0,1 × 450.380, dakle <code>row_evaluate_cost</code> nad torkama koje sken vrati.
+      <code>EXPLAIN</code> tu procenu uračunava u prikazanu cenu, a <code>range_analysis</code> u
+      tragu ne. Kad porediš cene, poredi ih uvek iz istog izvora.</p>
+    <p class="interpret">Najvrednija stavka u ispisu je <code>cause: "cost"</code>. Indeks nije
+      odbijen zato što je neupotrebljiv, nego zato što je <strong>skuplji</strong>. Zato ovaj primer
+      i vredi u radu: on pokazuje da je „optimizator ne koristi moj indeks“ najčešće tačna odluka, a
+      ne kvar.</p>
+
+    <p class="scope"><b>Ograničenje.</b> Kolona <code>notes</code> izabrana je namerno: nije ni u
+      jednom indeksu, pa torka mora da se dohvati iz klasterovanog indeksa. Da upit traži samo
+      <code>customer_id</code>, indeks bi ga pokrivao, cena mu ne bi rasla tako brzo i do ukrštanja
+      nikada ne bi došlo. To je isti nalaz koji je u Lekciji 01 ispao suprotno od očekivanog.</p>
+  </div>
+</div>
+
+<h2>6 · Druga odluka po ceni: redosled spoja</h2>
+<p>
+  Kod jedne tabele ima nekoliko kandidata za pristupni put. Kod više tabela broj mogućih redosleda
+  raste kao faktorijel, pa se odluka pretvara u <strong>pretragu</strong>. Priručnik je o tome
+  otvoren, uključujući i cenu same pretrage.
+</p>
+
+<div class="slide">
+  <span class="sr">MySQL 8.4 Reference Manual · Controlling Query Plan Evaluation</span>
+  <q>most query optimizers, including that of MySQL, perform a more or less exhaustive search for an
+  optimal plan among all possible query evaluation plans ... when larger queries are submitted, the
+  time spent in query optimization may easily become the major bottleneck in the server's
+  performance.</q>
+  <span class="gloss">Ceo algoritam stoji u onom <i>more or less</i>. Spoljna petlja je
+  <strong>pohlepna</strong> (<code>greedy_search()</code>), ali svaki njen korak radi
+  <strong>ograničeno iscrpan</strong> pogled unapred
+  (<code>best_extension_by_limited_search()</code>), dubok onoliko koliko kaže
+  <code>optimizer_search_depth</code>. Pošto podrazumevana dubina pokriva sve preostale tabele,
+  podrazumevano je pretraga ipak iscrpna — u svemu osim u jednom: <code>optimizer_prune_level</code>
+  sme da odseče delimične planove koji više ne mogu da pobede. Tek kad se dubina smanji, pretraga
+  zaista postane pohlepna, i to je eksperiment koji sledi.</span>
+</div>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>sakila</code>. Šest tabela, sve male, pa je brzo.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> sakila;
+
+<span class="k">SELECT</span> @@optimizer_search_depth <span class="k">AS</span> dubina, @@optimizer_prune_level <span class="k">AS</span> odsecanje;
+
+<span class="c">-- (A) Podrazumevano.</span>
+<span class="k">EXPLAIN</span> <span class="fn">FORMAT=TREE</span>
+<span class="k">SELECT</span> c.last_name, f.title, ca.name
+<span class="k">FROM</span>   customer c
+<span class="k">JOIN</span>   rental r         <span class="k">ON</span> r.customer_id  = c.customer_id
+<span class="k">JOIN</span>   inventory i      <span class="k">ON</span> i.inventory_id = r.inventory_id
+<span class="k">JOIN</span>   film f           <span class="k">ON</span> f.film_id      = i.film_id
+<span class="k">JOIN</span>   film_category fc <span class="k">ON</span> fc.film_id     = f.film_id
+<span class="k">JOIN</span>   category ca      <span class="k">ON</span> ca.category_id = fc.category_id
+<span class="k">WHERE</span>  c.last_name = <span class="s">'SMITH'</span>;
+
+<span class="c">-- (B) Isti upit, ali sa pogledom unapred skraćenim na jedan korak.</span>
+<span class="k">SET</span> optimizer_search_depth = 1;
+
+<span class="c">--     (ponovi isti EXPLAIN FORMAT=TREE odozgo)</span>
+
+<span class="k">SET</span> optimizer_search_depth = 62;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">(A) dubina 62 — pretraga počinje od jedine tabele sa filterom:</span>
+Nested loop inner join
+  ... Covering index lookup on c using idx_last_name (last_name='SMITH')
+      Index lookup on r using idx_fk_customer_id (customer_id=c.customer_id)
+      Single-row index lookup on i using PRIMARY ...
+      <span class="dim">... i tako redom, svaki korak vođen već pribavljenom kolonom</span>
+ukupna cena: <span class="em">oko 48</span> (zagrejan bafer pul), <span class="em">oko 131</span> (hladan)
+
+<span class="dim">(B) dubina 1 — pohlepno, bez provere šta izbor košta kasnije:</span>
+Nested loop inner join
+  ... <span class="em">Inner hash join (no condition)</span>   &lt;- Dekartov proizvod sa category
+      ...
+      <span class="em">Filter: (r.customer_id = c.customer_id)</span>  &lt;- uslov spoja spao na kraj
+ukupna cena: <span class="em">oko 7.185</span> (zagrejan), <span class="em">oko 20.807</span> (hladan)</pre>
+
+    <figure class="fig">
+      <img src="../figures/03-od-sql-a-do-plana-02-redosled-spoja-dubina-62.png"
+           alt="Stablo izvršavanja za podrazumevanu dubinu pretrage: pet ugnježdenih spojeva,
+                pretraga počinje od tabele customer preko indeksa idx_last_name, pa rental,
+                inventory, film_category, category i film, sve preko pretraga po indeksu.
+                Ukupno izmereno vreme 5,76 ms.">
+      <figcaption>(A) <code>optimizer_search_depth = 62</code>. Svaki korak je pretraga po indeksu
+        vođena kolonom koja je već pribavljena. Izmereno 5,76 ms.</figcaption>
+    </figure>
+
+    <figure class="fig">
+      <img src="../figures/03-od-sql-a-do-plana-03-redosled-spoja-dubina-1.png"
+           alt="Stablo izvršavanja za dubinu pretrage 1: na dnu stoji Inner hash join bez uslova nad
+                tabelom category, a na kraju poseban Filter čvor sa uslovom spoja
+                r.customer_id = c.customer_id. Ukupno izmereno vreme 21,28 ms, uz upozorenje o hash
+                spoju.">
+      <figcaption>(B) <code>optimizer_search_depth = 1</code>. Isti upit, isti podaci, isti indeksi.
+        Izmereno 21,28 ms, uz upozorenje koje alat sam ističe.</figcaption>
+    </figure>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Plan (A) počinje od <code>customer</code>, jedine tabele koja ima selektivan
+      filter, i odatle se širi tako da je svaki naredni korak pretraga po indeksu vođena kolonom koju
+      već ima. Plan (B) počinje od <code>category</code>, tabele od šesnaest torki bez ijednog uslova,
+      pa optimizator mora da je poveže Dekartovim proizvodom; uslov <code>r.customer_id = c.customer_id</code>
+      onda nema gde da se iskoristi kao pristupni put i spada na kraj kao <code>Filter</code>. To je
+      <span class="hi">udžbenički loš redosled spoja</span>, a proizveo ga je isti optimizator nad
+      istim podacima. Jedina razlika je koliko je koraka smeo da gleda unapred.</p>
+    <p class="interpret">Odnos cena je oko <strong>150 prema 1</strong>, u oba stanja bafer pula.
+      Apsolutni brojevi se razlikuju jer im je, kao u odeljku 4, jedan ulaz to koliko je stranica
+      trenutno u memoriji. Odnos je ono što je stabilno, i ono što treba citirati.</p>
+
+    <p class="scope"><b>Ograničenje.</b> Vrednost 62 nije proizvoljna: to je
+      <code>MAX_TABLES + 1</code>, a <code>MAX_TABLES</code> je 61, pa je podrazumevana vrednost
+      ujedno i najveća. Drugim rečima, MySQL podrazumevano <strong>ne ograničava</strong> dubinu.
+      Ako te zanima koliko je delimičnih planova stvarno razmotreno i koliko ih je odsečeno, to je
+      korak (3) u <code>examples/03-od-sql-a-do-plana/04-pretraga-redosleda-spoja.sql</code>: na
+      ovom serveru 63 čvora sa odsecanjem, 89 bez njega, i isti konačni plan.</p>
+  </div>
+</div>
+
+<h2>7 · Šta je namerno ostavljeno za kasnije</h2>
+<p>
+  Tri stvari su ovde dodirnute a ne dovršene, i to je namerno, da ovo poglavlje ne bi progutalo
+  naredna dva.
+</p>
+<ul>
+  <li><strong>Čitanje <code>EXPLAIN</code> ispisa</strong> kao dijagnostike, i razlika između
+    procenjenog i stvarnog broja torki. To je <strong>Poglavlje 4</strong>. Ovde je
+    <code>EXPLAIN</code> korišćen samo kao prozor u odluku, ne kao alat za merenje.</li>
+  <li><strong>Kako se plan izvršava.</strong> Čvorovi koje si gledao zapravo su iteratori, i o njima
+    govori <strong>Poglavlje 5</strong>.</li>
+  <li><strong>Hipergrafski optimizator</strong>, novi planer koji bi trebalo da zameni pretragu
+    opisanu u odeljku 6. Postoji u kodu i u 8.4, ali je tamo <span class="hi">isključen već pri
+    prevođenju</span>, u izdanjima koja nisu razvojna: pokušaj da se uključi u tvojoj instalaciji
+    vraća grešku, a ne upozorenje — <code>ERROR 3999: The hypergraph optimizer does not yet support
+    'use in non-debug builds'</code>. Tu tvrdnju u radu veži izričito za 8.4, jer se u izdanjima
+    posle nje menja. U radu se pominje kao dokumentovana činjenica, nikako kao nešto što je
+    demonstrirano.</li>
+</ul>
+
+<h2>8 · Proveri sebe</h2>
+<p>Osam pitanja, jedan tačan odgovor po pitanju. Klikni i odmah dobijaš objašnjenje; ako pogrešiš,
+  pročitaj zašto pre nego što pređeš na sledeće.</p>
+
+<div class="quiz">
+  <p>Bez vraćanja na tekst. Cilj je da vidiš šta ti je stvarno ostalo.</p>
+
+  <div class="q" data-correct="1">
+    <p class="stem">1. Naredba ima i sintaksnu grešku i pogrešno ime kolone. Šta server prijavi?</p>
+    <label><input type="radio">Obe greške, jer se ceo upit proverava pre nego što se odbaci</label>
+    <label><input type="radio">Samo sintaksnu, jer se do provere imena nikada i ne stigne</label>
+    <label><input type="radio">Samo grešku imena, jer se ona otkriva u rečniku podataka</label>
+    <label><input type="radio">Zavisi od toga koja je greška bliža početku teksta naredbe</label>
+    <p class="why">Parser radi pre razrešavanja i staje na prvoj gramatičkoj grešci. Zato je taj par
+      naredbi merljiv dokaz redosleda faza, a ne stvar tumačenja.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">2. Gde u MySQL-u živi transformacija podupita <code>IN (SELECT)</code> u poluspoj?</p>
+    <label><input type="radio">U planeru, zajedno sa izborom redosleda spoja među tabelama</label>
+    <label><input type="radio">U parseru, jer je reč o promeni oblika samog stabla naredbe</label>
+    <label><input type="radio">U izvršiocu, koji podupit materijalizuje pri prvom pozivu</label>
+    <label><input type="radio">U razrešavanju, kao trajna transformacija stabla naredbe</label>
+    <p class="why">Priručnik to kaže izričito: „A semijoin is a preparation-time transformation.“
+      Zadatak WL#7082 je trajne transformacije namerno preselio iz <code>JOIN::optimize()</code> u
+      <code>JOIN::prepare()</code>.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">3. Zašto su trajne transformacije baš u fazi pripreme, a ne u optimizaciji?</p>
+    <label><input type="radio">Jer se priprema radi jednom, a optimizacija pri svakom izvršavanju</label>
+    <label><input type="radio">Jer je priprema jedina faza koja sme da pristupi rečniku podataka</label>
+    <label><input type="radio">Jer optimizator radi sa cenama, a transformacije nemaju svoju cenu</label>
+    <label><input type="radio">Jer bi ih inače trebalo ponoviti za svaki motor koji tabela koristi</label>
+    <p class="why">Životni vek memorije. Optimizacija se izvršava svaki put i njena memorija se
+      oslobađa, pa bi trajna izmena stabla iz nje bila, rečima worklog-a, „complicated and buggy“.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">4. Šta znači <code>cause: "cost"</code> uz odbijeni indeks u tragu optimizatora?</p>
+    <label><input type="radio">Da je taj indeks neupotrebljiv za uslov napisan u ovom upitu</label>
+    <label><input type="radio">Da statistika o tom indeksu nije osvežena, pa mu se ne veruje</label>
+    <label><input type="radio">Da je indeks upotrebljiv, ali je izračunato skuplji od pobednika</label>
+    <label><input type="radio">Da je procena broja torki previsoka zbog neravnomerne raspodele</label>
+    <p class="why">Neupotrebljivost se u tragu piše kao <code>usable: false</code> uz svoj
+      <code>cause</code>. <code>cause: "cost"</code> znači da je kandidat uredno izračunat i uredno
+      izgubio.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">5. Zašto cena skena tabele ostaje ista i za opseg do 9.000 i za onaj do 12.000?</p>
+    <label><input type="radio">Jer je cena zaokružena, pa se razlika te veličine u njoj ne vidi</label>
+    <label><input type="radio">Jer sken tabele čita sve stranice bez obzira na to šta upit traži</label>
+    <label><input type="radio">Jer se cena skena računa iz statistike koja se osvežava jednom dnevno</label>
+    <label><input type="radio">Jer oba opsega obuhvataju isti broj torki, pa im je i cena jednaka</label>
+    <p class="why">Sken tabele ne zna za filter: pročita svaku stranicu i proveri svaku torku. Zato
+      mu je cena konstanta, a cena skena opsega raste, pa se u nekoj tački ukrste.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">6. Od čega je sastavljena cena skena tabele u MySQL-ovom modelu?</p>
+    <label><input type="radio">Iz izmerenog vremena prethodnih pokretanja istog upita nad tabelom</label>
+    <label><input type="radio">Iz jedne konstante po tabeli, koju motor javlja kroz handler API</label>
+    <label><input type="radio">Iz konstante po torki i konstante po stranici, pomnoženih veličinama</label>
+    <label><input type="radio">Iz procenjenog broja ulazno-izlaznih operacija, izraženog u sekundama</label>
+    <p class="why"><code>row_evaluate_cost</code> (0,1) puta broj torki, plus
+      <code>io_block_read_cost</code> (1,0) puta broj stranica. Obe konstante stoje u tabelama
+      <code>mysql.server_cost</code> i <code>mysql.engine_cost</code>.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">7. Kako MySQL traži redosled spoja kada ima više tabela?</p>
+    <label><input type="radio">Pohlepnom spoljnom petljom, sa ograničeno iscrpnim pogledom unapred</label>
+    <label><input type="radio">Iscrpno, tako što izračuna cenu svakog mogućeg redosleda tabela</label>
+    <label><input type="radio">Redom kojim su tabele napisane, osim ako se ne napiše STRAIGHT_JOIN</label>
+    <label><input type="radio">Dinamičkim programiranjem nad svim podskupovima skupa tabela</label>
+    <p class="why">Spoljna petlja je <code>greedy_search()</code>, a svaki njen korak radi
+      <code>best_extension_by_limited_search()</code>, dubok koliko kaže
+      <code>optimizer_search_depth</code>. Čisto iscrpna pretraga bila bi prespora za veliki broj tabela.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">8. Šta znači podrazumevana vrednost 62 za <code>optimizer_search_depth</code>?</p>
+    <label><input type="radio">Da optimizator razmatra najviše 62 kandidata za pristupni put</label>
+    <label><input type="radio">Da se pretraga prekida čim proveri 62 potpuna redosleda spoja</label>
+    <label><input type="radio">Da je 62 prag posle kog se prelazi na pohlepnu pretragu bez pogleda</label>
+    <label><input type="radio">Da je to MAX_TABLES + 1, pa dubina praktično nije ni ograničena</label>
+    <p class="why"><code>MAX_TABLES</code> je 61, a 62 je istovremeno podrazumevana i najveća
+      dozvoljena vrednost. Ograničavanje dubine na 3 ili 4 postoji kao mera za upite sa mnogo tabela,
+      ali nije podrazumevano.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<div class="note">
+  <span class="lbl">Pitaj svog predavača</span>
+  Ako ti je nešto ostalo mutno (najčešće je to granica između transformacije i strategije, ili to
+  zašto se cene razlikuju između dva pokretanja), <strong>pitaj u četu</strong>. Isto važi ako hoćeš
+  da isti eksperiment sa ukrštanjem cena probamo na drugoj koloni, ili da pogledamo kako izgleda
+  pretraga redosleda na upitu sa deset tabela umesto šest.
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong> MySQL 8.4 Reference Manual,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/controlling-query-plan-evaluation.html">Controlling Query Plan Evaluation</a>
+  (kratko, i jedino mesto na kom priručnik otvoreno govori o ceni same optimizacije). Dopuna:
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/cost-model.html">The Optimizer Cost Model</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/semijoins-antijoins.html">Semijoin and Antijoin Transformations</a>
+  i worklog
+  <a href="https://dev.mysql.com/worklog/task/?id=7082">WL#7082</a>.
+  Izvori su na engleskom, što je dozvoljeno: samo lekcija mora biti na srpskom. ·
+  <strong>Vidi još:</strong>
+  <a href="../reference/02-od-sql-a-do-plana.html">referentna kartica: faze, odluke i promenljive</a>,
+  <a href="0002-arhitektura-serverski-sloj-i-motor.html">Lekcija 02</a>,
+  <a href="0001-uvod-the-gap-and-two-levels.html">Lekcija 01</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §2b.
+</p>
+
+<script src="../assets/copy.js"></script>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

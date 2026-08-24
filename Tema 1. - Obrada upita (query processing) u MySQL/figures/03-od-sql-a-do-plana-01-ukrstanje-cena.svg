@@ -1,0 +1,68 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='750' viewBox='0 0 1200 750'>
+<rect width='1200' height='750' fill='#ffffff'/>
+<text x='600' y='42' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='24' font-weight='bold' fill='#1a1a1a'>Dve cene za isti upit, i ta&#269;ka u kojoj se ukr&#353;taju</text>
+<text x='600' y='68' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='15' fill='#4a4a4a'>SELECT notes FROM wide_events WHERE customer_id BETWEEN 1 AND N (cene iz traga optimizatora, MySQL 8.4.11)</text>
+<line x1='130' y1='620' x2='1140' y2='620' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='625' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>0</text>
+<line x1='130' y1='561.111111111111' x2='1140' y2='561.111111111111' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='566.111111111111' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>100.000</text>
+<line x1='130' y1='502.222222222222' x2='1140' y2='502.222222222222' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='507.222222222222' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>200.000</text>
+<line x1='130' y1='443.333333333333' x2='1140' y2='443.333333333333' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='448.333333333333' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>300.000</text>
+<line x1='130' y1='384.444444444444' x2='1140' y2='384.444444444444' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='389.444444444444' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>400.000</text>
+<line x1='130' y1='325.555555555556' x2='1140' y2='325.555555555556' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='330.555555555556' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>500.000</text>
+<line x1='130' y1='266.666666666667' x2='1140' y2='266.666666666667' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='271.666666666667' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>600.000</text>
+<line x1='130' y1='207.777777777778' x2='1140' y2='207.777777777778' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='212.777777777778' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>700.000</text>
+<line x1='130' y1='148.888888888889' x2='1140' y2='148.888888888889' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='153.888888888889' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>800.000</text>
+<line x1='130' y1='90' x2='1140' y2='90' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='95' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>900.000</text>
+<line x1='202.142857142857' y1='620' x2='202.142857142857' y2='626' stroke='#4a4a4a' stroke-width='1'/>
+<text x='202.142857142857' y='646' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>2.000</text>
+<line x1='346.428571428571' y1='620' x2='346.428571428571' y2='626' stroke='#4a4a4a' stroke-width='1'/>
+<text x='346.428571428571' y='646' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>4.000</text>
+<line x1='490.714285714286' y1='620' x2='490.714285714286' y2='626' stroke='#4a4a4a' stroke-width='1'/>
+<text x='490.714285714286' y='646' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>6.000</text>
+<line x1='635' y1='620' x2='635' y2='626' stroke='#4a4a4a' stroke-width='1'/>
+<text x='635' y='646' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>8.000</text>
+<line x1='779.285714285714' y1='620' x2='779.285714285714' y2='626' stroke='#4a4a4a' stroke-width='1'/>
+<text x='779.285714285714' y='646' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>10.000</text>
+<line x1='923.571428571429' y1='620' x2='923.571428571429' y2='626' stroke='#4a4a4a' stroke-width='1'/>
+<text x='923.571428571429' y='646' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>12.000</text>
+<line x1='1067.85714285714' y1='620' x2='1067.85714285714' y2='626' stroke='#4a4a4a' stroke-width='1'/>
+<text x='1067.85714285714' y='646' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>14.000</text>
+<line x1='1140' y1='620' x2='1140' y2='626' stroke='#4a4a4a' stroke-width='1'/>
+<text x='1140' y='646' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>15.000</text>
+<text x='635' y='676' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='15' fill='#1a1a1a'>N: gornja granica opsega (broj kupaca u opsegu)</text>
+<text x='28' y='355' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='15' fill='#1a1a1a' transform='rotate(-90 28 355)'>cena po modelu optimizatora</text>
+<line x1='130' y1='90' x2='130' y2='620' stroke='#4a4a4a' stroke-width='1.5'/>
+<line x1='130' y1='620' x2='1140' y2='620' stroke='#4a4a4a' stroke-width='1.5'/>
+<rect x='779.285714285714' y='90' width='72.1428571428571' height='530' fill='#7a1f1f' opacity='0.07'/>
+<text x='815.357142857143' y='116' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13' font-weight='bold' fill='#7a1f1f'>ukr&#353;tanje</text>
+<polyline points='130,279.492666666667 202.142857142857,279.492666666667 274.285714285714,279.492666666667 346.428571428571,279.492666666667 418.571428571429,279.492666666667 490.714285714286,279.492666666667 562.857142857143,279.492666666667 635,279.492666666667 707.142857142857,279.492666666667 779.285714285714,279.492666666667 851.428571428571,279.492666666667 923.571428571429,279.492666666667 995.714285714286,279.492666666667 1067.85714285714,279.492666666667 1140,279.492666666667' fill='none' stroke='#1f5c7a' stroke-width='2.5'/>
+<polyline points='130,589.866791111111 202.142857142857,559.566455555556 274.285714285714,528.4054 346.428571428571,490.7065 418.571428571429,461.628344444444 490.714285714286,431.087388888889 562.857142857143,408.8215 635,376.723522222222 707.142857142857,347.433955555556 779.285714285714,298.708111111111 851.428571428571,275.074822222222 923.571428571429,230.831011111111 995.714285714286,216.352 1067.85714285714,183.663955555556 1140,156.279444444444' fill='none' stroke='#7a1f1f' stroke-width='2.5'/>
+<circle cx='130' cy='589.866791111111' r='5' fill='#7a1f1f' stroke='#7a1f1f' stroke-width='2'/>
+<circle cx='202.142857142857' cy='559.566455555556' r='5' fill='#7a1f1f' stroke='#7a1f1f' stroke-width='2'/>
+<circle cx='274.285714285714' cy='528.4054' r='5' fill='#7a1f1f' stroke='#7a1f1f' stroke-width='2'/>
+<circle cx='346.428571428571' cy='490.7065' r='5' fill='#7a1f1f' stroke='#7a1f1f' stroke-width='2'/>
+<circle cx='418.571428571429' cy='461.628344444444' r='5' fill='#7a1f1f' stroke='#7a1f1f' stroke-width='2'/>
+<circle cx='490.714285714286' cy='431.087388888889' r='5' fill='#7a1f1f' stroke='#7a1f1f' stroke-width='2'/>
+<circle cx='562.857142857143' cy='408.8215' r='5' fill='#7a1f1f' stroke='#7a1f1f' stroke-width='2'/>
+<circle cx='635' cy='376.723522222222' r='5' fill='#7a1f1f' stroke='#7a1f1f' stroke-width='2'/>
+<circle cx='707.142857142857' cy='347.433955555556' r='5' fill='#7a1f1f' stroke='#7a1f1f' stroke-width='2'/>
+<circle cx='779.285714285714' cy='298.708111111111' r='5' fill='#7a1f1f' stroke='#7a1f1f' stroke-width='2'/>
+<circle cx='851.428571428571' cy='275.074822222222' r='5' fill='#ffffff' stroke='#7a1f1f' stroke-width='2'/>
+<circle cx='923.571428571429' cy='230.831011111111' r='5' fill='#ffffff' stroke='#7a1f1f' stroke-width='2'/>
+<circle cx='995.714285714286' cy='216.352' r='5' fill='#ffffff' stroke='#7a1f1f' stroke-width='2'/>
+<circle cx='1067.85714285714' cy='183.663955555556' r='5' fill='#ffffff' stroke='#7a1f1f' stroke-width='2'/>
+<circle cx='1140' cy='156.279444444444' r='5' fill='#ffffff' stroke='#7a1f1f' stroke-width='2'/>
+<text x='144' y='267.492666666667' font-family="Georgia, 'Times New Roman', serif" font-size='15' font-weight='bold' fill='#1f5c7a'>sken tabele: 578.220 (ne zavisi od N)</text>
+<text x='1130' y='140.279444444444' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='15' font-weight='bold' fill='#7a1f1f'>sken opsega preko idx_customer_id</text>
+<text x='1140' y='720' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>pun krug = optimizator je uzeo indeks &#183; prazan krug = odbio ga je, uz obrazlo&#382;enje &#8222;cause: cost&#8220;</text>
+</svg>
+

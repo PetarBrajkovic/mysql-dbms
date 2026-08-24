@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referenca — Od SQL-a do plana izvršavanja</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica</p>
+<h1>Pet faza i jedna cena</h1>
+<p class="subtitle">Sažeta suština za pisanje i odbranu Poglavlja 3. Svaka tvrdnja je citabilna iz priručnika, worklog-a ili izvornog koda.</p>
+
+<h2>Faze, sa imenima iz koda</h2>
+<ol class="stages">
+  <li><b>Parser</b><span>tekst → stablo raščlanjivanja; samo gramatika, nijedno ime iz baze</span></li>
+  <li><b>Razrešavanje · <code>Query_block::prepare()</code>, <code>sql_resolver.cc</code></b>
+    <span>imena iz rečnika podataka + <strong>trajne</strong> transformacije stabla</span></li>
+  <li><b>Optimizator · <code>JOIN::optimize()</code>, <code>sql_optimizer.cc</code></b>
+    <span>priprema uslova, procena broja torki, izbor strategija; sve po ceni</span></li>
+  <li><b>Planer · <code>Optimize_table_order</code>, <code>sql_planner.cc</code></b>
+    <span>redosled spoja i pristupni put po tabeli</span></li>
+  <li><b>Izvršilac · <code>sql_executor.cc</code>, <code>sql/iterators/</code></b>
+    <span>stablo iteratora, torka po torku (Poglavlje 5)</span></li>
+</ol>
+
+<div class="note">
+  <span class="lbl">Kako to server sam potvrđuje</span>
+  <code>optimizer_trace</code> ima tačno tri koraka na vrhu: <code>join_preparation</code>,
+  <code>join_optimization</code>, <code>join_execution</code>. Planer nema svoj korak jer je potfaza
+  optimizatora; parser nema jer trag počinje tek kad stablo postoji.
+</div>
+
+<h2>Transformacija naspram strategije</h2>
+<div class="levels">
+  <div class="level logical">
+    <h4>Priprema: transformacija</h4>
+    <ul>
+      <li>Menja <strong>oblik</strong>, trajno; jednom po naredbi.</li>
+      <li>Bez cene, jer nema alternativu.</li>
+      <li>Poluspoj, antispoj, spajanje ili materijalizacija izvedenih tabela,
+        spuštanje uslova u izvedenu tabelu, dekorelacija.</li>
+      <li>Osnov: WL#7082 ih je preselio iz <code>JOIN::optimize()</code> u
+        <code>JOIN::prepare()</code>, zbog životnog veka memorije.</li>
+    </ul>
+  </div>
+  <div class="level physical">
+    <h4>Optimizacija: strategija</h4>
+    <ul>
+      <li>Menja <strong>način</strong>, privremeno; pri svakom izvršavanju.</li>
+      <li>Po ceni, među kandidatima.</li>
+      <li>FirstMatch, LooseScan, DuplicatesWeedout, MaterializeLookup, MaterializeScan;
+        redosled spoja; pristupni put.</li>
+      <li>Ovde je i propagacija jednakosti (<code>condition_processing</code>), koja
+        <strong>nije</strong> trajna.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Model cene</h2>
+<table>
+  <tr><td><code>mysql.server_cost</code> · <code>row_evaluate_cost</code></td><td><code>0,1</code></td></tr>
+  <tr><td><code>mysql.server_cost</code> · <code>key_compare_cost</code></td><td><code>0,05</code></td></tr>
+  <tr><td><code>mysql.server_cost</code> · <code>memory_temptable_create_cost</code> / <code>row</code></td><td><code>1,0 / 0,1</code></td></tr>
+  <tr><td><code>mysql.server_cost</code> · <code>disk_temptable_create_cost</code> / <code>row</code></td><td><code>20,0 / 0,5</code></td></tr>
+  <tr><td><code>mysql.engine_cost</code> · <code>io_block_read_cost</code></td><td><code>1,0</code></td></tr>
+  <tr><td><code>mysql.engine_cost</code> · <code>memory_block_read_cost</code></td><td><code>0,25</code></td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Rečenica koju treba umeti napamet</span>
+  Cena skena tabele = <code>row_evaluate_cost</code> × broj torki + <code>io_block_read_cost</code> ×
+  broj stranica. Za <code>wide_events</code>: 0,1 × 4.909.177 + 1,0 × 89.216 =
+  <strong>580.134</strong>, što je tačno broj koji server prijavljuje kad nijedna stranica nije u
+  bafer pulu. Stranica koja jeste u pulu košta 0,25, pa <span class="hi">ista cena varira između
+  pokretanja</span>.
+</div>
+
+<h2>Dve odluke koje se donose po ceni</h2>
+<div class="levels">
+  <div class="level physical">
+    <h4>Pristupni put (po tabeli)</h4>
+    <ul>
+      <li><code>best_access_path()</code>: <q>Find the best access path for an extension of a
+        partial execution plan and add this path to the plan.</q></li>
+      <li>Kandidati i cene stoje u tragu, pod
+        <code>rows_estimation</code> → <code>analyzing_range_alternatives</code>.</li>
+      <li>Odbijen kandidat nosi razlog: <code>cause: "cost"</code> znači skuplji, ne neupotrebljiv.
+        Neupotrebljiv se piše kao <code>usable: false</code>.</li>
+    </ul>
+  </div>
+  <div class="level logical">
+    <h4>Redosled spoja (po upitu)</h4>
+    <ul>
+      <li>Pohlepna spoljna petlja <code>greedy_search()</code>, sa ograničeno iscrpnim pogledom
+        unapred <code>best_extension_by_limited_search()</code>.</li>
+      <li>Kandidati stoje u tragu, pod <code>considered_execution_plans</code>; svaki čvor ima
+        <code>plan_prefix</code> i <code>cost_for_plan</code>.</li>
+      <li>Odsečeni nose <code>pruned_by_cost</code> ili <code>pruned_by_heuristic</code>.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Promenljive koje treba znati</h2>
+<table>
+  <tr><td><code>optimizer_search_depth</code> · dubina pogleda unapred</td><td><code>62</code></td></tr>
+  <tr><td>zašto baš 62: <code>MAX_TABLES + 1</code>, a <code>MAX_TABLES</code> = 61</td><td><code>= najveća</code></td></tr>
+  <tr><td>vrednost 0: server sam bira razumnu dubinu</td><td><code>0</code></td></tr>
+  <tr><td><code>optimizer_prune_level</code> · odsecanje po broju torki</td><td><code>1</code></td></tr>
+  <tr><td><code>optimizer_trace</code> · dnevnik odluka, po sesiji</td><td><code>off</code></td></tr>
+  <tr><td><code>optimizer_switch</code> · uključivanje pojedinih optimizacija</td><td><code>semijoin=on …</code></td></tr>
+</table>
+
+<h2>Izmereno uživo (2026-08-24, MySQL 8.4.11)</h2>
+<table>
+  <tr><td>Sintaksna greška ispred greške imena</td><td><code>1064 pre 1054</code></td></tr>
+  <tr><td>Cena skena tabele <code>wide_events</code></td><td><code>578.220</code></td></tr>
+  <tr><td>Sken opsega do <code>customer_id</code> = 9.000</td><td><code>462.848, uzet</code></td></tr>
+  <tr><td>Sken opsega do <code>customer_id</code> = 12.000</td><td><code>660.854, odbijen</code></td></tr>
+  <tr><td>Granica prevrtanja pristupnog puta</td><td><code>10.000 / 11.000</code></td></tr>
+  <tr><td>Spoj šest tabela, dubina 62 naspram dubine 1</td><td><code>≈ 150 puta</code></td></tr>
+  <tr><td>Razmotrenih delimičnih planova, sa odsecanjem i bez</td><td><code>63 / 89</code></td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Ne napiši pogrešno</span>
+  <strong>(1)</strong> „Sve transformacije su u pripremi“ je netačno: samo <strong>trajne</strong> su.
+  Propagacija jednakosti radi se u optimizaciji, pri svakom pokretanju.
+  <strong>(2)</strong> Hipergrafski optimizator postoji u 8.4, ali je isključen već pri prevođenju,
+  u izdanjima koja nisu razvojna, pa pokušaj uključivanja vraća <strong>grešku</strong>
+  (<code>ERROR 3999</code>). Navodi se kao dokumentovana činjenica vezana za 8.4, nikada kao
+  demonstracija i nikada bez broja verzije.
+  <strong>(3)</strong> Doxygen sajt izvorne dokumentacije prikazuje razvojnu granu, ne 8.4; imena
+  fajlova i klasa proverena su u izvornom kodu na oznaci <code>mysql-8.4.6</code>.
+</div>
+
+<p class="meta">
+  Termini su zaključani u <a href="../GLOSSARY.md">GLOSSARY.md</a> §2b (stablo raščlanjivanja,
+  razrešavanje, transformacija, poluspoj, dekorelacija, trag optimizatora, model cene, pretraga
+  redosleda spoja, odsecanje …). Izvori:
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/controlling-query-plan-evaluation.html">Controlling Query Plan Evaluation</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/cost-model.html">The Optimizer Cost Model</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/semijoins-antijoins.html">Semijoins and Antijoins</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/switchable-optimizations.html">Switchable Optimizations</a>,
+  <a href="https://dev.mysql.com/worklog/task/?id=7082">WL#7082</a>;
+  kod: <code>sql/sql_resolver.cc</code>, <code>sql/sql_optimizer.cc</code>,
+  <code>sql/sql_planner.cc</code>, <code>sql/sys_vars.cc</code>, <code>include/my_table_map.h</code>
+  (oznaka <code>mysql-8.4.6</code>).
+  Napravljeno lekcijom <a href="../lessons/0003-od-sql-a-do-plana-izvrsavanja.html">0003</a>.
+</p>
+
+<style>
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; margin: 0.8rem 0; }
+  td { border-bottom: 1px solid var(--rule); padding: 0.45rem 0.6rem; vertical-align: top; }
+  td:last-child { text-align: right; white-space: nowrap; color: var(--ink-soft); }
+</style>
+
+<script src="../assets/copy.js"></script>
+</body>
+</html>

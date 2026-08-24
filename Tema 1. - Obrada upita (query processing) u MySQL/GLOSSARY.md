@@ -121,6 +121,60 @@ Three deliberate non-choices, recorded so they are not "fixed" later:
   `skladišni motor` later, and do not replace the short form `motor` with `mehanizam` throughout —
   only the first-use definition needed fixing.
 
+### 2b. Pipeline and optimizer terms (locked 2026-08-24, chapter 3)
+
+Added while teaching chapter 3 (lesson `0003`). Same pattern as §2: Serbian term, English original in
+parentheses on first use only. The decks name the generic components (Parser, Optimizator, Evaluator
+plana) but have **no** vocabulary for MySQL's phase boundaries, its cost model tables, or its
+join-order search, so most of these are new coinage.
+
+| Concept | Serbian term (first use) | After first use |
+|---|---|---|
+| Parse tree / AST | stablo raščlanjivanja *(parse tree, AST)* | stablo raščlanjivanja |
+| Resolution / preparation phase | razrešavanje *(resolution)* | razrešavanje (or: priprema) |
+| Resolver (the component) | resolver | resolver |
+| Planner (the component) | planer | planer |
+| Executor (the component) | izvršilac | izvršilac |
+| Query transformation | transformacija upita | transformacija |
+| Permanent transformation | trajna transformacija | trajna transformacija |
+| Semijoin | poluspoj *(semijoin)* | poluspoj |
+| Antijoin | antispoj *(antijoin)* | antispoj |
+| Decorrelation | dekorelacija *(decorrelation)* | dekorelacija |
+| Derived table | izvedena tabela | izvedena tabela |
+| Subquery | podupit | podupit |
+| Equality propagation | propagacija jednakosti | propagacija jednakosti |
+| Optimizer trace | trag optimizatora *(optimizer trace)* | trag optimizatora |
+| Cost model | model cene *(cost model)* | model cene |
+| Cost constant | konstanta cene | konstanta cene |
+| Join-order search | pretraga redosleda spoja | pretraga redosleda spoja |
+| Search depth | dubina pretrage | dubina pretrage |
+| Plan pruning | odsecanje planova *(pruning)* | odsecanje |
+| Greedy search | pohlepna pretraga *(greedy search)* | pohlepna pretraga |
+| Exhaustive search | iscrpna pretraga *(exhaustive search)* | iscrpna pretraga |
+| Partial plan | delimični plan | delimični plan |
+| Range scan | sken opsega | sken opsega |
+| Index dive | zaron u indeks *(index dive)* | zaron u indeks |
+| Hypergraph join optimizer | hipergrafski optimizator spoja *(hypergraph join optimizer)* | hipergrafski optimizator |
+
+Four deliberate non-choices, recorded so they are not "fixed" later:
+
+- **"poluspoj", written solid, not "semi-spoj" and not "polu-spoj".** Two separate points. (a) The
+  prefix `polu-` is the standard Serbian calque of `semi-` (`poluprovodnik`, `poluprečnik`), whereas
+  `semi-` is an unassimilated borrowing. (b) `polu-` is written **joined** to its base
+  (`poluvreme`, `poluostrvo`, `polufinale`, `polukrug`), taking a hyphen only before a capitalised
+  proper noun (`polu-Nemac`); `anti-` behaves identically, hence `antispoj`. Checked against the
+  orthography rule, not guessed. `rad.md` never used the term, and the two chapter-2 learning
+  artifacts that said *semi-spoj* in a parenthetical (`lessons/0002-...html`,
+  `reference/01-...html`) were corrected on the user's instruction 2026-08-24, so the workspace is
+  consistent with no exceptions.
+- **`optimizer_trace`, `cause: "cost"` and other trace keys stay verbatim, in code font.** They are
+  JSON keys the reader must recognise in real output, not concept words. Same rule as `handler` in §2a.
+- **"cena" is never rendered as *trošak* or *cost*.** §1 already locked *cena*, and the whole chapter
+  turns on it being one consistent word.
+- **"pruning" is not translated as *orezivanje*.** *Orezivanje* collocates with plants; *odsecanje*
+  is what the search actually does to a branch of the plan tree, and it reads as a search-algorithm
+  term rather than a gardening one.
+
 ## 3. Hard constraint — plan cache vs. parse-tree cache (chapter 8)
 
 Research ticket 06 confirms, does not contradict, the assumption in ticket 17: MySQL has **no shared

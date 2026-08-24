@@ -106,6 +106,30 @@ graded - `MISSION.md` and `RESOURCES.md` are the documents that matter for plann
   engine cardinality 14 comes from `mysql.innodb_index_stats.n_diff_pfx01` with `sample_size = 16`
   out of `n_leaf_pages = 5082`; the server's histogram finds **15** distinct values and puts `'US'`
   at ≈ **0.70**.
+- **Cost constants verified live (2026-08-24, during lesson 0003):** research memo
+  `04-sql-to-plan-and-iterator.md` §2.3 flagged the eight compiled-in cost constants as
+  `[UNVERIFIED]` at runtime. They are now confirmed against the live 8.4.11 server via the
+  `default_value` generated column of `mysql.server_cost` / `mysql.engine_cost`, exactly as the memo
+  predicted. **That flag can be cleared.** More usefully, the table-scan cost is reproducible by
+  hand: `0.1 × 4,909,177 rows + 1.0 × 89,216 clustered pages = 580,134`, which is precisely the
+  number Lesson 01 recorded. **Consequence chapter 4 must not trip on: the same cost is not the same
+  number twice.** Today the same scan reports `578,220`, because ~2,650 of the table's pages happen
+  to be in the buffer pool and a cached page costs `memory_block_read_cost` (0.25) instead of
+  `io_block_read_cost` (1.0). Anything quoting an absolute cost needs the buffer-pool state attached;
+  ratios are what stay stable.
+- **Plan-search counts are run-dependent (2026-08-24, during lesson 0003):** the number of partial
+  plans the optimizer considers is not a constant, because pruning depends on costs and costs depend
+  on buffer-pool residency. The same six-table Sakila join measured 88/118 nodes mid-session and
+  63/89 in a fresh session. If a count goes into the paper it needs "izmereno u svežoj sesiji" next
+  to it, or should be replaced by the direction (pruning removes about a third, and does not change
+  the chosen plan).
+- **Terminology check worth not redoing (2026-08-24):** `poluspoj` / `antispoj` are written **solid**,
+  not hyphenated. Verified against the Serbian orthography rule for the prefixoid `polu-`
+  (`poluvreme`, `poluostrvo`, `polufinale`), which takes a hyphen only before a capitalised proper
+  noun. Locked in `GLOSSARY.md` §2b. The two chapter-2 artifacts that said `semi-spoj`
+  (`lessons/0002-*.html`, `reference/01-*.html`) were corrected the same day on the user's
+  instruction, so the whole workspace now uses `poluspoj` with no grandfathered exceptions.
+  `rad.md` never used the term.
 - **Figure pipeline reopened and automated (2026-08-22):** Workbench's Visual Explain stopped
   rendering on the user's machine, and he'd rather not hand-capture/name/file ~13 figures across
   nine sessions anyway. Ticket 09 reopened - figures are now generated end to end by the agent via
