@@ -146,11 +146,31 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   Third clean pass of the per-chapter loop; the transformation-vs-strategy line and the "cost varies
   between runs" caveat hand off to chapter 4.
 
+- [Chapter 4a. EXPLAIN: formati ispisa i tipovi pristupa](issues/13a-explain-formati-i-tipovi.md):
+  the vocabulary half of chapter 4 written and closed. **Chapter 4 is now three tickets, not one**
+  (13a here, [13b `EXPLAIN ANALYZE`](issues/13b-explain-analyze.md),
+  [13c trag optimizatora](issues/13c-optimizer-trace.md)), matching the 3-lesson split `NOTES.md`
+  decided on 2026-08-24, so each taught lesson has a ticket it can close; ticket 14 now waits on 13c.
+  Visual Explain dropped from scope for good (ticket 09's reopening). ~3 pages of `rad.md` in four
+  subsections on one spine: **`EXPLAIN` prints an estimate, and the estimate has a shape**. Three
+  formats are only **two shapes**, one row per *table* (tabular, JSON v1) against one node per
+  *iterator* (TREE, JSON v2), bridged by arithmetic the manual prescribes (`rows × filtered / 100` =
+  16.500 × 33,33% = 5.499, the `Filter` node's own estimate). Four of twelve columns carry the
+  decision; `key` and `key_len` only answer together; `possible_keys` with `key: NULL` is chapter 3's
+  `cause: "cost"` seen from the output side. The access-type ladder is **not a cost ranking**
+  (`unique_subquery` at rank 8 returns one row, like `eq_ref` at rank 3), and its two subquery types
+  are invisible by default because the semijoin transformation runs in *preparation*, before an
+  access type exists: chapter 3's finding from the other side. `Extra` closes it by showing chapter
+  2's seam in one word (`Using index` / `Using index condition` / `Using where`). New citation
+  `mysqlblogjson` (Brevik, MySQL Server Team Blog, 2024) for JSON v2's field semantics, which the
+  manual doesn't document; renders IEEE [5]. Two figures at budget. Fourth clean pass of the
+  per-chapter loop, and it also **closed one of `WORKFLOW.md`'s two open live-server questions**
+  (`explain_json_format_version = 2` works on 8.4.11). **Carries a budget flag into 13b**: this half
+  alone ate ~3 of chapter 4's ~4 pages, so 13b/13c either share ~1 page or the chapter's budget is
+  raised deliberately.
+
 ## Not yet specified
 
-- **Lesson-to-chapter cadence.** One teach lesson per chapter is the assumption, but the thin
-  chapters (6 and 7, both comparative) may deserve a single shared lesson. Revisit once the first two
-  lessons show how long one actually takes.
 - **Session pacing across the five weeks.** Depends on how heavy the first chapter turns out.
 - **Whether the synthetic dataset needs to grow or change** for the parallel-execution chapter
   specifically — unknown until the MySQL install and the first EXPLAIN runs reveal what the optimizer

@@ -307,6 +307,129 @@ uključi vraća grešku, a ne upozorenje [@mysql84refman]. U ovom radu navodi se
 
 # 4. EXPLAIN i EXPLAIN ANALYZE
 
+Poglavlje 3 pokazalo je kako se plan bira. Ovo poglavlje pokazuje kako se izabrani plan čita. Alat je
+naredba `EXPLAIN`, koja se primenjuje na naredbe `SELECT`, `DELETE`, `INSERT`, `REPLACE`, `UPDATE` i
+`TABLE` [@mysql84refman]. Pre bilo kakve dijagnostike, međutim, ide rečnik: koje formate ispisa ta
+naredba ima, šta znači svaka njena kolona i šta tačno tvrdi ono jedno polje u koje se prvo gleda. Tim
+redom ide i poglavlje: najpre se čita procena koju `EXPLAIN` ispisuje, potom se ta procena poredi sa
+izmerenim izvršavanjem, i najzad se u tragu optimizatora traži ono što ispis nikada ne prikazuje, a to
+su odbačeni planovi.
+
+## 4.1. Tri formata ispisa, dva oblika plana
+
+`EXPLAIN` ima tri formata ispisa: podrazumevani tabelarni format, `FORMAT=JSON` i `FORMAT=TREE`
+[@mysql84refman]. Lako je pretpostaviti da su to tri pogleda na istu stvar, pa da je izbor između njih
+stvar ukusa. Nije: dva od tri formata prikazuju plan po tabeli, a treći po iteratoru, i ta razlika
+određuje šta se u ispisu uopšte može videti.
+
+Razlika se meri prebrojavanjem. Isti spoj tabela `customer` i `payment` nad bazom `sakila` u
+tabelarnom formatu daje dva reda, po jedan za svaku tabelu, a u obliku stabla četiri čvora, jer su i
+filter i sam spoj operacije, a ne osobine tabele. Filter u tabelarnom ispisu nema svoj red: sabijen je
+u reč `Using where` u koloni `Extra` i u broj u koloni `filtered`. Most između dva oblika je aritmetika
+koju priručnik izričito propisuje, `rows` pomnoženo sa `filtered` i podeljeno sa 100 [@mysql84refman].
+Na posmatranom planu 16.500 torki pomnoženo sa 33,33 procenta daje 5.499, a to je tačno procena broja
+torki čvora `Filter` u stablu; `FORMAT=JSON` verzije 1 isti broj daje gotov, u polju
+`rows_produced_per_join` [@mysql84refman]. Ono što tabelarni format ostavlja čitaocu da izračuna,
+stablo prikazuje kao zaseban čvor.
+
+![Slika 4.1: Isti upit i isti plan u tri formata ispisa naredbe
+`EXPLAIN`.](figures/04-explain-01-tri-formata-jedan-plan.png)
+
+Podela na dva oblika nije, međutim, podela na tekstualni i mašinski čitljiv ispis. Počev od verzije
+8.3 postoji i druga verzija JSON formata, koja umesto oblika po tabeli daje isto stablo iteratora koje
+ispisuje `FORMAT=TREE`, a bira se promenljivom sesije `explain_json_format_version` [@mysql84refman].
+Na serveru na kome su rađeni primeri u ovom radu (8.4.11) podrazumevana vrednost te promenljive je 1,
+dok se vrednost 2 prihvata i proizvodi stablasti oblik. Uz drugu verziju ide i zamka koju svako
+navođenje JSON ispisa mora da uzme u obzir: ključ `access_type` postoji u obe verzije, ali u njima ne
+znači isto. U verziji 1 on nosi tip pristupa *(access type)* iz tabelarnog ispisa, dok u verziji 2 nosi
+vrstu iteratora (`table`, `filter`, `join`, `index`), a tip pristupa se seli u ključ
+`index_access_type` [@mysqlblogjson]. Svaki JSON ispis naveden kao dokaz stoga mora da imenuje i svoju
+verziju.
+
+## 4.2. Kolone koje nose odluku
+
+Tabelarni ispis ima dvanaest kolona, ali one nisu jednako važne [@mysql84refman]. Kolone `id`,
+`select_type`, `table` i `partitions` identifikuju blok upita i tabelu, kolone `possible_keys`,
+`key_len` i `ref` opisuju izabrani pristup, a odluku optimizatora nose četiri: `type` (kojim se putem
+dolazi do tabele), `key` (koji je indeks izabran), `rows` (procena broja torki koje pristup pročita) i
+`filtered` (procena, u procentima, koliko ih preživi uslov) [@mysql84refman]. Kolona `Extra` prihvata
+sve što se ni u jednu od ostalih nije uklopilo.
+
+Tri česta pogrešna čitanja tog ispisa mogu se proveriti u svega nekoliko naredbi. Prvo, kolone `key` i
+`key_len` odgovaraju na različita pitanja i tek zajedno određuju šta pristup radi: `key` imenuje
+indeks, a dužina ključa (`key_len`) kaže koliko je njegovih bajtova stvarno iskorišćeno
+[@mysql84refman]. Primarni ključ tabele `film_actor` složen je od kolona `actor_id` i `film_id`, dakle
+2 + 2 bajta. Upit sa uslovom samo nad prvom kolonom prijavljuje `key: PRIMARY` i `key_len: 2`, koristi
+levi prefiks ključa i vraća devetnaest torki po pretrazi, dok upit sa uslovom nad obe kolone
+prijavljuje `key_len: 4` i najviše jednu torku. U oba slučaja kolona `key` ispisuje isto ime, pa bi bez
+dužine ključa izgledalo da se dešava isto.
+
+Drugo, indeks naveden u koloni `possible_keys` uz `key: NULL` ne znači da je indeks neupotrebljiv. Da
+jeste, među kandidate ne bi ni ušao. Reč je o odluci po ceni iz poglavlja 3, viđenoj sa strane ispisa:
+o istom onom kandidatu koji u tragu optimizatora nosi oznaku `cause: "cost"` [@mysql84refman]. Treće,
+broj koji ulazi u narednu tabelu plana nije `rows`, nego proizvod kolona `rows` i `filtered`. Dva upita
+nad tabelom `payment`, sa istim indeksom i istom procenom od 32 torke, razlikuju se samo po jednom
+dodatnom uslovu, a taj uslov spušta `filtered` sa 100,00 na 33,33 i u istom trenutku menja `Extra` iz
+`Using index` u `Using where`.
+
+## 4.3. Lestvica tipova pristupa
+
+Kolona `type` uzima tačno dvanaest vrednosti, a priručnik ih navodi poređane od najboljeg tipa ka
+najgorem [@mysql84refman]. Slika 4.2 prikazuje svih dvanaest, svaku izmerenu na zasebnom upitu nad
+bazom `sakila`, uz boju koja ih grupiše po tome koliko torki jedan pristup može da vrati.
+
+![Slika 4.2: Dvanaest vrednosti kolone `type`, poređanih redosledom iz priručnika i obojenih po broju
+torki koje jedan pristup može da vrati.](figures/04-explain-02-lestvica-tipova-pristupa.png)
+
+Iz slike se vidi ono što se iz samog spiska ne vidi: te grupe se ne poklapaju sa redosledom iz
+priručnika. Tip `unique_subquery`, osmi po redu, vraća najviše jednu torku, isto što i treći po redu
+`eq_ref`, a stoji pet mesta niže. Redosled je, dakle, praktično uputstvo, a ne merna skala, i lestvica
+nije redosled cena. Tip `range` nad pedeset torki jeftiniji je od tipa `ref` nad pet miliona torki, a
+`ALL` nad tabelom od tri reda najjeftinije je što postoji. Tip pristupa govori o obliku pristupa, to
+jest o tome koliko torki jedna pretraga može da vrati, dok cenu računa model cene iz poglavlja 3.
+
+Parovi koji se najčešće mešaju razlikuju se po jednoj jedinoj osobini. Tipovi `eq_ref` i `ref` oba su
+pretraga po indeksu *(index lookup)*, ali prvi koristi ceo primarni ili jedinstveni ključ, pa vraća
+najviše jednu torku po torki prethodne tabele, dok drugi koristi indeks koji nije jedinstven ili samo
+levi prefiks složenog ključa, pa ih može vratiti više [@mysql84refman]. Tipovi `const` i `eq_ref` oba
+vraćaju najviše jednu torku, ali se `const` čita jednom za ceo upit, pre ostatka plana, jer se poredi
+sa konstantom, dok se `eq_ref` čita iznova za svaku torku prethodne tabele [@mysql84refman]. Tipovi
+`index` i `ALL` oba čitaju celu strukturu od početka do kraja, a `index` je jeftiniji samo zato što je
+indeks manji od torki [@mysql84refman].
+
+Dva tipa sa lestvice, `unique_subquery` i `index_subquery`, sa podrazumevanim podešavanjima ne mogu se
+ni videti, a razlog dolazi pravo iz poglavlja 3. Transformacija u poluspoj prepisuje podupit iz
+klauzule `IN` u običan spoj još u fazi pripreme, dakle pre nego što se tip pristupa uopšte bira
+[@mysql84refman]. Isti upit nad tabelama `actor` i `film_actor` sa podrazumevanim podešavanjima
+prijavljuje dva reda sa `id: 1` i oznakom `SIMPLE`, bez ijednog podupita; kada se transformacija
+isključi promenljivom `optimizer_switch`, u ispisu se pojavljuje blok sa `id: 2`, oznakom
+`DEPENDENT SUBQUERY` i tipom `unique_subquery`. To je zaključak poglavlja 3 viđen sa druge strane: ono
+što transformacija ukloni ne može se pojaviti u koloni `type`. Isključivanje poluspoja ovde je, treba
+naglasiti, sredstvo posmatranja, a ne savet za podešavanje, jer proizvodi lošiji plan.
+
+## 4.4. Kolona `Extra` i granica procene
+
+U koloni `Extra` završava sve što se nije uklopilo u ostale kolone, pa u njoj završe i najkorisnije
+reči celog ispisa. Tri vrednosti koje liče, a znače različite stvari, opisuju istu radnju na tri
+različita mesta. `Using index` znači da su sve tražene kolone u indeksu, pa se tabela ne čita uopšte,
+što je pokrivajući indeks *(covering index)*; `Using index condition` znači da je uslov spušten u motor
+i proveren nad zapisom indeksa, dakle spuštanje uslova u indeks iz poglavlja 2; `Using where` znači da
+serverski sloj filtrira torke koje mu je motor već predao [@mysql84refman]. Šav iz poglavlja 2 time
+postaje vidljiv u jednoj jedinoj reči ispisa.
+
+Druge vrednosti te kolone su upozorenja. `Using temporary` znači da se gradi privremena tabela, obično
+zbog klauzule `DISTINCT` ili `GROUP BY`, a `Using filesort` da traženo uređenje ne isporučuje nijedan
+indeks, nego se sortiranje obavlja posebno [@mysql84refman]. Pojava obe vrednosti u istom redu
+najskuplji je od uobičajenih ishoda, jer se rezultat mora ceo materijalizovati pre sortiranja. Ime
+`filesort` pritom vara: MySQL sortira u memoriji kad god rezultat u nju staje, a na disk prelazi tek
+kada ne staje [@mysql84refman].
+
+Sve pročitano u ovom delu poglavlja, međutim, jeste procena. `EXPLAIN` nad naredbom `SELECT` ne
+izvršava upit, pa su `rows` i `filtered` procene koje umeju i da promaše, a ispis prikazuje samo
+pobednika i ćuti o poraženim kandidatima [@mysql84refman]. Koliko je torki stvarno prošlo kroz plan
+meri se naredbom `EXPLAIN ANALYZE`, dok se odbačeni planovi i njihove cene čitaju iz traga
+optimizatora; time se bave naredni odeljci.
+
 # 5. Iterator model i pipeline operatora
 
 # 6. Vektorizovano izvršavanje

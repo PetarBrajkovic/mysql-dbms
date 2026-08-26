@@ -4,7 +4,7 @@
 **Chapter:** 4 (EXPLAIN i EXPLAIN ANALYZE), lesson 4a of three
 **Lesson:** `lessons/0004-explain-formati-i-tipovi-pristupa.html`
 **Reference card:** `reference/03-explain-formati-i-tipovi.html`
-**Status:** taught; chapter 4 prose not yet written (4b and 4c still to teach)
+**Status:** taught and written (`rad.md` §4.1-4.4, ticket 13a closed 2026-08-26); 4b and 4c still to teach
 
 ## What was taught
 

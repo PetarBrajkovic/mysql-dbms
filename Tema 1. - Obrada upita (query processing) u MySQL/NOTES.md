@@ -152,7 +152,11 @@ graded - `MISSION.md` and `RESOURCES.md` are the documents that matter for plann
   - **4c - optimizer_trace**: `optimizer_trace` + `EXPLAIN FOR CONNECTION`, what trace shows that
     `EXPLAIN` never does (rejected plans and their costs). Smaller; may fold into 4b if thin -
     decide after 4b is taught.
-  Next session: run 4b's prompt (`/teach EXPLAIN ANALYZE in MySQL`). 4a is taught, see LR-0004.
+  4a is taught **and written**: `rad.md` §4.1-4.4, ticket 13a closed 2026-08-26. The old single
+  ticket 13 was split into 13a/13b/13c to match this breakdown. Next session: run 4b's prompt
+  (`/teach EXPLAIN ANALYZE in MySQL`), then wayfinder. **Read 13a's budget flag first**: the 4a
+  half took ~3 of chapter 4's ~4 pages, so 4b and 4c either share ~1 page (4c folding into 4b) or
+  the chapter's budget gets raised on purpose.
 - **`explain_json_format_version = 2` WORKS on 8.4.11 (verified 2026-08-24, during lesson 0004).**
   This closes one of the two things `WORKFLOW.md` listed as "still needs checking against your live
   server once it is installed". Default on this server is `1`; `SET explain_json_format_version = 2`

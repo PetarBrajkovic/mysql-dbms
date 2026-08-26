@@ -133,8 +133,10 @@ Do not re-litigate these mid-chapter:
   session. Draw that line carefully in chapter 8.
 - `optimizer_search_depth` defaults to **62**.
 
-Two things still need checking against your live server once it is installed: the "estimates off by
-3x" rule of thumb, and whether `explain_json_format_version = 2` works on 8.4.
+One thing still needs checking against your live server: the "estimates off by 3x" rule of thumb
+(chapter 4b's business). The other, whether `explain_json_format_version = 2` works on 8.4, was
+confirmed during lesson 4a - it does, default is `1`, and the `access_type` key means something
+different in each version (see LR-0004).
 
 ---
 
