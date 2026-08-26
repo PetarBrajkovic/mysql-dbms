@@ -12,3 +12,7 @@ figures/raw/*.json
 
 # myflames auto-generated algorithm-lesson bundle (not paper content)
 figures/teach/
+
+# Word owner/lock files, created whenever rad.docx is opened (by Word or by the
+# page-count check in a session) and deleted when it closes - never project content
+~$*
