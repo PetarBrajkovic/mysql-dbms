@@ -242,15 +242,23 @@ ticket exists precisely so nothing gets fixed before it's known. Each chapter ti
 | 1 | Uvod | 1.5 |
 | 2 | Arhitektura obrade upita u MySQL-u | 2 |
 | 3 | Od SQL-a do plana izvršavanja | 3.5 |
-| 4 | EXPLAIN i EXPLAIN ANALYZE | 4 |
+| 4 | EXPLAIN i EXPLAIN ANALYZE | 6 |
 | 5 | Iterator model i pipeline operatora | 3 |
 | 6 | Vektorizovano izvršavanje | 2 |
 | 7 | Paralelno izvršavanje upita | 2 |
 | 8 | Keširanje i ponovna upotreba planova | 2 |
 | 9 | Zaključak | 1 |
 
-Total ≈ 21 pages against the map's nominal "~20 pages" — accepted as close enough; a page or two over
-is not a problem. Do not trim pre-emptively; a chapter's real length is only known once it's written.
+Total ≈ 23 pages against the map's nominal "~20 pages" — accepted; a few pages over is not a problem.
+Do not trim pre-emptively; a chapter's real length is only known once it's written.
+
+**Revision (2026-08-26, user's decision): chapter 4 raised from 4 to 6 pages**, total from ≈21 to
+≈23. Chapter 4 is taught as three lessons and written as three tickets (13a/13b/13c), and 13a alone
+— three output formats, twelve columns, twelve access types, the `Extra` values — came out at ~3
+pages of dense, unpadded prose. The alternative was squeezing `EXPLAIN ANALYZE` and the optimizer
+trace into ~1 shared page, which would have gutted the chapter's actual centrepiece
+(estimated-vs-actual row divergence). The chapter is the paper's most hands-on one and the figure
+centrepiece, so it gets the pages. 13b and 13c now have ~3 pages between them.
 
 ## 5. Voice and citation density
 

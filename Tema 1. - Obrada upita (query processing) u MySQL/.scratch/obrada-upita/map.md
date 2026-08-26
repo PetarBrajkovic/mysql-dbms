@@ -85,7 +85,8 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   ~30 deck-derived terms adopted verbatim; six terms with no deck precedent (iterator model, plan
   cache, vectorized execution, parallel query execution, prepared statement, cost-based optimizer)
   locked to "Serbian term, English in parentheses on first use only." Chapter skeleton locked at the
-  top level (list, order, ~21-page budget - accepted over the nominal ~20, no trimming); subheadings
+  top level (list, order, ~21-page budget - accepted over the nominal ~20, no trimming; **revised to
+  ~23 on 2026-08-26** when chapter 4 went from 4 to 6 pages); subheadings
   deliberately left open per-chapter. Chapter 8 confirmed unchanged by research ticket 06, with the
   plan-cache-vs-parse-tree-cache distinction written in as a hard constraint. Voice: impersonal
   *se*-construction. Citation density: per-paragraph wherever a factual claim appears.
@@ -165,9 +166,11 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   `mysqlblogjson` (Brevik, MySQL Server Team Blog, 2024) for JSON v2's field semantics, which the
   manual doesn't document; renders IEEE [5]. Two figures at budget. Fourth clean pass of the
   per-chapter loop, and it also **closed one of `WORKFLOW.md`'s two open live-server questions**
-  (`explain_json_format_version = 2` works on 8.4.11). **Carries a budget flag into 13b**: this half
-  alone ate ~3 of chapter 4's ~4 pages, so 13b/13c either share ~1 page or the chapter's budget is
-  raised deliberately.
+  (`explain_json_format_version = 2` works on 8.4.11). **Raised chapter 4's page budget**: this half alone ate ~3
+  of chapter 4's ~4 pages with nothing padded, so on 2026-08-26 the user raised chapter 4 from 4 to
+  **6 pages** (paper total ≈21 -> ≈23, `GLOSSARY.md` §4) rather than squeeze `EXPLAIN ANALYZE` and
+  the optimizer trace into ~1 shared page and gut the chapter's centrepiece. 13b now targets ~2
+  pages, 13c ~1, and 13c folds into 13b only if thin on its own merits.
 
 ## Not yet specified
 

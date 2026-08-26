@@ -154,9 +154,11 @@ graded - `MISSION.md` and `RESOURCES.md` are the documents that matter for plann
     decide after 4b is taught.
   4a is taught **and written**: `rad.md` §4.1-4.4, ticket 13a closed 2026-08-26. The old single
   ticket 13 was split into 13a/13b/13c to match this breakdown. Next session: run 4b's prompt
-  (`/teach EXPLAIN ANALYZE in MySQL`), then wayfinder. **Read 13a's budget flag first**: the 4a
-  half took ~3 of chapter 4's ~4 pages, so 4b and 4c either share ~1 page (4c folding into 4b) or
-  the chapter's budget gets raised on purpose.
+  (`/teach EXPLAIN ANALYZE in MySQL`), then wayfinder. **Chapter 4's budget was raised from 4 to 6 pages on
+  2026-08-26** (the user's call), because 4a alone came out at ~3 dense, unpadded pages and the
+  alternative was squeezing `EXPLAIN ANALYZE` plus the trace into ~1 shared page. `GLOSSARY.md`
+  §4 now totals ≈23 pages. 4b gets ~2, 4c ~1, and 4c folds into 4b only if it is genuinely thin,
+  not to save space.
 - **`explain_json_format_version = 2` WORKS on 8.4.11 (verified 2026-08-24, during lesson 0004).**
   This closes one of the two things `WORKFLOW.md` listed as "still needs checking against your live
   server once it is installed". Default on this server is `1`; `SET explain_json_format_version = 2`

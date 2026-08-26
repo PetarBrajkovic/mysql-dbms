@@ -9,10 +9,11 @@ Blocked by: 13a
 Execution ticket, second of the three that deliver chapter 4. Split from the original ticket 13; see
 13a for why.
 
-**Target length**: see the budget flag in 13a's Answer before writing a word. The written half took
-~3 of chapter 4's ~4 budgeted pages, so this ticket either fits into ~1 page together with 13c, or
-it raises chapter 4's budget deliberately and moves the total in `GLOSSARY.md` §4 with it. Decide
-that first, in the open, rather than discovering it at the end.
+**Target length**: ~2 pages of `rad.md`. Chapter 4's budget was raised from 4 to 6 pages on
+2026-08-26 (the user's call, recorded in 13a's Answer and `GLOSSARY.md` §4) precisely so this
+ticket would not be squeezed: 13a took ~3, leaving **~3 for 13b and 13c together**. This is the
+chapter's centrepiece, so it takes the larger share. At this paper's measured density that is
+roughly 850-900 words.
 
 **Scope**: `EXPLAIN ANALYZE` as the counterpart to everything 13a wrote. It executes the query, and
 it only ever prints trees, so the tree reading is already paid for. The vocabulary is

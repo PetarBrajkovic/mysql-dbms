@@ -17,7 +17,8 @@ of leaving one mega-ticket two thirds done. Visual Explain, which the original t
 scope, is dropped entirely: Workbench's Visual Explain stopped rendering on this machine and the
 figure pipeline moved off Workbench (ticket 09, reopened 2026-08-22).
 
-**Target length**: ~2 pages of `rad.md` (of chapter 4's ~4).
+**Target length**: ~2 pages of `rad.md`, as estimated when the ticket was written. Came out at ~3,
+which is what raised chapter 4's budget from 4 to 6 pages; see the budget note in the Answer.
 
 **Scope**: the three output formats (traditional, `FORMAT=JSON` versions 1 and 2, `FORMAT=TREE`) and
 why the choice between them is not cosmetic; the twelve tabular columns and which four carry the
@@ -92,16 +93,18 @@ version. Author and date verified against the post itself rather than guessed (W
 citations render as IEEE [1]-[5] with the reference list intact, Serbian diacritics intact, zero em
 dashes in `rad.md` (rule 8).
 
-**Budget flag for 13b, worth not discovering late.** This half came out at ~1.440 words, which at
-this paper's measured density (~430-450 words per page, figures included) is **~3 pages of chapter
-4's ~4-page budget**. Nothing here is padding: the section covers three formats, twelve columns,
-twelve access types and seven `Extra` values, and it is already the terser of the two halves. So 4b
-and 4c have a real choice to make at write time, and it should be made deliberately: either they fit
-`EXPLAIN ANALYZE` plus `optimizer_trace` into ~1 page together (roughly 450-650 words, which likely
-means 4c folds into 4b as a short subsection, as `NOTES.md` already suspected it might), or chapter
-4's budget is formally raised to ~5.5-6 pages and the ~21-page total in `GLOSSARY.md` §4 moves with
-it. Do not silently trim the written half to make room; per ticket 08 the budget is soft guidance,
-not a quota.
+**Budget flag for 13b, raised and resolved.** This half came out at ~1.440 words, which at this
+paper's measured density (~430-450 words per page, figures included) is **~3 pages**, against
+chapter 4's then-budget of ~4. Nothing here is padding: the section covers three formats,
+twelve columns, twelve access types and seven `Extra` values, and it is already the terser of the
+two halves.
+
+**Resolved 2026-08-26, the user's call: chapter 4's budget is raised from 4 to 6 pages**, and the
+paper's total in `GLOSSARY.md` §4 moves from ≈21 to ≈23 with it. The alternative was fitting
+`EXPLAIN ANALYZE` plus `optimizer_trace` into ~1 shared page, which would have gutted the chapter's
+actual centrepiece. 13b and 13c now have **~3 pages between them**, and 13c no longer has to fold
+into 13b for budget reasons (it still may, if it turns out thin on its own merits). Nothing written
+here gets trimmed to make room.
 
 **Artifacts** (all pre-existing from the lesson session, verified in place, nothing regenerated):
 `lessons/0004-explain-formati-i-tipovi-pristupa.html`,
