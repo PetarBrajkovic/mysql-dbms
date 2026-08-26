@@ -1,0 +1,44 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' width='1180' height='658' viewBox='0 0 1180 658'><rect width='1180' height='658' fill='#ffffff'/><text x='590' y='44' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='25' font-weight='bold' fill='#1a1a1a'>Procenjeno naspram stvarnog, čvor po čvor</text>
+<text x='590' y='70' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#5a564c'>SELECT c.first_name, c.last_name, p.amount FROM customer c JOIN payment p ON p.customer_id = c.customer_id WHERE p.amount &gt; 10</text>
+<text x='590' y='93' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#8a8578'>EXPLAIN ANALYZE, baza sakila, MySQL 8.4.11 · ispis levo je doslovan, brojevi desno su iz njega pročitani</text>
+<text x='40' y='140' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' font-weight='bold' fill='#8a8578' letter-spacing='0.08em'>ČVOR PLANA</text>
+<text x='800' y='140' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' font-weight='bold' fill='#1f5c7a' letter-spacing='0.08em'>PROCENA rows</text>
+<text x='950' y='140' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' font-weight='bold' fill='#7a1f1f' letter-spacing='0.08em'>STVARNO rows</text>
+<text x='1060' y='140' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' font-weight='bold' fill='#8a8578' letter-spacing='0.08em'>ODSTUPANJE</text>
+<line x1='40' y1='148' x2='1110' y2='148' stroke='#d8d3c8' stroke-width='1'/>
+<text x='40' y='182' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'>-&gt; Nested loop inner join</text>
+<text x='800' y='182' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#1f5c7a'>5.499</text>
+<text x='950' y='182' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#7a1f1f'>114</text>
+<rect x='1010' y='164' width='100' height='26' rx='5' fill='#a32020' opacity='0.13'/><text x='1060' y='182' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='14' font-weight='bold' fill='#a32020'>48×</text>
+<rect x='28' y='194' width='1082' height='30' fill='#7a1f1f' opacity='0.06'/>
+<text x='40' y='216' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'>    -&gt; Filter: (p.amount &gt; 10.00)</text>
+<text x='800' y='216' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#1f5c7a'>5.499</text>
+<text x='950' y='216' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#7a1f1f'>114</text>
+<rect x='1010' y='198' width='100' height='26' rx='5' fill='#a32020' opacity='0.13'/><text x='1060' y='216' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='14' font-weight='bold' fill='#a32020'>48×</text>
+<text x='40' y='250' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'>        -&gt; Table scan on p</text>
+<text x='800' y='250' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#1f5c7a'>16.500</text>
+<text x='950' y='250' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#7a1f1f'>16.044</text>
+<rect x='1010' y='232' width='100' height='26' rx='5' fill='#2e6b2e' opacity='0.13'/><text x='1060' y='250' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='14' font-weight='bold' fill='#2e6b2e'>1,03×</text>
+<text x='40' y='284' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#1a1a1a' xml:space='preserve'>    -&gt; Single-row index lookup on c using PRIMARY (customer_id=p.customer_id)</text>
+<text x='800' y='284' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#1f5c7a'>1</text>
+<text x='950' y='284' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#7a1f1f'>1  (loops=114)</text>
+<rect x='1010' y='266' width='100' height='26' rx='5' fill='#2e6b2e' opacity='0.13'/><text x='1060' y='284' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='14' font-weight='bold' fill='#2e6b2e'>1,00×</text>
+<line x1='40' y1='298' x2='1110' y2='298' stroke='#d8d3c8' stroke-width='1'/>
+<text x='40' y='334' font-family="Georgia, 'Times New Roman', serif" font-size='16' font-weight='bold' fill='#1a1a1a'>Sken je pogođen, filter iznad njega nije</text>
+<text x='40' y='359' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' fill='#5a564c' xml:space='preserve'>Sken tabele: procena 16.500, izmereno 16.044. Promašaj od nekoliko procenata, jer broj torki u tabeli server zna iz</text>
+<text x='40' y='381' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' fill='#5a564c' xml:space='preserve'>statistike mehanizma skladištenja. Filter iznad njega: procena 5.499, izmereno 114, dakle 48 puta manje.</text>
+<text x='40' y='403' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' fill='#5a564c' xml:space='preserve'>Broj 5.499 nije izmeren nego izveden, iz kolone filtered = 33,33%. A 33,33% nije statistika nego ugrađena pretpostavka</text>
+<text x='40' y='425' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' fill='#5a564c' xml:space='preserve'>za poređenje tipa > nad kolonom bez indeksa i bez histograma. Stvarno prolazi 0,711% torki, i to je cela razlika.</text>
+<rect x='26' y='447' width='1084' height='186' fill='#f6f4ef' stroke='#d8d3c8' stroke-width='1' rx='4'/>
+<text x='40' y='487' font-family="Georgia, 'Times New Roman', serif" font-size='16' font-weight='bold' fill='#1a1a1a'>Isti potez, dva ishoda: histogram pomogne samo kad kolona nema indeks</text>
+<text x='40' y='518' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' font-weight='bold' fill='#2e6b2e'>payment.amount · BEZ indeksa</text>
+<text x='600' y='518' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' font-weight='bold' fill='#a32020'>wide_events.country_code · SA indeksom</text>
+<text x='40' y='543' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'>UPDATE HISTOGRAM ON amount WITH 32 BUCKETS</text>
+<text x='600' y='543' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'>UPDATE HISTOGRAM ON country_code WITH 16 BUCKETS</text>
+<text x='40' y='564' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'>filtered:  33.33  →  0.71   (19 korpi, singleton)</text>
+<text x='600' y='564' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'>procena pre histograma:   rows=2.45e+6</text>
+<text x='40' y='585' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'>procena:   5.499  →  117   stvarno 114</text>
+<text x='600' y='585' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c' xml:space='preserve'>procena posle histograma: rows=2.45e+6</text>
+<text x='40' y='614' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' font-weight='bold' fill='#2e6b2e'>odstupanje 48× → 1,03× · zatvoreno</text>
+<text x='600' y='614' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' font-weight='bold' fill='#a32020'>procena se nije pomerila · zaron u indeks jači od histograma</text>
+</svg>

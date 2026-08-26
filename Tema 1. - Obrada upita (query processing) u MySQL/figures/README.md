@@ -54,6 +54,21 @@ headless-Edge rasterization step for the PNG the Word doc needs:
   anything else, so a stale query breaks the build instead of silently rendering a wrong figure -
   worth copying wherever a figure asserts a specific value.
 
+- **Estimate-against-measurement comparisons** -> also a dedicated script, for the same reason:
+  myflames draws one plan's *shape*, and these figures are about the second set of numbers
+  `EXPLAIN ANALYZE` prints beside the first, which is a comparison rather than a shape.
+  `tools/make-lesson05-explain-analyze.ps1` builds all three of chapter 4b's figures in one pass
+  (`04-explain-03-procena-naspram-stvarnog`, `-04-loops-i-prosek`, `-05-los-plan`), sharing one
+  palette, one SVG helper and one rasterization step rather than triplicating them. It **extends
+  the self-verifying pattern from a single value to the whole argument**: it throws if the Filter
+  divergence drops below 10x, if the table-scan estimate stops being accurate, if the histogram
+  stops closing the gap, if the *indexed*-column histogram starts moving the estimate, if the
+  per-loop row count stops being fractional, if the dominant node stops being a looped one, or if
+  the alternative plan fails to beat the chosen one on that run. It also builds and drops
+  histograms as part of measuring, and asserts `COLUMN_STATISTICS` is back to 0 rows before it
+  finishes. Run it with `-SkipBadPlan` while iterating on layout: the third figure executes two
+  multi-second scans over five million rows.
+
 All scripts write the figure straight into `figures/` under the naming convention below - nothing
 to rename or file by hand.
 

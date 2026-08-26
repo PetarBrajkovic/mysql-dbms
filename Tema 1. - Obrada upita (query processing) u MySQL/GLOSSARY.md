@@ -220,6 +220,48 @@ Four deliberate non-choices, recorded so they are not "fixed" later:
   translation would break the link to what the server actually prints. Serbian prose explains them,
   it does not replace them.
 
+### 2d. EXPLAIN ANALYZE vocabulary (locked 2026-08-26, chapter 4b)
+
+Added while teaching chapter 4, second lesson (lesson `0005`). §2c covered the vocabulary of a plan
+that was never run; this covers the second set of numbers that appears once it is.
+
+| Concept | Serbian term (first use) | After first use |
+|---|---|---|
+| Estimated-vs-actual row divergence | odstupanje procene od stvarnog broja torki | odstupanje procene |
+| Actual (measured) row count | stvarni broj torki | stvarni broj torki |
+| Loop iteration (what `loops` counts) | ponavljanje | ponavljanje |
+| Per-loop average | prosek po ponavljanju | prosek po ponavljanju |
+| Histogram bucket | korpa *(bucket)* | korpa |
+| Equi-height histogram | histogram jednakih visina | histogram jednakih visina |
+| Range optimizer | optimizator opsega *(range optimizer)* | optimizator opsega |
+| Iterator executor | iteratorski izvršilac | iteratorski izvršilac |
+| Skew (of a column's distribution) | neravnomernost raspodele | neravnomernost |
+
+Five deliberate non-choices, recorded so they are not "fixed" later:
+
+- **`actual time`, `rows`, `loops` and `(never executed)` stay verbatim, in code font**, exactly as
+  §2c's rule for column names. `rows` in particular appears in **both** brackets of the same line
+  and means a different thing in each; Serbian prose disambiguates by calling one *procena* and the
+  other *stvarni broj torki*, never by renaming the key.
+- **"ponavljanje", not *iteracija*, for one pass of a looped node.** *Iterator* is already locked in
+  §2c as one node of the tree, so *iteracija* would be read as something the iterator does rather
+  than as one execution of the whole subtree. *Ponavljanje* has no such collision and is what
+  `loops` literally counts.
+- **"korpa", not *razred*, *interval*, or *kanta*, for a histogram bucket.** *Razred* and *interval*
+  are the statistics words for a class interval, and they assert something false about MySQL's
+  `singleton` histograms, where a bucket holds exactly **one value**, not a range. *Korpa* is the
+  established Serbian rendering of *bucket* in the hashing sense and carries no interval claim.
+  The type names themselves (`singleton`, `equi-height`) stay verbatim, since they are the strings
+  `COLUMN_STATISTICS` prints.
+- **"optimizator opsega", not *opsežni optimizator*, for the range optimizer.** *Opsežan* means
+  extensive/comprehensive, so *opsežni optimizator* says "the thorough optimizer", which is not what
+  the component is. It is the part that plans a *sken opsega* (§2b), so the genitive construction is
+  the one that keeps the two terms visibly related.
+- **"odstupanje", not *divergencija* or *razlaženje*.** *Odstupanje* is the ordinary Serbian word for
+  a measured value missing a predicted one, which is exactly the relation here. The other two are
+  either a bare anglicism or suggest two things drifting apart over time, which estimates and
+  measurements do not do.
+
 ## 3. Hard constraint — plan cache vs. parse-tree cache (chapter 8)
 
 Research ticket 06 confirms, does not contradict, the assumption in ticket 17: MySQL has **no shared

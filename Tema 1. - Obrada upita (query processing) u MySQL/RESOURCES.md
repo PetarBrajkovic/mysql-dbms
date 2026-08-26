@@ -44,6 +44,12 @@ leaning on an uncitable claim.
 
 - No primary source yet verified for chapters 6-8 beyond the two research reports above; each new
   claim in those chapters still needs its own citation hunted down at write time.
-- The "estimates off by 3x" rule of thumb and whether `explain_json_format_version = 2` works on
-  8.4 are both unverified against the live server (see `WORKFLOW.md`) - resolve before citing
-  either in chapter 4.
+- ~~The "estimates off by 3x" rule of thumb and whether `explain_json_format_version = 2` works on
+  8.4 are both unverified against the live server.~~ **Both closed.** `explain_json_format_version = 2`
+  works (lesson 4a, LR-0004); the 3x rule was checked in lesson 4b (LR-0005) and holds only as a
+  *screening threshold*, not a verdict - a measured 48x divergence left the join order unchanged.
+- `.scratch/obrada-upita/research/05-explain-semantics.md` **has two errors found by live testing**
+  (LR-0005) and should not be quoted on either point without checking: §2.5-2.6 says `EXPLAIN ANALYZE`
+  works with "UPDATE, DELETE" (the manual says **multi-table** only, and it never modifies data), and
+  the manual page it cites is itself stale about `FORMAT=JSON`, which does work under
+  `explain_json_format_version = 2`. The rest of that memo held up.

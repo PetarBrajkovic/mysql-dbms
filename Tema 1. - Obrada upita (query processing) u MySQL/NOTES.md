@@ -180,3 +180,42 @@ graded - `MISSION.md` and `RESOURCES.md` are the documents that matter for plann
   `Extra` values), not only inside a "Probaj u Workbench-u" block. The selector is now unscoped,
   with `body > table.exp td:first-child` getting a wider first column since a code identifier needs
   more room than a short label. Existing `.try` tables are unaffected.
+- **Chapter 4b taught 2026-08-26 (lesson `0005`). Four things that change what other chapters may
+  claim:**
+  - **The reserved `wide_events`/`country_code` example is weaker than this file assumed.** Measured,
+    2.45M est vs 3.5M actual is only **1.43x**, which is *below* the 3x rule-of-thumb threshold, and
+    the plan it produces is fine. It is a good illustration of where an estimate comes from (index
+    dive beating the flat cardinality-14 number), but it is **not** a divergence example. Chapter 4
+    should demote it to the "below threshold" row of the divergence table, not build §4b around it.
+  - **The real divergence example was already in chapter 4a**: `sakila.payment.amount` has no index
+    and no histogram, so `filtered` is the hardcoded 33.33% and 4a's own `16500 × 33,33% = 5499` is
+    **48x** off the measured 114. Perfect continuity, and it is *also* the non-indexed skewed column
+    this file said a genuine "histograms fix skew" demo needs (33.33 → 0.71, est 117 vs 114 actual,
+    19 singleton buckets out of 32 requested).
+  - **"Estimates off by 3x" is now verified, and the answer is a caveat**, not a rule: the 48x case
+    above leaves the five-table join order **completely unchanged**. Divergence is a screening
+    threshold, not a verdict. `WORKFLOW.md`'s last open item is closed.
+  - **`EXPLAIN ANALYZE` never modifies data.** Research memo `05-explain-semantics.md` §2.5-2.6 says
+    it "works with SELECT, UPDATE, DELETE, and TABLE"; the manual's actual wording is
+    **multi-table** UPDATE/DELETE. Verified on 8.4.11: single-table `UPDATE`/`DELETE` returns
+    `-> <not executable by iterator executor>` with no plan; multi-table gets a full measured plan
+    whose read side runs (`rows=3`) and whose write node reports `rows=0`; **data unchanged in both**,
+    confirmed from a third connection. So never tell the reader to wrap it in a rollback transaction.
+    The memo should be corrected.
+- **The 8.4 manual is stale about `EXPLAIN ANALYZE FORMAT=JSON` (verified 2026-08-26).** The
+  `EXPLAIN Statement` page says `FORMAT=JSON` with `ANALYZE` "always raises an error, regardless of
+  the value of `explain_format`". On 8.4.11 that is only true while `explain_json_format_version = 1`;
+  with `2` it works and returns `actual_rows` / `actual_loops` / `actual_first_row_ms` /
+  `actual_last_row_ms`. If this goes into `rad.md`, cite it as **measured behaviour with the format
+  version named**, never as the manual's claim. (Pairs with LR-0004's finding that `access_type`
+  means different things in the two versions.)
+- **Chapter 4c should NOT fold into 4b (decided 2026-08-26).** The earlier plan left that open in case
+  the trace turned out thin. It didn't: lesson 4b ends on a plan that is demonstrably worse than one
+  alternative, while `EXPLAIN ANALYZE` says nothing about which alternatives were considered or what
+  they were costed. That is the trace's job, so 4c now has a real hook and keeps its ~1 page.
+- **Figure scripts got stricter (lesson 0005).** `tools/make-lesson05-explain-analyze.ps1` extends
+  lesson 04's self-verifying pattern from "assert the access type" to "assert the whole argument":
+  it throws if the divergence collapses, if the histogram stops closing the gap, if the *indexed*
+  column's histogram starts moving the estimate, if the fractional per-loop row count stops being
+  fractional, or if the alternative plan fails to beat the chosen one on that run. Worth copying:
+  the test is the claim the figure makes, not just one value in it.

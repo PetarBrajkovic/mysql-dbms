@@ -1,0 +1,28 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' width='1180' height='686' viewBox='0 0 1180 686'><rect width='1180' height='686' fill='#ffffff'/><text x='590' y='44' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='25' font-weight='bold' fill='#1a1a1a'>Plan koji EXPLAIN prikazuje kao savršen</text>
+<text x='590' y='70' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c'>SELECT id, created_at, amount FROM wide_events WHERE amount &gt; 504.9 ORDER BY created_at LIMIT 10</text>
+<text x='590' y='93' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#8a8578'>wide_events, 5.000.000 torki · uslov ispunjava 940 njih, dakle 0,0188% · optimizator pretpostavlja 33,33%</text>
+<text x='40' y='128' font-family="Georgia, 'Times New Roman', serif" font-size='13' font-weight='bold' fill='#1f5c7a' letter-spacing='0.06em'>1 · šTA EXPLAIN POKAžE</text>
+<line x1='40' y1='136' x2='1140' y2='136' stroke='#d8d3c8' stroke-width='1'/>
+<text x='40' y='159' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>type=index  key=idx_created_at  rows=10  filtered=33.33  Extra=Using where</text>
+<text x='40' y='182' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>-&gt; Limit: 10 row(s)  (cost=0.836 rows=3.33)</text>
+<text x='40' y='205' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>    -&gt; Filter: (wide_events.amount &gt; 504.90)  (cost=0.836 rows=3.33)</text>
+<text x='40' y='228' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>        -&gt; Index scan on wide_events using idx_created_at  (cost=0.836 rows=10)</text>
+<text x='40' y='253' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#5a564c' xml:space='preserve'>Nijedna kolona nije upozorenje. rows kaže 10, cena nije ni ceo broj, nema filesort, nema skena cele tabele.</text>
+<text x='40' y='287' font-family="Georgia, 'Times New Roman', serif" font-size='13' font-weight='bold' fill='#7a1f1f' letter-spacing='0.06em'>2 · šTA EXPLAIN ANALYZE IZMERI</text>
+<line x1='40' y1='295' x2='1140' y2='295' stroke='#d8d3c8' stroke-width='1'/>
+<text x='40' y='318' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>-&gt; Limit: 10 row(s)  (cost=0.836 rows=3.33) (actual time=330..2786 rows=10 loops=1)</text>
+<text x='40' y='341' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>    -&gt; Filter: (wide_events.amount &gt; 504.90)  (cost=0.836 rows=3.33) (actual time=330..2786 rows=10 loops=1)</text>
+<text x='40' y='364' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>        -&gt; Index scan on wide_events using idx_created_at  (cost=0.836 rows=10) (actual time=2.72..2784 rows=31621 loops=1)</text>
+<text x='40' y='389' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#5a564c' xml:space='preserve'>Isti plan, izvršen. Da bi našao tih 10 torki, sken preko indeksa pročitao je njih 31.621, i to je trajalo 2.786 ms.</text>
+<text x='40' y='423' font-family="Georgia, 'Times New Roman', serif" font-size='13' font-weight='bold' fill='#2e6b2e' letter-spacing='0.06em'>3 · DRUGI PLAN, ZA POREđENJE</text>
+<line x1='40' y1='431' x2='1140' y2='431' stroke='#d8d3c8' stroke-width='1'/>
+<text x='40' y='454' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>-&gt; Limit: 10 row(s)  (cost=574087 rows=10) (actual time=1861..1861 rows=10 loops=1)</text>
+<text x='40' y='477' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>    -&gt; Sort: wide_events.created_at, limit input to 10 row(s) per chunk  (cost=574087 rows=4.91e+6) (actual time=1861..1861 rows=10 loops=1)</text>
+<text x='40' y='500' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>        -&gt; Filter: (wide_events.amount &gt; 504.90)  (cost=574087 rows=4.91e+6) (actual time=5.8..1860 rows=940 loops=1)</text>
+<text x='40' y='523' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>            -&gt; Table scan on wide_events  (cost=574087 rows=4.91e+6) (actual time=1.92..1653 rows=5e+6 loops=1)</text>
+<text x='40' y='548' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#5a564c' xml:space='preserve'>IGNORE INDEX oduzima idx_created_at. EXPLAIN mu daje cenu 574.087 naspram 0,84, a izmereno traje 1.861 ms.</text>
+<rect x='40' y='566' width='1100' height='96' fill='#7a1f1f' opacity='0.07' rx='4'/>
+<text x='590' y='594' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='17' font-weight='bold' fill='#7a1f1f'>procena 10 torki · stvarno 31.621 · odstupanje 3.162×</text>
+<text x='590' y='622' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' fill='#1a1a1a'>Plan kome EXPLAIN daje cenu 0,84 traje 2.786 ms; plan kome daje cenu 574.087, dakle 686.707 puta veču, traje 1.861 ms.</text>
+<text x='590' y='646' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' font-weight='bold' fill='#1a1a1a'>Bez izvršavanja se to nije moglo videti. To je jedini razlog zbog kog EXPLAIN ANALYZE postoji.</text>
+</svg>

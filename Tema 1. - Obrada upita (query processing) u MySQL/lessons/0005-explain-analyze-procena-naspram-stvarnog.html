@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 05 — EXPLAIN ANALYZE: procenjeno naspram stvarnog</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 05 · Poglavlje 4 (EXPLAIN i EXPLAIN ANALYZE), drugi deo</p>
+<h1>Kad se plan izvrši</h1>
+<p class="subtitle">Lekcija 04 je čitala plan koji se nije izvršio. Svaki broj u njemu bio je <strong>procena</strong>. Ova lekcija dodaje drugi sloj brojeva, izmeren, i uči jedini postupak koji se u radu zove dijagnostika: uporediti procenu sa stvarnošću i pročitati gde su se razišle.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Ovo je <strong>centar Poglavlja 4</strong> i mesto na kom se brani rečenica iz zadatka: da umeš da
+  pročitaš plan na stvarnom upitu i da <span class="hi">prepoznaš loš plan po odstupanju procene od
+  stvarnog broja torki</span>. Kad završiš lekciju, treba da umeš bez podsetnika:
+  <strong>(1)</strong> da kažeš šta tačno <code>EXPLAIN ANALYZE</code> dodaje na <code>EXPLAIN</code>
+  i šta zato ne može da uradi, <strong>(2)</strong> da pročitaš <code>actual time</code>,
+  <code>rows</code> i <code>loops</code> ne upadajući u zamku proseka, <strong>(3)</strong> da
+  objasniš odakle dolazi promašena procena i kada histogram pomaže, a kada ne, i <strong>(4)</strong>
+  da pokažeš jedan plan koji je zaista loš, a koji u <code>EXPLAIN</code> ispisu izgleda savršeno.
+  Odbijeni planovi i njihove cene su tema <strong>Lekcije 06</strong>
+  (<code>optimizer_trace</code>).
+</div>
+
+<h2>1 · Šta se menja kad se plan izvrši</h2>
+<p>
+  <code>EXPLAIN ANALYZE</code> radi tačno jednu stvar više od <code>EXPLAIN</code>-a:
+  <strong>izvrši upit</strong>, izmeri svaki iterator dok radi, pa ispiše isto stablo kao i pre,
+  ali sa još jednom zagradom po čvoru. Prva zagrada je ono što je optimizator mislio, druga je ono
+  što se desilo.
+</p>
+
+<pre class="out">-&gt; Filter: (p.amount &gt; 10.00)  <span class="dim">(cost=1674 rows=5499)</span>  <span class="em">(actual time=0.115..2.38 rows=114 loops=1)</span>
+                              <span class="dim">^ procena, ista kao u Lekciji 04</span>   <span class="em">^ merenje, novo</span></pre>
+
+<p>
+  Iz toga sledi nekoliko posledica koje vredi znati pre prve upotrebe, jer sve četiri umeju da
+  iznenade.
+</p>
+<ul>
+  <li><b>Upit se stvarno izvršava.</b> Nad <code>SELECT</code>-om to košta tačno onoliko vremena
+    koliko i običan upit, pa nad velikom tabelom treba računati na čekanje. To je i jedino
+    ograničenje koje se u praksi oseti.</li>
+  <li><b>Rezultat upita se ne vidi.</b> Vraća se plan, ne torke. Upit se izvrši do kraja, a njegov
+    izlaz se odbaci.</li>
+  <li><b>Podatke ipak ne menja.</b> Priručnik navodi da naredba radi nad <code>SELECT</code>,
+    <code>TABLE</code> i <strong>višetabelarnim</strong> <code>UPDATE</code> i <code>DELETE</code>
+    naredbama. Provereno na 8.4.11, jednotabelarni <code>UPDATE</code> ne dobije plan uopšte
+    (ispiše se <code>&lt;not executable by iterator executor&gt;</code>), a višetabelarni dobije pun
+    izmeren plan, ali se <span class="hi">upis ne primeni</span>: čita se i meri, a podaci ostanu
+    isti. Naredbe kojima to možeš sam da proveriš su odmah ispod.</li>
+  <li><b>Ispis je uvek stablo.</b> Od tri formata iz Lekcije 04, <code>EXPLAIN ANALYZE</code>
+    prihvata samo <code>FORMAT=TREE</code>. To je i logično: merenje pripada iteratoru, a tabelarni
+    oblik nema red za svaki iterator. Zato je čitanje stabla iz prošle lekcije već plaćeno.</li>
+  <li><b>Postoji i JSON, ali samo u drugoj verziji.</b> <code>FORMAT=JSON</code> je odbijen dok je
+    <code>explain_json_format_version</code> jednako <code>1</code>, a prihvaćen čim se postavi na
+    <code>2</code>, jer je tek verzija 2 stablo. Tamo se merenja zovu <code>actual_rows</code>,
+    <code>actual_loops</code>, <code>actual_first_row_ms</code> i
+    <code>actual_last_row_ms</code>.</li>
+</ul>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baze <code>sakila</code> i <code>obrada_upita</code>. Prva
+      četiri koraka koriste isti upit koji je Lekcija 04 koristila za tri formata, da se vidi šta je
+      tačno novo; peti pravi dve male tabele i briše ih za sobom.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> sakila;
+
+<span class="c">-- (1) Samo procena. Upit se ne izvršava.</span>
+<span class="k">EXPLAIN FORMAT</span>=TREE
+<span class="k">SELECT</span> c.first_name, c.last_name, p.amount
+<span class="k">FROM</span>   customer c
+<span class="k">JOIN</span>   payment p <span class="k">ON</span> p.customer_id = c.customer_id
+<span class="k">WHERE</span>  p.amount &gt; 10;
+
+<span class="c">-- (2) Isti upit, izvršen i izmeren.</span>
+<span class="k">EXPLAIN ANALYZE</span>
+<span class="k">SELECT</span> c.first_name, c.last_name, p.amount
+<span class="k">FROM</span>   customer c
+<span class="k">JOIN</span>   payment p <span class="k">ON</span> p.customer_id = c.customer_id
+<span class="k">WHERE</span>  p.amount &gt; 10;
+
+<span class="c">-- (3) Šta EXPLAIN ANALYZE ne prihvata.</span>
+<span class="k">EXPLAIN ANALYZE FORMAT</span>=TRADITIONAL <span class="k">SELECT</span> <span class="fn">COUNT</span>(*) <span class="k">FROM</span> film;
+<span class="k">EXPLAIN ANALYZE FORMAT</span>=JSON <span class="k">SELECT</span> <span class="fn">COUNT</span>(*) <span class="k">FROM</span> film;
+
+<span class="c">-- (4) A sada isti JSON, u drugoj verziji formata.</span>
+<span class="k">SET</span> explain_json_format_version = 2;
+<span class="k">EXPLAIN ANALYZE FORMAT</span>=JSON
+<span class="k">SELECT</span> c.first_name, p.amount
+<span class="k">FROM</span>   payment p
+<span class="k">JOIN</span>   customer c <span class="k">ON</span> c.customer_id = p.customer_id
+<span class="k">WHERE</span>  p.amount &gt; 10;
+<span class="k">SET</span> explain_json_format_version = 1;
+
+<span class="c">-- (5) Da li menja podatke? Napravi dve male tabele pa proveri.</span>
+<span class="k">USE</span> obrada_upita;
+<span class="k">DROP TABLE IF EXISTS</span> _proba_a; <span class="k">DROP TABLE IF EXISTS</span> _proba_b;
+<span class="k">CREATE TABLE</span> _proba_a (id <span class="k">INT PRIMARY KEY</span>, v <span class="k">INT</span>);
+<span class="k">CREATE TABLE</span> _proba_b (id <span class="k">INT PRIMARY KEY</span>, w <span class="k">INT</span>);
+<span class="k">INSERT INTO</span> _proba_a <span class="k">VALUES</span> (1,1),(2,2),(3,3);
+<span class="k">INSERT INTO</span> _proba_b <span class="k">VALUES</span> (1,10),(2,20),(3,30);
+
+<span class="c">-- jednotabelarni UPDATE: nema plana</span>
+<span class="k">EXPLAIN ANALYZE UPDATE</span> _proba_a <span class="k">SET</span> v = 99 <span class="k">WHERE</span> id = 1;
+
+<span class="c">-- visetabelarni UPDATE: ima pun izmeren plan</span>
+<span class="k">EXPLAIN ANALYZE UPDATE</span> _proba_a a
+<span class="k">JOIN</span> _proba_b b <span class="k">ON</span> b.id = a.id <span class="k">SET</span> a.v = b.w;
+
+<span class="c">-- a podaci?</span>
+<span class="k">SELECT</span> * <span class="k">FROM</span> _proba_a <span class="k">ORDER</span> <span class="k">BY</span> id;
+<span class="k">DROP TABLE</span> _proba_a; <span class="k">DROP TABLE</span> _proba_b;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">(1) cetiri cvora, po jedna zagrada</span>
+-&gt; Nested loop inner join  (cost=3599 rows=5499)
+    -&gt; Filter: (p.amount &gt; 10.00)  (cost=1674 rows=5499)
+        -&gt; Table scan on p  (cost=1674 rows=16500)
+    -&gt; Single-row index lookup on c using PRIMARY (...)  (cost=0.25 rows=1)
+
+<span class="dim">(2) isti cvorovi, po dve zagrade</span>
+-&gt; Nested loop inner join  (cost=3599 rows=5499) (actual time=0.123..2.48 rows=<span class="em">114</span> loops=1)
+    -&gt; Filter: (p.amount &gt; 10.00)  (cost=1674 rows=<span class="em">5499</span>) (actual time=0.115..2.38 rows=<span class="em">114</span> loops=1)
+        -&gt; Table scan on p  (cost=1674 rows=16500) (actual time=0.108..1.72 rows=16044 loops=1)
+    -&gt; Single-row index lookup on c using PRIMARY (...) (cost=0.25 rows=1) (actual time=760e-6..781e-6 rows=1 loops=<span class="em">114</span>)
+
+<span class="dim">(3) obe naredbe padaju</span>
+ERROR 1235 (42000): This version of MySQL doesn't yet support
+                    'EXPLAIN ANALYZE with TRADITIONAL format'
+ERROR 1235 (42000): This version of MySQL doesn't yet support
+                    'EXPLAIN ANALYZE with JSON format'
+
+<span class="dim">(4) sa verzijom 2 prolazi, i merenja imaju svoja polja</span>
+"estimated_rows": 5499.4494169950485,
+"actual_rows": 114.0,
+"actual_loops": 1,
+
+<span class="dim">(5) jednotabelarni UPDATE ne dobije plan uopste</span>
+-&gt; <span class="em">&lt;not executable by iterator executor&gt;</span>
+
+<span class="dim">(5) visetabelarni dobije, i to izmeren</span>
+-&gt; Update a (immediate)  (actual time=0.0136..0.0136 rows=<span class="em">0</span> loops=1)
+    -&gt; Nested loop inner join  (cost=1.6 rows=3) (actual time=0.0084..0.0116 rows=<span class="em">3</span> loops=1)
+        -&gt; Table scan on a  ... rows=3 loops=1
+        -&gt; Single-row index lookup on b using PRIMARY (id=a.id) ... rows=1 loops=3
+
+<span class="dim">(5) a podaci su neizmenjeni</span>
+id  v
+ 1  <span class="em">1</span>
+ 2  <span class="em">2</span>
+ 3  <span class="em">3</span></pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Plan je <strong>isti</strong>: iste četiri operacije, isti redosled, iste
+      cene. <code>EXPLAIN ANALYZE</code> ne bira drugi plan, nego isti plan pusti da radi. Ono što
+      je novo je desna zagrada, i u njoj već iz ovog jednog ispisa vire dva podatka koja
+      <code>EXPLAIN</code> nikad ne bi mogao da da: filter je procenjen na
+      <span class="hi">5.499</span> torki, a propustio ih je <span class="hi">114</span>, i
+      unutrašnja pretraga se ponovila <span class="hi">114</span> puta, tačno onoliko puta koliko
+      je torki prošlo filter. Prvi broj je tema odeljka 3, drugi odeljka 2.</p>
+    <p class="interpret">Poruka <code>ERROR 1235</code> nije greška u pisanju nego dokumentovano
+      ograničenje: dok je JSON u verziji 1, on je oblik po tabeli, a merenja pripadaju iteratorima,
+      pa nemaju gde da stanu. Verzija 2 je stablo, i tu prolaze.</p>
+    <p class="interpret">Korak <b>(5)</b> vredi uraditi jednom i zapamtiti, jer se o njemu često
+      pogrešno tvrdi. Jednotabelarni <code>UPDATE</code> uopšte ne ide kroz iteratorski izvršilac,
+      pa nema šta da se meri: ispiše se
+      <code>&lt;not executable by iterator executor&gt;</code>. Višetabelarni ide, i dobija pun
+      izmeren plan, ali pogledaj brojeve: spoj ispod prijavljuje <code>rows=3</code>, a čvor
+      <code>Update</code> iznad njega <code>rows=0</code>. <strong>Čitanje se izvršilo i izmerilo,
+      upis nije.</strong> Provera u poslednjem redu to i potvrđuje: <code>v</code> je ostalo
+      1, 2, 3. Dakle, <span class="hi">nema potrebe da naredbu staviš u transakciju</span> koju ćeš
+      poništiti; time bi se štitio od posledice koja ne nastaje.</p>
+  </div>
+</div>
+
+<h2>2 · Tri nova broja, i zamka koja je u sva tri</h2>
+<p>
+  Druga zagrada ima tačno tri podatka. Sva tri su lako čitljiva pojedinačno, i sva tri se lako
+  pogrešno pročitaju zajedno.
+</p>
+
+<table class="exp">
+  <tr><td><code>actual time=<b>X</b>..<b>Y</b></code></td><td>Vreme u milisekundama: <b>X</b> do prve torke, <b>Y</b> do poslednje. Razmak između njih pokazuje da li čvor curi torke postepeno ili ih isporučuje tek na kraju (na primer posle sortiranja).</td></tr>
+  <tr><td><code>rows=</code></td><td>Koliko je torki čvor stvarno proizveo. Poredi se sa <code>rows</code> iz leve zagrade, koji je procena.</td></tr>
+  <tr><td><code>loops=</code></td><td>Koliko je puta čvor pokrenut. Za vrh stabla uvek 1. Za unutrašnju stranu spoja sa ugnježdenom petljom, jednom po torki spoljne strane.</td></tr>
+  <tr><td><code>(never executed)</code></td><td>Umesto sva tri broja. Čvor je bio deo plana, ali do njega nikad nije stigla nijedna torka, pa nije ni pokrenut.</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Rečenica koju treba umeti odbraniti</span>
+  <code>actual time</code> i <code>rows</code> nisu zbirovi nego <span class="hi">proseci po jednom
+  ponavljanju</span>. Da bi se dobilo ono što je čvor ukupno uradio, obe veličine se
+  <strong>množe sa <code>loops</code></strong>. Zato čvor koji prijavljuje najmanje vreme ume da
+  bude najskuplji deo upita, i zato broj torki ume da bude razlomljen.
+</div>
+
+<figure class="fig">
+  <img src="../figures/04-explain-04-loops-i-prosek.png"
+       alt="Figura u tri dela. Gore je doslovan EXPLAIN ANALYZE ispis za spoj tri tabele iz baze
+            sakila (film, film_actor i actor), sa šest čvorova; dva čvora sa vrednošću loops većom
+            od jedan obojena su crveno. U sredini je istaknuta jednačina loops=178 puta rows=5,48
+            jednako 975, što odgovara vrednosti rows=976 na vrhu stabla. Dole je stubičasti dijagram
+            sa tri reda, po jedan za svaki radni čvor plana. Svaki red ima dva stubića: sivi je
+            prijavljeno vreme jednog ponavljanja, crveni je to isto pomnoženo brojem ponavljanja.
+            Kod prvog reda, sa jednim ponavljanjem, stubići su jednaki. Kod druga dva reda sivi
+            stubić je gotovo nevidljiv, a crveni je najduži na dijagramu, pa se vidi da čvor sa
+            najmanjim prijavljenim vremenom troši najviše.">
+  <figcaption>Isti ispis, dva puta pročitan. Sivi stubić je ono što ispis prijavljuje, crveni je ono
+    što je čvor stvarno potrošio. Razlika između njih je uvek množilac <code>loops</code>.</figcaption>
+</figure>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>sakila</code>. Spoj tri tabele, biran zato što
+      ima dva nivoa ponavljanja umesto jednog.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="c">-- A. Dva nivoa petlje, pa dva razlicita broja ponavljanja.</span>
+<span class="k">EXPLAIN ANALYZE</span>
+<span class="k">SELECT</span> f.title, a.first_name
+<span class="k">FROM</span>   film f
+<span class="k">JOIN</span>   film_actor fa <span class="k">ON</span> fa.film_id  = f.film_id
+<span class="k">JOIN</span>   actor a       <span class="k">ON</span> a.actor_id  = fa.actor_id
+<span class="k">WHERE</span>  f.rating = <span class="s">'G'</span>;
+
+<span class="c">-- B. Provera odakle dolaze ta dva broja ponavljanja.</span>
+<span class="k">SELECT</span> <span class="fn">COUNT</span>(*) <span class="k">FROM</span> film <span class="k">WHERE</span> rating = <span class="s">'G'</span>;
+
+<span class="k">SELECT</span> <span class="fn">COUNT</span>(*)
+<span class="k">FROM</span>   film f <span class="k">JOIN</span> film_actor fa <span class="k">ON</span> fa.film_id = f.film_id
+<span class="k">WHERE</span>  f.rating = <span class="s">'G'</span>;
+
+<span class="c">-- C. Cvor koji nikad nije pokrenut.</span>
+<span class="k">EXPLAIN ANALYZE</span>
+<span class="k">SELECT</span> c.first_name, p.amount
+<span class="k">FROM</span>   payment p
+<span class="k">JOIN</span>   customer c <span class="k">ON</span> c.customer_id = p.customer_id
+<span class="k">WHERE</span>  p.amount &gt; 900;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">A. skraceno na ono sto je bitno</span>
+-&gt; Nested loop inner join  ... (actual time=0.047..1.16 rows=<span class="em">976</span> loops=1)
+    -&gt; Nested loop inner join  ... rows=976 loops=1
+        -&gt; Filter: (f.rating = 'G')  ... rows=<span class="em">178</span> loops=1
+            -&gt; Table scan on f  ... rows=1000 loops=1
+        -&gt; Covering index lookup on fa ... rows=<span class="em">5.48</span> loops=<span class="em">178</span>
+    -&gt; Single-row index lookup on a using PRIMARY ... rows=1 loops=<span class="em">976</span>
+
+<span class="dim">B.</span> 178      <span class="dim">&lt;- isto sto i loops kod fa</span>
+   976      <span class="dim">&lt;- isto sto i loops kod a</span>
+
+<span class="dim">C.</span> -&gt; Filter: (p.amount &gt; 900.00) ... rows=0 loops=1
+   -&gt; Single-row index lookup on c using PRIMARY (...)  <span class="em">(never executed)</span></pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret"><b>A i B.</b> Pretraga nad <code>fa</code> prijavljuje
+      <code>rows=5.48</code>. Nijedna pretraga po indeksu ne vraća 5,48 torki: to je
+      <strong>prosek 178 ponavljanja</strong>, a 178 je broj filmova koji su prošli filter, što
+      upit <b>B</b> i potvrđuje. Pomnoženo, <code>178 × 5,48 = 975,4</code>, a to je zaokruženo
+      tačno onih 976 torki koje spoj iznad njega prijavljuje. Isto važi i na sledećem nivou:
+      pretraga nad <code>a</code> ima <code>loops=976</code>, jer se pokreće po svakom paru
+      film-glumac.</p>
+    <p class="interpret">Sad isto uradi sa vremenom, i tu se vidi zašto je ovo važno. Pretraga nad
+      <code>a</code> prijavljuje vreme koje se meri hiljaditim delovima milisekunde, što izgleda kao ništa.
+      Pomnoženo sa 976 ponavljanja, ona postaje <span class="hi">najveća pojedinačna stavka u
+      vremenu celog upita</span>. Ne košta pojedinačno ponavljanje, nego njihov
+      broj. Zato se spor plan ubrzava tako što mu se smanji broj ponavljanja, a ne tako što se juri
+      čvor koji prijavljuje najveće vreme.</p>
+    <p class="interpret"><b>C.</b> <code>(never executed)</code> nije greška nego podatak: spoljna
+      strana spoja nije vratila nijednu torku, pa unutrašnja nije ni pokrenuta. Ako ovo vidiš na
+      upitu koji je spor, znaš bar gde vreme <strong>nije</strong> otišlo. (Vrednost 900 je birana
+      namerno: sa 1000 optimizator prepozna da je uslov neispunjiv za tip
+      <code>decimal(5,2)</code>, pa ceo plan zameni čvorom
+      <code>Zero rows (Impossible WHERE)</code> i nema šta da se gleda.)</p>
+  </div>
+</div>
+
+<h2>3 · Odstupanje procene od stvarnog</h2>
+<p>
+  Ovo je jedini razlog zbog kog naredba postoji. Sve ostalo je pomoćni alat. Postupak je uvek isti:
+  za svaki čvor uporedi <code>rows</code> iz leve zagrade sa <code>rows</code> iz desne, i nađi
+  čvor u kom se najviše raziđu.
+</p>
+
+<figure class="fig">
+  <img src="../figures/04-explain-03-procena-naspram-stvarnog.png"
+       alt="Figura u dva dela. Gornji deo je tabela sa četiri reda, po jedan za svaki čvor plana
+            upita nad bazom sakila, sa doslovnim tekstom čvora levo i tri kolone desno: procenjeni
+            broj torki plavom bojom, stvarni broj torki crvenom bojom i obojena oznaka odstupanja.
+            Čvor Table scan ima odstupanje 1,03 puta i zelenu oznaku, a čvor Filter i spoj iznad
+            njega imaju odstupanje 48 puta i crvenu oznaku; red sa filterom je istaknut. Donji deo
+            je pojas sa dve kolone. Leva kolona, za kolonu payment.amount bez indeksa, pokazuje da
+            posle pravljenja histograma vrednost filtered pada sa 33,33 na 0,71 i da procena pada sa
+            5.499 na 117 uz stvarnih 114, dakle odstupanje se zatvara. Desna kolona, za kolonu
+            wide_events.country_code sa indeksom, pokazuje da je procena i pre i posle histograma
+            ista, rows=2.45e+6, dakle histogram ništa nije promenio.">
+  <figcaption>Isti plan, dva sloja brojeva. Sken tabele je procenjen dobro, filter iznad njega
+    promašen 48 puta, a ceo promašaj potiče od jedne jedine kolone.</figcaption>
+</figure>
+
+<p>
+  Slika pokazuje nešto što se lako previdi: <strong>nije promašio ceo plan</strong>. Sken tabele je
+  procenjen na 16.500 torki, a pročitao 16.044, dakle promašaj od nekoliko procenata. Taj broj
+  server zna dobro, jer mu ga daje statistika mehanizma skladištenja. Promašio je
+  <span class="hi">filter iznad njega</span>: procena 5.499, stvarno 114.
+</p>
+<p>
+  A odakle broj 5.499? Lekcija 04 ga je izvela sama: <code>rows × filtered / 100</code>, to jest
+  <code>16500 × 33,33% = 5499</code>. Ključ je u tome da <code>33,33</code> <strong>nije
+  merenje</strong>. To je ugrađena pretpostavka koju optimizator koristi za poređenje tipa
+  <code>&gt;</code> nad kolonom o čijoj raspodeli ne zna ništa, a ne zna ništa jer kolona
+  <code>payment.amount</code> nema ni indeks ni histogram. Stvarno prolazi 0,711% torki. Cela
+  greška plana je u toj jednoj koloni.
+</p>
+
+<h3>Koliko odstupanje je previše</h3>
+<p>
+  U literaturi se navodi praktično pravilo: odstupanje unutar 30 do 50 posto je u redu, a faktor 3
+  ili veći traži proveru. To pravilo je provereno na ovom serveru, i vredi ga izneti tačno, jer je
+  <strong>prag za proveru, a ne presuda</strong>. Četiri izmerena slučaja iz ove lekcije, poređana
+  po veličini odstupanja:
+</p>
+
+<table class="exp">
+  <tr><td><b>1,03&times;</b></td><td>Sken tabele <code>payment</code>, 16.500 naspram 16.044. U redu je, i ne traži ništa.</td></tr>
+  <tr><td><b>1,43&times;</b></td><td><code>wide_events</code> po koloni <code>country_code</code>, 2,45 M naspram 3,5 M. Ispod praga, i plan je zaista razuman.</td></tr>
+  <tr><td><b>48&times;</b></td><td>Filter po koloni <code>payment.amount</code>. Daleko iznad praga, ali izabrani plan je i dalje dobar, što odeljak 5 pokazuje.</td></tr>
+  <tr><td><b>3.162&times;</b></td><td>Sken preko indeksa u odeljku 5. Loša procena i, ovog puta, zaista loš plan.</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Rečenica koju treba umeti odbraniti</span>
+  Veliko odstupanje <span class="hi">nije isto što i loš plan</span>. Ono znači da je optimizator
+  birao na osnovu pogrešnog broja, pa je mogao da pogreši. Da li jeste, vidi se tek kad se izabrani
+  plan uporedi sa nekim drugim. Odstupanje je razlog da se pogleda dalje, ne zaključak.
+</div>
+
+<h2>4 · Histogram: kad zatvara odstupanje, a kad ne</h2>
+<p>
+  Kad je uzrok promašaja to što optimizator ne zna raspodelu kolone, ponuđeni lek je
+  <strong>histogram</strong>: statistika o raspodeli vrednosti u koloni, koja se pravi ručno i
+  sama se ne osvežava. Ovde je važno da lek radi samo u jednom od dva slučaja, i da je razlika između
+  njih tačno ona koja se najčešće pogrešno pamti.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baze <code>sakila</code> i <code>obrada_upita</code>.
+      Poslednja naredba u svakom delu vraća server u polazno stanje, pa je nemoj preskočiti.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="c">-- A. Kolona BEZ indeksa: payment.amount</span>
+<span class="k">USE</span> sakila;
+
+<span class="k">ANALYZE TABLE</span> payment <span class="k">UPDATE HISTOGRAM ON</span> amount <span class="k">WITH</span> 32 <span class="k">BUCKETS</span>;
+
+<span class="k">EXPLAIN ANALYZE</span>
+<span class="k">SELECT</span> c.first_name, c.last_name, p.amount
+<span class="k">FROM</span>   customer c
+<span class="k">JOIN</span>   payment p <span class="k">ON</span> p.customer_id = c.customer_id
+<span class="k">WHERE</span>  p.amount &gt; 10;
+
+<span class="k">ANALYZE TABLE</span> payment <span class="k">DROP HISTOGRAM ON</span> amount;
+
+<span class="c">-- B. Kolona SA indeksom: wide_events.country_code (70% je 'US')</span>
+<span class="k">USE</span> obrada_upita;
+
+<span class="k">EXPLAIN FORMAT</span>=TREE <span class="k">SELECT</span> notes <span class="k">FROM</span> wide_events <span class="k">WHERE</span> country_code = <span class="s">'US'</span>;
+
+<span class="k">ANALYZE TABLE</span> wide_events <span class="k">UPDATE HISTOGRAM ON</span> country_code <span class="k">WITH</span> 16 <span class="k">BUCKETS</span>;
+
+<span class="k">EXPLAIN FORMAT</span>=TREE <span class="k">SELECT</span> notes <span class="k">FROM</span> wide_events <span class="k">WHERE</span> country_code = <span class="s">'US'</span>;
+
+<span class="k">ANALYZE TABLE</span> wide_events <span class="k">DROP HISTOGRAM ON</span> country_code;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">A. procena se sruci na stvarnu vrednost</span>
+filtered:  33.33  -&gt;  <span class="em">0.71</span>
+-&gt; Filter: (p.amount &gt; 10.00)  (cost=1674 rows=<span class="em">117</span>) (actual ... rows=<span class="em">114</span> loops=1)
+<span class="dim">   odstupanje 48x -&gt; 1,03x, i cena celog plana padne sa oko 3672 na oko 1715</span>
+
+<span class="dim">B. procena se ne pomeri ni za znak</span>
+pre:    -&gt; Index lookup on wide_events using idx_country_code ...  (cost=... rows=<span class="em">2.45e+6</span>)
+posle:  -&gt; Index lookup on wide_events using idx_country_code ...  (cost=... rows=<span class="em">2.45e+6</span>)</pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret"><b>A.</b> Kolona <code>amount</code> nema indeks, pa optimizator o njoj
+      nije imao nikakav podatak i posegao je za pretpostavkom od 33,33%. Histogram mu daje pravu
+      raspodelu, <code>filtered</code> padne na 0,71, procena sa 5.499 na 117, i odstupanje se
+      zatvori. Uzgred, tražene su 32 korpe, a napravljeno ih je 19, tipa
+      <code>singleton</code>: kad različitih vrednosti ima manje nego traženih korpi, MySQL pravi
+      po jednu korpu za svaku vrednost, pa raspodelu zna tačno, a ne po intervalima.</p>
+    <p class="interpret"><b>B.</b> Kolona <code>country_code</code> je izrazito neravnomerna, 70%
+      tabele je <code>'US'</code>, pa deluje kao školski primer za histogram. Ali procena se ne
+      pomeri. Razlog stoji u priručniku: <q>The optimizer prefers range optimizer row estimates to
+      those obtained from histogram statistics.</q> Kolona <span class="hi">ima indeks</span>, pa
+      optimizator radi zaron u indeks i histogram nikad ne pita.</p>
+  </div>
+</div>
+
+<div class="note">
+  <span class="lbl">Rečenica koju treba umeti odbraniti</span>
+  Histogram je alat za <span class="hi">neravnomernu kolonu bez indeksa</span>. Nad kolonom sa
+  indeksom nije pogrešan nego suvišan: zaron u indeks ga nadjača i on se ne konsultuje. Ako u radu
+  napišeš da histogram popravlja procenu na <code>country_code</code>, to je netačno i lako se
+  obara na licu mesta.
+</div>
+
+<p>
+  Vredi zapamtiti i odakle uopšte dolazi ona procena od 2,45 M, jer nije očigledno. Motor
+  prijavljuje kardinalnost indeksa <code>idx_country_code</code> jednaku 14, što bi dalo ravnu
+  procenu <code>5.000.000 / 14 ≈ 350.656</code>. Optimizator taj broj ne koristi: umesto njega radi
+  zaron u indeks, uzorkuje stvarne stranice i dobija 2,45 M. Stvarno ih je 3,5 M. Dakle
+  <strong>tri različita broja</strong> za istu veličinu, od kojih je jedan izmeren.
+</p>
+
+<h2>5 · Jedan plan koji je zaista loš</h2>
+<p>
+  Sve do sada je bilo o promašenim procenama koje ipak nisu proizvele loš plan. Sad jedan koji jeste,
+  i to je najvažniji primer u celom poglavlju, jer pokazuje granicu <code>EXPLAIN</code>-a
+  u najoštrijem obliku.
+</p>
+<p>
+  Upit je bezazlen: nad tabelom <code>wide_events</code> od pet miliona torki traži se deset
+  najstarijih zapisa sa iznosom preko 504,9. Kolona <code>created_at</code> ima indeks, kolona
+  <code>amount</code> nema. Uslov ispunjava oko 940 torki, dakle 0,019% tabele. Optimizator, po već
+  poznatom pravilu, pretpostavlja 33,33%.
+</p>
+
+<figure class="fig">
+  <img src="../figures/04-explain-05-los-plan.png"
+       alt="Figura sa tri panela jedan ispod drugog i istaknutim pojasom na dnu. Prvi panel,
+            označen kao ono što EXPLAIN pokaže, prikazuje tabelarni red sa vrednostima type=index,
+            key=idx_created_at, rows=10 i filtered=33.33, pa isti plan u obliku stabla sa tri čvora
+            Limit, Filter i Index scan, svi sa cenom 0,836 i procenom 10 torki. Drugi panel,
+            označen kao ono što EXPLAIN ANALYZE izmeri, prikazuje isto stablo ali sa dodatnim
+            merenjima, gde sken preko indeksa prijavljuje 31.621 stvarnu torku i vreme oko 2.700
+            milisekundi. Treći panel prikazuje drugi plan, dobijen sa IGNORE INDEX, koji čita celu
+            tabelu i sortira, ima procenjenu cenu preko 574.000 i izmereno traje oko 1.860
+            milisekundi. Pojas na dnu ističe da je procena bila 10 torki, stvarno 31.621, dakle
+            odstupanje 3.162 puta.">
+  <figcaption>Isti upit, tri pogleda. Plan iz prvog panela je izabran, i po svemu što
+    <code>EXPLAIN</code> ume da prikaže deluje savršeno.</figcaption>
+</figure>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>obrada_upita</code> i tabela
+      <code>wide_events</code>. Druga i treća naredba izvršavaju upit nad pet miliona torki, pa
+      svaka traje po nekoliko sekundi. To je deo poente.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> obrada_upita;
+
+<span class="c">-- (1) Sta EXPLAIN kaze. Nista se ne izvrsava.</span>
+<span class="k">EXPLAIN SELECT</span> id, created_at, amount
+<span class="k">FROM</span>   wide_events
+<span class="k">WHERE</span>  amount &gt; 504.9
+<span class="k">ORDER</span>  <span class="k">BY</span> created_at
+<span class="k">LIMIT</span>  10;
+
+<span class="c">-- (2) Isti plan, izvrsen.</span>
+<span class="k">EXPLAIN ANALYZE SELECT</span> id, created_at, amount
+<span class="k">FROM</span>   wide_events
+<span class="k">WHERE</span>  amount &gt; 504.9
+<span class="k">ORDER</span>  <span class="k">BY</span> created_at
+<span class="k">LIMIT</span>  10;
+
+<span class="c">-- (3) Drugi plan, za poredjenje: bez idx_created_at.</span>
+<span class="k">EXPLAIN ANALYZE SELECT</span> id, created_at, amount
+<span class="k">FROM</span>   wide_events <span class="k">IGNORE INDEX</span> (idx_created_at)
+<span class="k">WHERE</span>  amount &gt; 504.9
+<span class="k">ORDER</span>  <span class="k">BY</span> created_at
+<span class="k">LIMIT</span>  10;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">(1) plan koji izgleda savrseno</span>
+type   key              rows  filtered  Extra
+index  idx_created_at   <span class="em">10</span>    33.33     Using where
+
+-&gt; Limit: 10 row(s)  (cost=<span class="em">0.836</span> rows=3.33)
+    -&gt; Filter: (wide_events.amount &gt; 504.90)  (cost=0.836 rows=3.33)
+        -&gt; Index scan on wide_events using idx_created_at  (cost=0.836 rows=<span class="em">10</span>)
+
+<span class="dim">(2) isti plan, izmeren</span>
+        -&gt; Index scan ... (cost=0.836 rows=10) (actual time=1.75..2715 rows=<span class="em">31621</span> loops=1)
+
+<span class="dim">(3) plan kome EXPLAIN daje 686.000 puta vecu cenu</span>
+-&gt; Limit: 10 row(s)  (cost=<span class="em">574128</span> rows=10) (actual time=<span class="em">1863</span>..1863 rows=10 loops=1)
+    -&gt; Sort: wide_events.created_at, limit input to 10 row(s) per chunk ...
+        -&gt; Filter: (wide_events.amount &gt; 504.90) ... rows=940 loops=1
+            -&gt; Table scan on wide_events ... rows=5e+6 loops=1</pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret"><b>(1)</b> Pogledaj svaku kolonu iz Lekcije 04 i pokušaj da nađeš
+      upozorenje. Nema ga. <code>type</code> je <code>index</code>, a ne <code>ALL</code>. Indeks
+      je izabran. <code>rows</code> kaže <span class="hi">10</span>, nad tabelom od pet miliona
+      torki. Cena je 0,836, dakle nije ni ceo broj. Nema <code>Using filesort</code>, nema
+      privremene tabele. Računica optimizatora je razumljiva: pošto <code>idx_created_at</code> već
+      daje redosled po <code>created_at</code>, može da čita indeks redom i da stane čim skupi
+      deset pogodaka, a pošto pretpostavlja da svaka treća torka prolazi uslov, očekuje da će
+      stati posle tridesetak.</p>
+    <p class="interpret"><b>(2)</b> Stalo se posle <span class="hi">31.621</span> torke. Procena je
+      bila 10. Odstupanje je 3.162 puta, i za razliku od odeljka 3, ovde je uzrok i posledica u
+      istom čvoru: pogrešna pretpostavka o učestalosti je jedini razlog zbog kog je taj plan izabran.
+      Vreme do poslednje torke iznosi oko 2.700 ms, i to za deset torki.</p>
+    <p class="interpret"><b>(3)</b> Ovim se dokazuje da je plan zaista loš, a ne da je upit
+      neizbežno spor. <code>IGNORE INDEX</code> oduzima optimizatoru <code>idx_created_at</code>, pa
+      mora da pročita celu tabelu i da sortira. <code>EXPLAIN</code> tom planu daje cenu oko 574.128
+      naspram 0,836, dakle skoro 700.000 puta veću. Izmereno, taj plan traje oko 1.860 ms, dakle
+      <strong>oko 1,5 puta kraće</strong> od izabranog.</p>
+  </div>
+</div>
+
+<div class="note">
+  <span class="lbl">Rečenica koju treba umeti odbraniti</span>
+  Ovo je odgovor na pitanje zašto <code>EXPLAIN ANALYZE</code> uopšte postoji. Postoji plan koji je
+  po svakoj koloni <code>EXPLAIN</code> ispisa besprekoran, a koji je u stvarnosti sporiji od
+  alternative kojoj isti taj <code>EXPLAIN</code> daje skoro 700.000 puta veću cenu.
+  <span class="hi">Bez izvršavanja se to nije moglo videti.</span>
+</div>
+
+<h3>Šta ovde ne pomaže</h3>
+<p>
+  Prirodan sledeći potez, posle odeljka 4, jeste napraviti histogram nad <code>amount</code>. Vredi
+  ga probati, jer ishod nije onaj koji se očekuje: <code>filtered</code> zaista padne sa 33,33 na
+  0,50, dakle procena se popravi, ali <strong>plan se ne promeni</strong>. I dalje se bira sken
+  preko <code>idx_created_at</code>, i dalje se čita 31.621 torka, i dalje traje oko 2.700 ms.
+  Razlog je u tome što <code>LIMIT</code> odseca cenu skena preko indeksa na svega deset torki pre
+  nego što popravljena selektivnost stigne da je podigne. Dakle: bolja statistika je pomogla
+  <strong>proceni</strong>, ali ne i <strong>odluci</strong>. Prava ispravka ovde je indeks nad
+  <code>amount</code>, ili prepisan upit, a ne još statistike.
+</p>
+
+<h2>6 · Šta ni <code>EXPLAIN ANALYZE</code> ne kaže</h2>
+<p>
+  Lekcija 04 je nabrojala tri stvari koje <code>EXPLAIN</code> ne pokazuje. Ova lekcija je zatvorila
+  prvu od njih. Ostaju dve, plus dve nove koje dolaze upravo od toga što se upit izvršava.
+</p>
+<ul>
+  <li><b>Zašto baš ovaj plan.</b> I dalje se ispisuje samo pobednik. Odbijeni planovi, njihove cene
+    i razlog odbijanja su u <code>optimizer_trace</code>, <strong>Lekcija 06</strong>. Odeljak 5 se
+    tu i nastavlja: video si da je izabrani plan lošiji od alternative, ali ne i koje je alternative
+    optimizator uopšte razmatrao.</li>
+  <li><b>Ne može se pogledati upit koji upravo radi.</b> <code>EXPLAIN FOR CONNECTION</code>
+    pokazuje plan tuđe sesije, ali se <span class="hi">ne kombinuje sa <code>ANALYZE</code></span>:
+    merenja se dobijaju samo tako što ti sam pokreneš upit i sačekaš da se završi. Za dugačak upit
+    to znači da ga moraš pustiti do kraja da bi video zašto je spor.</li>
+  <li><b>Vremena nisu ponovljiva.</b> Isti upit izmeren dva puta daje različite milisekunde, jer
+    zavisi i od toga koliko je stranica zatečeno u bafer pulu. Poglavlje 3 je isto pokazalo za cene.
+    Zato se u radu navode <strong>odnosi</strong> (48 puta, 3.162 puta, 1,5 puta kraće), a apsolutno
+    vreme samo uz napomenu da je iz jednog merenja.</li>
+  <li><b>Merenje samo po sebi malo usporava upit.</b> Instrumentacija svakog iteratora nije
+    besplatna, pa vreme iz <code>EXPLAIN ANALYZE</code> ispisa nije isto što i vreme običnog
+    pokretanja istog upita. Za poređenje dva plana to ne smeta, jer podjednako koči oba.</li>
+</ul>
+
+<h2>7 · Proveri sebe</h2>
+<p>Osam pitanja, jedan tačan odgovor po pitanju. Klikni i odmah dobijaš objašnjenje; ako pogrešiš,
+  pročitaj zašto pre nego što pređeš na sledeće.</p>
+
+<div class="quiz">
+  <p>Bez vraćanja na tekst. Cilj je da vidiš šta ti je stvarno ostalo.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Šta tačno <code>EXPLAIN ANALYZE</code> radi drugačije od <code>EXPLAIN</code>-a?</p>
+    <label><input type="radio">Bira drugi plan, jer ima pristup stvarnim brojevima umesto procenama</label>
+    <label><input type="radio">Prikazuje isti plan, ali ga ispisuje u sva tri poznata formata odjednom</label>
+    <label><input type="radio">Izvršava upit i uz svaku procenu ispisuje ono što je zaista izmereno</label>
+    <label><input type="radio">Ponavlja upit više puta i prijavljuje prosek izmerenih vremena rada</label>
+    <p class="why">Plan je isti, cene su iste. Nova je samo druga zagrada po čvoru, sa merenjem. Zato
+      se upit i mora izvršiti, i zato se rezultat upita ne vidi.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">2. U ispisu piše <code>actual time=0.002..0.003 rows=1 loops=976</code>. Koliko je taj čvor ukupno trajao?</p>
+    <label><input type="radio">Oko 0,003 ms, jer je to izmereno vreme do njegove poslednje torke</label>
+    <label><input type="radio">Oko 2,9 ms, jer se prijavljeno vreme odnosi na jedno ponavljanje</label>
+    <label><input type="radio">Oko 0,001 ms, jer se računa razlika prve i poslednje izmerene torke</label>
+    <label><input type="radio">Ne može se izračunati, jer ispis ne prijavljuje ukupno vreme čvora</label>
+    <p class="why"><code>0,003 × 976 ≈ 2,9 ms</code>. I vreme i broj torki su proseci po jednom
+      ponavljanju, pa se do ukupnog dolazi množenjem sa <code>loops</code>.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Čvor prijavljuje <code>rows=5.48</code> u desnoj, izmerenoj zagradi. Kako je moguć razlomljen broj torki?</p>
+    <label><input type="radio">Torke su delimično pročitane, jer je uslov prekinuo čitanje na pola</label>
+    <label><input type="radio">To je procena optimizatora, koja sme da bude razlomljena, za razliku od merenja</label>
+    <label><input type="radio">Broj je skaliran cenom čvora, pa nije izražen u celim torkama nego u jedinicama</label>
+    <label><input type="radio">To je prosek po ponavljanju, a čvor je pokrenut više puta sa različitim ishodom</label>
+    <p class="why">Izmereni <code>rows</code> je prosek preko svih <code>loops</code> ponavljanja.
+      Pomnožen sa <code>loops</code> daje ono što je čvor iznad zaista dobio.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">4. Umesto merenja, uz čvor stoji <code>(never executed)</code>. Šta to znači?</p>
+    <label><input type="radio">Do tog čvora nije stigla nijedna torka, pa nije ni bio pokrenut</label>
+    <label><input type="radio">Čvor je isplaniran, ali ga je optimizator izbacio pre izvršavanja</label>
+    <label><input type="radio">Merenje tog čvora nije uspelo, jer je trajalo kraće od praga alata</label>
+    <label><input type="radio">Čvor je pokrenut, ali su mu rezultati pročitani iz bafer pula servera</label>
+    <p class="why">Tipično je to unutrašnja strana spoja čija spoljna strana nije vratila nijednu
+      torku. Podatak je koristan: znaš gde vreme sigurno nije otišlo.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">5. Sken tabele je procenjen na 16.500, izmeren 16.044, a filter iznad njega procenjen na 5.499, izmeren 114. Gde je uzrok?</p>
+    <label><input type="radio">U statistici tabele, koja je zastarela i traži pokretanje <code>ANALYZE TABLE</code></label>
+    <label><input type="radio">U spoju iznad njih, jer je redosled tabela u planu izabran pogrešno</label>
+    <label><input type="radio">U koloni iz uslova, o čijoj raspodeli optimizator nema nikakav podatak</label>
+    <label><input type="radio">U samom skenu, jer je promašio pravi broj torki koje tabela sadrži</label>
+    <p class="why">Broj torki u tabeli server zna dobro, otud dobra procena skena. Broj 5.499 je
+      izveden iz <code>filtered = 33,33%</code>, a to je ugrađena pretpostavka za kolonu bez
+      indeksa i bez histograma, ne merenje.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">6. Kolona je izrazito neravnomerna i ima indeks. Šta će uraditi histogram nad njom?</p>
+    <label><input type="radio">Popraviće procenu, jer je upravo neravnomerna raspodela ono za šta služi</label>
+    <label><input type="radio">Ništa, jer optimizator za kolonu sa indeksom radi zaron i ne pita histogram</label>
+    <label><input type="radio">Pogoršaće procenu, jer se dve različite statistike o istoj koloni sudaraju</label>
+    <label><input type="radio">Popraviće procenu samo ako se traži bar onoliko korpi koliko ima vrednosti</label>
+    <p class="why">Provereno uživo: procena ostane ista. Priručnik to i kaže, optimizator daje
+      prednost proceni optimizatora opsega nad histogramom. Histogram je alat za neravnomernu
+      kolonu <b>bez</b> indeksa.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">7. Odstupanje procene od stvarnog je 48 puta. Šta iz toga sledi o planu?</p>
+    <label><input type="radio">Plan je sigurno loš, jer je prag za proveru već kod faktora tri</label>
+    <label><input type="radio">Plan je dobar, jer je izabran posle poređenja svih mogućih redosleda</label>
+    <label><input type="radio">Plan je loš samo ako uz odstupanje stoji i sken cele tabele u ispisu</label>
+    <label><input type="radio">Ne sledi ništa o planu; sledi da je biran po broju koji nije tačan</label>
+    <p class="why">Odstupanje je razlog da se pogleda dalje, ne presuda. Kod ovog upita redosled
+      spoja ostaje isti i sa dobrom i sa lošom procenom. Da li je plan loš, vidi se tek kad se
+      uporedi sa nekim drugim planom.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">8. Zašto je plan iz odeljka 5 (<code>rows: 10</code>, cena 0,836) primer koji brani celo poglavlje?</p>
+    <label><input type="radio">Jer je po svakoj koloni <code>EXPLAIN</code> ispisa besprekoran, a sporiji od alternative</label>
+    <label><input type="radio">Jer pokazuje da procena od deset torki uz <code>LIMIT</code> nikada nije upotrebljiva</label>
+    <label><input type="radio">Jer dokazuje da sken preko indeksa uvek gubi od skena cele tabele i sortiranja</label>
+    <label><input type="radio">Jer je jedini slučaj u kom se cena iz plana ne poklapa sa izmerenim vremenom rada</label>
+    <p class="why">Nijedna kolona nije bila upozorenje: indeks izabran, <code>rows: 10</code>, bez
+      <code>filesort</code>. Tek merenje pokazuje 31.621 pročitanu torku i plan koji je sporiji od
+      onog kome <code>EXPLAIN</code> daje skoro 700.000 puta veću cenu.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<div class="note">
+  <span class="lbl">Pitaj svog predavača</span>
+  Ako ti je nešto ostalo mutno (najčešće je to množenje sa <code>loops</code> na spoju sa više
+  nivoa, ili to zašto histogram ne pomogne u odeljku 5 iako je tamo kolona bez indeksa),
+  <strong>pitaj u četu</strong>. Isto važi ako hoćeš da probamo isti postupak na nekom tvom upitu,
+  da vidimo kako izgleda <code>EXPLAIN ANALYZE</code> nad višetabelarnim <code>UPDATE</code>-om na
+  tvojim tabelama, ili da napravimo indeks nad <code>amount</code> pa da izmerimo koliko plan iz
+  odeljka 5 postane brži.
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong> objava razvojnog tima
+  <a href="https://dev.mysql.com/blog-archive/mysql-explain-analyze/">MySQL EXPLAIN ANALYZE</a>
+  (najbolji jedan tekst o tome kako se čitaju <code>actual time</code>, <code>rows</code> i
+  <code>loops</code>, sa primerima). Dopuna:
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/explain.html">EXPLAIN Statement</a> (za
+  ograničenja formata i za <code>EXPLAIN FOR CONNECTION</code>),
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/optimizer-statistics.html">Optimizer Statistics</a>
+  (za histograme i za rečenicu o tome zašto ih indeks nadjača) i
+  <a href="https://dev.mysql.com/blog-archive/new-json-format-for-explain/">New JSON format for EXPLAIN</a>
+  (za merenja u JSON-u verzije 2).
+  Izvori su na engleskom, što je dozvoljeno: samo lekcija mora biti na srpskom. ·
+  <strong>Vidi još:</strong>
+  <a href="../reference/04-explain-analyze.html">referentna kartica: <code>EXPLAIN ANALYZE</code>, odstupanje i histogrami</a>,
+  <a href="0004-explain-formati-i-tipovi-pristupa.html">Lekcija 04</a>,
+  <a href="0003-od-sql-a-do-plana-izvrsavanja.html">Lekcija 03</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §2c i §2d.
+</p>
+
+<script src="../assets/copy.js"></script>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

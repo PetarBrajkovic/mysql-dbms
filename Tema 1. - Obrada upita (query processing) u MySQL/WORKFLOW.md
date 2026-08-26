@@ -133,10 +133,17 @@ Do not re-litigate these mid-chapter:
   session. Draw that line carefully in chapter 8.
 - `optimizer_search_depth` defaults to **62**.
 
-One thing still needs checking against your live server: the "estimates off by 3x" rule of thumb
-(chapter 4b's business). The other, whether `explain_json_format_version = 2` works on 8.4, was
-confirmed during lesson 4a - it does, default is `1`, and the `access_type` key means something
-different in each version (see LR-0004).
+Both of the items that used to need checking against your live server are now closed.
+`explain_json_format_version = 2` works (lesson 4a; default is `1`, and the `access_type` key means
+something different in each version - see LR-0004). The "estimates off by 3x" rule of thumb was
+checked in lesson 4b (LR-0005): it is a **screening threshold, not a verdict**. A measured 48x
+divergence left a five-table join order completely unchanged, while a 3.162x case produced a
+genuinely bad plan. Never write that a large divergence means a bad plan.
+
+One more thing lesson 4b settled, because it is easy to get wrong in chapter 4: **`EXPLAIN ANALYZE`
+does not modify data.** It takes `SELECT`, `TABLE`, and **multi-table** `UPDATE`/`DELETE`; a
+single-table `UPDATE` returns `-> <not executable by iterator executor>` with no plan at all, and in
+neither case do the rows change. Do not tell the reader to wrap it in a rollback transaction.
 
 ---
 

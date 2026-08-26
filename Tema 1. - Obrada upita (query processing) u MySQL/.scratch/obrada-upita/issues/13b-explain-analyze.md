@@ -48,3 +48,30 @@ citations, learning record plus commit).
 `/mattpocock-skills:wayfinder .scratch/obrada-upita/map.md` in the same session.
 
 ## Answer
+
+### Progress 2026-08-26 — taught, not yet written
+
+Lesson done via `/teach`: `lessons/0005-explain-analyze-procena-naspram-stvarnog.html`, reference
+card `reference/04-explain-analyze.html`, four SQL files `examples/04-explain/04…07-*.sql`, three
+figures via `tools/make-lesson05-explain-analyze.ps1`. Full findings in **LR-0005**. Remaining DoD
+for this ticket: the Serbian prose into `rad.md` via `academic-research-writer`, plus citations.
+
+**Four things above that revise this ticket's own scope statement, so read LR-0005 before writing:**
+
+1. **The reserved worked example is the wrong centrepiece.** `wide_events`/`country_code` measures
+   at only **1.43x** divergence, below the 3x threshold, and its plan is fine. Demote it to an
+   illustration of where an estimate comes from (index dive vs. flat cardinality 14).
+2. **Use `sakila.payment.amount` instead**, which is already in the chapter: 4a's own
+   `16500 × 33,33% = 5499` is **48x** off the measured 114, because the column has no index and no
+   histogram so `filtered` is the hardcoded guess. It doubles as the non-indexed histogram demo the
+   ticket asks for (33.33 → 0.71, est 117 vs 114 actual), with `country_code` as the indexed
+   counter-case beside it.
+3. **The "off by 3x" item is answered, and the answer is a caveat.** It is a screening threshold,
+   not a verdict: the 48x case leaves a five-table join order unchanged. The bad-plan requirement is
+   met separately by the `ORDER BY` + `LIMIT` trap (est 10 vs actual 31.621, 3.162x; chosen plan
+   ~2.700 ms against an alternative `EXPLAIN` costs ~686.000x higher that runs in ~1.860 ms).
+4. **Do not write that `EXPLAIN ANALYZE` modifies data.** It does not; see LR-0005 (g). The research
+   memo is wrong on this and the manual's wording is narrower ("multi-table").
+
+**13c is no longer a fold-in candidate.** 4b ends on a plan proven worse than an alternative, with
+no way to see which alternatives were costed. That is the trace's hook, so 13c stands alone.

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referenca — EXPLAIN ANALYZE: odstupanje, loops, histogrami</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica</p>
+<h1>Kako se čita <code>EXPLAIN ANALYZE</code></h1>
+<p class="subtitle">Nastavak kartice 03. Sve što je tamo bilo procena, ovde dobija i izmerenu vrednost pored sebe. Sve brojke su izmerene na 8.4.11, nad bazama <code>sakila</code> i <code>obrada_upita</code>.</p>
+
+<h2>Šta naredba jeste, a šta nije</h2>
+<table>
+  <tr><td>šta dodaje</td><td>izvrši upit i uz svaku procenu ispiše <strong>izmerenu</strong> vrednost</td></tr>
+  <tr><td>plan</td><td><strong>isti</strong> kao kod <code>EXPLAIN</code>; ništa se ne bira drugačije</td></tr>
+  <tr><td>format</td><td>samo <code>FORMAT=TREE</code>; <code>TRADITIONAL</code> i <code>JSON</code> daju <code>ERROR 1235</code></td></tr>
+  <tr><td>JSON ipak</td><td>prolazi uz <code>SET explain_json_format_version = 2</code> (izmereno; priručnik to još ne navodi)</td></tr>
+  <tr><td>rezultat upita</td><td>ne vraća se; vraća se samo plan</td></tr>
+  <tr><td>naredbe</td><td><code>SELECT</code>, <code>TABLE</code>, <strong>višetabelarni</strong> <code>UPDATE</code>/<code>DELETE</code></td></tr>
+  <tr><td>jednotabelarni <code>UPDATE</code></td><td><code>&lt;not executable by iterator executor&gt;</code>, bez plana</td></tr>
+  <tr><td>menja li podatke</td><td><strong>ne</strong>; čita se i meri, upis se ne primeni (izmereno)</td></tr>
+  <tr><td><code>FOR CONNECTION</code></td><td>ne kombinuje se; <code>ERROR 1235</code></td></tr>
+</table>
+
+<h2>Tri broja iz desne zagrade</h2>
+<table>
+  <tr><td><code>actual time=X..Y</code></td><td><b>X</b> do prve torke, <b>Y</b> do poslednje, u ms, <strong>po jednom ponavljanju</strong></td></tr>
+  <tr><td><code>rows=</code></td><td>stvarno proizvedene torke, <strong>prosek po ponavljanju</strong> (zato ume da bude razlomljen)</td></tr>
+  <tr><td><code>loops=</code></td><td>koliko je puta čvor pokrenut</td></tr>
+  <tr><td><code>(never executed)</code></td><td>čvor je u planu, ali do njega nije stigla nijedna torka</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Rečenica koju treba umeti napamet</span>
+  <code>actual time</code> i <code>rows</code> nisu zbirovi nego <span class="hi">proseci po jednom
+  ponavljanju</span>. Ukupno = vrednost <strong>puta <code>loops</code></strong>. Zato čvor sa
+  najmanjim prijavljenim vremenom ume da bude najskuplji deo upita. Izmereno:
+  <code>loops=178 × rows=5,48 = 975</code>, a spoj iznad prijavljuje <code>rows=976</code>.
+</div>
+
+<h2>Postupak dijagnostike, tim redom</h2>
+<table>
+  <tr><td>1</td><td>pokreni <code>EXPLAIN ANALYZE</code> nad sporim upitom</td></tr>
+  <tr><td>2</td><td>za svaki čvor uporedi <code>rows</code> iz leve i iz desne zagrade</td></tr>
+  <tr><td>3</td><td>nađi čvor sa <strong>najvećim</strong> odstupanjem; ako ih ima više, uzmi <strong>najniži</strong> u stablu</td></tr>
+  <tr><td>4</td><td>pogledaj koja kolona iz uslova stoji iza njega i šta o njoj server zna</td></tr>
+  <tr><td>5</td><td>uporedi izabrani plan sa <strong>drugim</strong> planom (<code>IGNORE INDEX</code>, <code>FORCE INDEX</code>)</td></tr>
+</table>
+
+<h2>Prag: koliko odstupanje je previše</h2>
+<table class="vals">
+  <tr><td>unutar 30 do 50%</td><td>u redu</td></tr>
+  <tr><td>faktor 3 ili veći</td><td>traži proveru</td></tr>
+  <tr><td>sken <code>payment</code>: 16.500 / 16.044</td><td>1,03&times;</td></tr>
+  <tr><td><code>wide_events.country_code</code>: 2,45 M / 3,5 M</td><td>1,43&times;</td></tr>
+  <tr><td>filter po <code>payment.amount</code>: 5.499 / 114</td><td>48&times;</td></tr>
+  <tr><td>sken preko indeksa uz <code>LIMIT</code>: 10 / 31.621</td><td>3.162&times;</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Ne napiši pogrešno</span>
+  Veliko odstupanje <span class="hi">nije isto što i loš plan</span>. Ono znači da je optimizator
+  birao po netačnom broju, pa je <strong>mogao</strong> da pogreši. Izmereno: kod odstupanja od 48
+  puta redosled spoja pet tabela ostaje isti i sa dobrom i sa lošom procenom. Da li je plan loš,
+  vidi se tek kad se uporedi sa drugim planom.
+</div>
+
+<h2>Odakle dolazi promašena procena</h2>
+<table>
+  <tr><td><code>filtered = 33,33</code></td><td>ugrađena pretpostavka za <code>&gt;</code> nad kolonom bez indeksa i bez histograma; nije merenje</td></tr>
+  <tr><td>kardinalnost indeksa</td><td>iz <code>mysql.innodb_index_stats</code>, uzorak od 16 stranica; za <code>country_code</code> daje 14 (a vrednosti ima 15)</td></tr>
+  <tr><td>zaron u indeks</td><td>uzorkuje stvarne stranice; jači od oba gornja kad kolona ima indeks</td></tr>
+  <tr><td>histogram</td><td>pravi se ručno, ne osvežava se sam; konsultuje se <strong>samo</strong> kad kolona nema indeks</td></tr>
+</table>
+
+<h2>Histogram: kad radi</h2>
+<table>
+  <tr><td>kolona <strong>bez</strong> indeksa</td><td><code>payment.amount</code>: <code>filtered</code> 33,33 &rarr; 0,71; procena 5.499 &rarr; 117 uz stvarnih 114 · <span class="hi">radi</span></td></tr>
+  <tr><td>kolona <strong>sa</strong> indeksom</td><td><code>wide_events.country_code</code>: procena <code>2.45e+6</code> i pre i posle · <span class="hi">ne radi</span></td></tr>
+  <tr><td>razlog</td><td>priručnik: <q>The optimizer prefers range optimizer row estimates to those obtained from histogram statistics.</q></td></tr>
+  <tr><td>vrsta korpi</td><td><code>singleton</code> kad vrednosti ima manje nego traženih korpi (tada je raspodela tačna), inače <code>equi-height</code></td></tr>
+  <tr><td>naredbe</td><td><code>ANALYZE TABLE t UPDATE HISTOGRAM ON c WITH n BUCKETS</code> / <code>DROP HISTOGRAM ON c</code></td></tr>
+  <tr><td>provera</td><td><code>information_schema.COLUMN_STATISTICS</code></td></tr>
+</table>
+
+<h2>Zamka sa <code>ORDER BY</code> i <code>LIMIT</code></h2>
+<table>
+  <tr><td>kada nastaje</td><td>redak uslov nad kolonom <strong>bez</strong> indeksa + <code>ORDER BY</code> nad kolonom <strong>sa</strong> indeksom + <code>LIMIT</code></td></tr>
+  <tr><td>kako izgleda</td><td><code>type: index</code>, <code>rows: 10</code>, cena 0,836 · dakle savršeno</td></tr>
+  <tr><td>šta je zaista</td><td>31.621 pročitana torka, oko 2.700 ms za deset torki</td></tr>
+  <tr><td>dokaz da je loš</td><td><code>IGNORE INDEX</code>: cena 574.128 (skoro 700.000 puta veća), izmereno oko 1.860 ms</td></tr>
+  <tr><td>histogram pomaže?</td><td>ne; <code>filtered</code> padne na 0,50, ali plan i vreme ostanu isti</td></tr>
+  <tr><td>prava ispravka</td><td>indeks nad kolonom iz uslova, ili prepisan upit</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Rečenica kojom se brani celo poglavlje</span>
+  Postoji plan koji je po <span class="hi">svakoj koloni</span> <code>EXPLAIN</code> ispisa
+  besprekoran, a koji je sporiji od alternative kojoj isti taj <code>EXPLAIN</code> daje skoro
+  700.000 puta veću cenu. Bez izvršavanja se to nije moglo videti. To je jedini razlog zbog kog
+  <code>EXPLAIN ANALYZE</code> postoji.
+</div>
+
+<h2>Šta ni <code>EXPLAIN ANALYZE</code> ne kaže</h2>
+<table>
+  <tr><td>zašto baš ovaj plan</td><td>odbijeni planovi i njihove cene su u <code>optimizer_trace</code> (Lekcija 06)</td></tr>
+  <tr><td>upit koji upravo radi</td><td><code>FOR CONNECTION</code> pokazuje plan, ali ga ne meri</td></tr>
+  <tr><td>ponovljivost vremena</td><td>zavisi od bafer pula; u rad idu <strong>odnosi</strong>, apsolutno vreme samo uz napomenu</td></tr>
+  <tr><td>cena merenja</td><td>instrumentacija sama usporava upit; za poređenje dva plana ne smeta</td></tr>
+</table>
+
+<p class="meta">
+  Termini su zaključani u <a href="../GLOSSARY.md">GLOSSARY.md</a> §2c i §2d (odstupanje procene,
+  ponavljanje, korpa histograma, stvarni broj torki …). Izvori:
+  <a href="https://dev.mysql.com/blog-archive/mysql-explain-analyze/">MySQL EXPLAIN ANALYZE</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/explain.html">EXPLAIN Statement</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/optimizer-statistics.html">Optimizer Statistics</a>,
+  <a href="https://dev.mysql.com/blog-archive/new-json-format-for-explain/">New JSON format for EXPLAIN</a>.
+  Upiti iza svake brojke: <code>examples/04-explain/04…07-*.sql</code>.
+  Napravljeno lekcijom <a href="../lessons/0005-explain-analyze-procena-naspram-stvarnog.html">0005</a>.
+</p>
+
+<style>
+  /* Same look as reference card 03. */
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; margin: 0.8rem 0; }
+  td { border-bottom: 1px solid var(--rule); padding: 0.45rem 0.6rem; vertical-align: top; }
+  td:first-child { width: 15rem; }
+  td:last-child { color: var(--ink-soft); }
+  table.vals td:last-child { text-align: right; white-space: nowrap; }
+</style>
+
+<script src="../assets/copy.js"></script>
+</body>
+</html>
