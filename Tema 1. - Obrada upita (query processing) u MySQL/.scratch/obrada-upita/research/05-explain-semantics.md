@@ -254,6 +254,25 @@ When optimizer's row estimates differ significantly from actual rows:
 
 **Source:** https://dev.mysql.com/doc/refman/8.4/en/explain.html
 
+> **CORRECTED 2026-08-26 against the live 8.4.11 server (lesson 4b / LR-0005), on two of the four
+> bullets above.**
+>
+> 1. **Statement types is narrower than written here, and `EXPLAIN ANALYZE` never modifies data.**
+>    The manual's actual wording is "SELECT statements, **multi-table** UPDATE and DELETE statements,
+>    and TABLE statements". Verified live in three connections: a **single-table** `UPDATE`/`DELETE`
+>    returns `-> <not executable by iterator executor>` with no plan at all; a **multi-table** one
+>    returns a full measured plan (`Update a (immediate)`) whose read side runs and is measured
+>    (`rows=3`) and whose write node reports `rows=0`. In both cases the rows are **unchanged**,
+>    confirmed from a third connection. The bullet as originally written invites the inference that
+>    running it on an `UPDATE` changes data. It does not, and the paper must not tell the reader to
+>    wrap it in a rollback transaction.
+> 2. **"TREE format only" holds only while `explain_json_format_version = 1`.** With the version set
+>    to `2` on 8.4.11, `EXPLAIN ANALYZE FORMAT=JSON` **succeeds** and returns `actual_rows`,
+>    `actual_loops`, `actual_first_row_ms` and `actual_last_row_ms` beside `estimated_rows` and
+>    `estimated_total_cost`, contradicting the manual's "always raises an error, regardless of the
+>    value of explain_format". Cite this as **measured behaviour with the format version named**,
+>    never as the manual's claim.
+
 ### 2.7 JSON Format Support for EXPLAIN ANALYZE
 
 New in MySQL 8.3+ with JSON Format Version 2:

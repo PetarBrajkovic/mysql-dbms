@@ -152,13 +152,18 @@ graded - `MISSION.md` and `RESOURCES.md` are the documents that matter for plann
   - **4c - optimizer_trace**: `optimizer_trace` + `EXPLAIN FOR CONNECTION`, what trace shows that
     `EXPLAIN` never does (rejected plans and their costs). Smaller; may fold into 4b if thin -
     decide after 4b is taught.
-  4a is taught **and written**: `rad.md` §4.1-4.4, ticket 13a closed 2026-08-26. The old single
-  ticket 13 was split into 13a/13b/13c to match this breakdown. Next session: run 4b's prompt
-  (`/teach EXPLAIN ANALYZE in MySQL`), then wayfinder. **Chapter 4's budget was raised from 4 to 6 pages on
+  4a is taught **and written**: `rad.md` §4.1-4.4, ticket 13a closed 2026-08-26. **4b is taught and
+  written too**: `rad.md` §4.5-4.7, ticket 13b closed 2026-08-28, and 4c is confirmed as its own
+  lesson and section (not a fold-in). The old single ticket 13 was split into 13a/13b/13c to match
+  this breakdown. Next session: run 4c's prompt (`/teach optimizer_trace and EXPLAIN FOR CONNECTION
+  in MySQL`), then wayfinder. **Chapter 4's budget was raised from 4 to 6 pages on
   2026-08-26** (the user's call), because 4a alone came out at ~3 dense, unpadded pages and the
   alternative was squeezing `EXPLAIN ANALYZE` plus the trace into ~1 shared page. `GLOSSARY.md`
   §4 now totals ≈23 pages. 4b gets ~2, 4c ~1, and 4c folds into 4b only if it is genuinely thin,
-  not to save space.
+  not to save space. **Measured after 4b was written (2026-08-28):** 4a ≈3,2 pages and 4b ≈2,4, so
+  chapter 4 has used ~5,6 of its 6. Either 4c takes ~0,5 pages or chapter 4 goes slightly over; ask
+  the user at the start of the 13c session, and do not trim written prose to make room (his standing
+  call from the 4a budget decision).
 - **`explain_json_format_version = 2` WORKS on 8.4.11 (verified 2026-08-24, during lesson 0004).**
   This closes one of the two things `WORKFLOW.md` listed as "still needs checking against your live
   server once it is installed". Default on this server is `1`; `SET explain_json_format_version = 2`

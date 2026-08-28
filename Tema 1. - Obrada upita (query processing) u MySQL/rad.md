@@ -430,6 +430,103 @@ pobednika i ćuti o poraženim kandidatima [@mysql84refman]. Koliko je torki stv
 meri se naredbom `EXPLAIN ANALYZE`, dok se odbačeni planovi i njihove cene čitaju iz traga
 optimizatora; time se bave naredni odeljci.
 
+## 4.5. Merenje umesto procene
+
+Naredba `EXPLAIN ANALYZE` izvršava upit i uz svaki čvor stabla ispisuje drugu zagradu, u kojoj pored
+procenjenih stoje i izmerene vrednosti [@mysql84refman]. U toj zagradi su tri podatka: `actual
+time`, to jest dva vremena u milisekundama, do prve i do poslednje vraćene torke; `rows`, stvarni
+broj torki koje je čvor vratio; i `loops`, broj ponavljanja tog čvora [@mysql84refman]. Ključ `rows`
+tako se u istom redu pojavljuje dvaput, jednom kao procena a jednom kao merenje, i upravo njihovo
+poređenje čini ovu naredbu dijagnostičkim alatom.
+
+Dve granice te naredbe treba navesti odmah. Prva je da ona ispisuje samo stablo: priručnik navodi da
+naredba uz `FORMAT=TRADITIONAL` ili `FORMAT=JSON` uvek vraća grešku [@mysql84refman], što na serveru
+8.4.11 važi dok je promenljiva `explain_json_format_version` jednaka 1, dok se uz vrednost 2 JSON
+ispis ipak dobija i u njemu stoje polja `actual_rows` i `actual_loops`; ovo poslednje navodi se kao
+izmereno ponašanje sa imenovanom verzijom formata, a ne kao tvrdnja priručnika. Druga granica je da
+izvršavanje ne menja podatke. Naredba prima `SELECT`, `TABLE` i višetabelarne oblike naredbi
+`UPDATE` i `DELETE` [@mysql84refman], dok jednotabelarni `UPDATE` vraća `-> <not executable by
+iterator executor>` bez ijednog čvora plana, a torke u oba slučaja ostaju nepromenjene, pa merenje
+nije potrebno štititi transakcijom koja se poništava.
+
+Osnovna dijagnostika koju to merenje omogućava jeste odstupanje procene od stvarnog broja torki
+*(estimated versus actual rows)*. Meri se na istom upitu iz odeljka 4.1, u kome je iz tabelarnog
+ispisa izvedena procena od 5.499 torki. Izvršavanje pokazuje da kroz čvor `Filter` prođe njih 114,
+dakle 48 puta manje. Procena za sken tabele `payment` pritom nije promašena: procenjenih 16.500
+naspram izmerenih 16.044 torki daje odstupanje od svega 1,03 puta. Promašaj je, dakle, lokalizovan
+na jedan čvor i ima jasan uzrok: kolona `amount` nema ni indeks ni histogram, pa vrednost `filtered`
+od 33,33 procenta nije merenje nego ugrađena pretpostavka za poređenje operatorom `>`
+[@mysql84refman], dok je istina 114 od 16.044 torki, to jest 0,711 procenta.
+
+Histogram je alat kojim se neravnomernost raspodele *(skew)* jedne kolone opisuje statistikom
+[@mysql84refman]. Nad kolonom `amount`, koja nema indeks, on odstupanje zaista zatvara: posle
+naredbe `ANALYZE TABLE payment UPDATE HISTOGRAM ON amount WITH 32 BUCKETS` vrednost `filtered` pada
+sa 33,33 na 0,71 procenta, a procena sa 5.499 na 117 torki naspram izmerenih 114. Od trideset dve
+tražene korpe *(bucket)* izgrađeno ih je devetnaest, tipa `singleton`. Nad indeksiranom kolonom isti
+postupak ne menja ništa: procena za kolonu `country_code` tabele `wide_events` i pre i posle
+histograma iznosi 2,45 miliona torki, jer optimizator, kada je kolona indeksirana, daje prednost
+procenama optimizatora opsega *(range optimizer)* u odnosu na statistiku iz histograma
+[@mysql84refman]. Sama ta procena promašuje izmereni broj od 3.500.177 torki za 1,43 puta.
+
+Time se dolazi do pitanja gde je granica prevelikog odstupanja. Uobičajeno pravilo, po kome procena
+koja promašuje više od tri puta zaslužuje pažnju, merenjem se pokazuje kao prag za proveru, a ne kao
+presuda. Isti onaj upit sa odstupanjem od 48 puta, proširen na spoj pet tabela, daje isti redosled
+spoja i sa histogramom i bez njega, a razlikuju se samo cene (9.373 naspram 1.926). Odstupanje,
+dakle, znači da je odluka doneta na osnovu pogrešnog broja, ali ne i da je sama odluka pogrešna. Da
+li jeste, vidi se tek kada se izabrani plan uporedi sa nekim drugim.
+
+![Slika 4.3: Procena naspram stvarnog broja torki po čvorovima plana, i dejstvo histograma na koloni
+bez indeksa i na koloni sa indeksom.](figures/04-explain-03-procena-naspram-stvarnog.png)
+
+## 4.6. Prosek po ponavljanju
+
+Brojevi u izmerenoj zagradi čvora koji se nalazi unutar ugnježdene petlje nisu zbirovi nego proseci
+po jednom ponavljanju [@mysql84refman]. Na spoju tabela `film`, `film_actor` i `actor`, sa uslovom
+koji ostavlja 178 filmova, čvor `Covering index lookup on fa` prijavljuje `rows=5.48` i `loops=178`.
+Razlomak u broju torki je znak da je reč o proseku: 178 ponavljanja puta 5,48 torki daje 975, a to
+je upravo broj torki koji čvor spoja iznad njega prijavljuje (976). Ukupan doprinos jednog čvora
+dobija se, dakle, tek množenjem sa `loops`, zbog čega čvor sa najmanjim prijavljenim vremenom ume da
+bude najskuplji deo plana. Vreme se čita na isti način, jer i `actual time` meri jedno ponavljanje.
+
+![Slika 4.4: Vrednosti `rows` i `actual time` kao proseci po ponavljanju: prijavljeno vreme jednog
+ponavljanja naspram ukupnog vremena čvora.](figures/04-explain-04-loops-i-prosek.png)
+
+## 4.7. Plan koji ispis prikazuje kao savršen
+
+Upit nad tabelom `wide_events` traži deset najstarijih torki koje ispunjavaju redak uslov nad
+neindeksiranom kolonom, dakle `WHERE amount > 504.9 ORDER BY created_at LIMIT 10`. Uslov ispunjava
+940 od pet miliona torki, to jest 0,0188 procenta, a optimizator i dalje pretpostavlja 33,33. U
+`EXPLAIN` ispisu nijedna kolona nije upozorenje: `type: index`, `key: idx_created_at`, `rows: 10`,
+bez vrednosti `Using filesort` i sa cenom 0,836, dakle manjom od jedan.
+
+`EXPLAIN ANALYZE` nad istim upitom pokazuje da je sken preko indeksa pročitao 31.621 torku, dakle
+3.162 puta više od procene, i da je to trajalo oko 2.786 milisekundi. Uzrok je sadejstvo klauzula
+`ORDER BY` i `LIMIT`: plan čita indeks `idx_created_at` redom i staje kada skupi deset torki koje
+prolaze filter, a pošto je uslov redak, do desete takve torke dolazi se tek posle 31.621 pročitane
+torke. Procena od deset torki odnosi se na ono što plan vraća, a ne na ono što mora da pročita da bi
+to vratio.
+
+Da plan nije samo spor nego zaista loš, pokazuje poređenje sa alternativom. Kada se indeks oduzme
+naredbom `IGNORE INDEX`, dobija se plan sa skenom cele tabele i sortiranjem, kome `EXPLAIN`
+dodeljuje cenu 574.087, oko 686.000 puta veću, a koji se izvršava za oko 1.861 milisekundu, dakle
+približno 1,5 puta brže. Model cene je jeftinijim proglasio sporiji plan, i to se bez izvršavanja
+nije moglo videti.
+
+Histogram ni ovde ne pomaže, iako procenu popravlja. Sa 64 i sa 1024 korpe nad kolonom `amount`
+vrednost `filtered` pada sa 33,33 na 0,50 procenta, a procena u stablu sa 3,33 na 0,05 torki, dok
+plan, broj pročitanih torki i vreme izvršavanja ostaju nepromenjeni. Razlog je što klauzula `LIMIT`
+ograničava broj torki koji ulazi u cenu skena po redosledu indeksa na deset, i to pre nego što
+ispravljena selektivnost stigne da taj broj podigne. Bolja statistika popravila je, dakle, procenu,
+a nije promenila odluku.
+
+![Slika 4.5: Isti upit u tri prikaza: procena koju ispisuje `EXPLAIN`, merenje koje dodaje `EXPLAIN
+ANALYZE` i alternativni plan dobijen naredbom `IGNORE INDEX`.](figures/04-explain-05-los-plan.png)
+
+Ono što `EXPLAIN ANALYZE` ni ovde nije pokazalo jeste zašto je lošiji plan uopšte izabran. Ispis
+meri jedan plan, onaj koji je pobedio, i ne pominje ni koje je alternative optimizator razmatrao ni
+kolikom ih je cenom procenio. Taj podatak postoji, ali samo u tragu optimizatora, čime se bavi
+naredni odeljak.
+
 # 5. Iterator model i pipeline operatora
 
 # 6. Vektorizovano izvršavanje

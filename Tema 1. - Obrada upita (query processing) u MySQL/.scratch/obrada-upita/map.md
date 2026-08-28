@@ -172,6 +172,27 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   the optimizer trace into ~1 shared page and gut the chapter's centrepiece. 13b now targets ~2
   pages, 13c ~1, and 13c folds into 13b only if thin on its own merits.
 
+- [Chapter 4b. EXPLAIN ANALYZE: procenjeno naspram stvarnog](issues/13b-explain-analyze.md): the
+  chapter's centrepiece written and closed. ~1.080 words of `rad.md` in three subsections (§4.5-4.7)
+  on one spine: **`EXPLAIN` prints a number, `EXPLAIN ANALYZE` prints the same number beside the
+  measurement, and only the pair is a diagnosis**. The divergence example is **4a's own query**, so
+  the arithmetic 4a taught the reader (`16.500 × 33,33% = 5.499`) is revealed as a **48x** miss
+  against 114 measured, with the table scan beside it at 1,03x to localise the miss to one node.
+  The threshold question is answered as a **caveat, not a rule**: that same 48x leaves a five-table
+  join order identical, so divergence means the decision used a wrong number, not that it is wrong.
+  Histograms are shown failing twice on purpose (they close the gap on non-indexed `amount`,
+  33,33 → 0,71, but change nothing on indexed `country_code`, and nothing at all in §4.7 where
+  `LIMIT` caps the costed rows before corrected selectivity can act). §4.7 delivers the required
+  bad-plan diagnosis: a plan whose every `EXPLAIN` column reads as ideal (`type: index`, `rows: 10`,
+  cost 0,836) reads 31.621 rows in ~2.786 ms, while the `IGNORE INDEX` alternative that `EXPLAIN`
+  costs ~686.000x higher runs ~1,5x faster. The reserved `wide_events`/`country_code` example was
+  **demoted** to a 1,43x below-threshold illustration, per LR-0005 overriding the ticket's own scope.
+  No new citations (all `mysql84refman`); the two places the live server outruns the manual are
+  written as measured behaviour with the server and format version named. Fifth clean pass of the
+  per-chapter loop, and it also corrected research memo `05-explain-semantics.md` §2.6.
+  **Budget flag left open for 13c**: chapter 4 stands at ~5,6 of its 6 pages, so 13c either takes
+  ~0,5 pages or the chapter goes slightly over. The user's call, and nothing gets trimmed for it.
+
 ## Not yet specified
 
 - **Session pacing across the five weeks.** Depends on how heavy the first chapter turns out.
