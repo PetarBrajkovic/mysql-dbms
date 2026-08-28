@@ -517,9 +517,9 @@ index  idx_created_at   <span class="em">10</span>    33.33     Using where
       Vreme do poslednje torke iznosi oko 2.700 ms, i to za deset torki.</p>
     <p class="interpret"><b>(3)</b> Ovim se dokazuje da je plan zaista loš, a ne da je upit
       neizbežno spor. <code>IGNORE INDEX</code> oduzima optimizatoru <code>idx_created_at</code>, pa
-      mora da pročita celu tabelu i da sortira. <code>EXPLAIN</code> tom planu daje cenu oko 574.128
-      naspram 0,836, dakle skoro 700.000 puta veću. Izmereno, taj plan traje oko 1.860 ms, dakle
-      <strong>oko 1,5 puta kraće</strong> od izabranog.</p>
+      mora da pročita celu tabelu i da sortira. <code>EXPLAIN</code> tom planu daje cenu oko 574.600
+      naspram 0,836, dakle skoro 700.000 puta veću. Izmereno, taj plan traje oko 1.790 ms, dakle
+      <strong>oko 1,6 puta kraće</strong> od izabranog.</p>
   </div>
 </div>
 
@@ -559,8 +559,10 @@ index  idx_created_at   <span class="em">10</span>    33.33     Using where
     to znači da ga moraš pustiti do kraja da bi video zašto je spor.</li>
   <li><b>Vremena nisu ponovljiva.</b> Isti upit izmeren dva puta daje različite milisekunde, jer
     zavisi i od toga koliko je stranica zatečeno u bafer pulu. Poglavlje 3 je isto pokazalo za cene.
-    Zato se u radu navode <strong>odnosi</strong> (48 puta, 3.162 puta, 1,5 puta kraće), a apsolutno
-    vreme samo uz napomenu da je iz jednog merenja.</li>
+    Zato se u radu navode <strong>odnosi</strong> (48 puta, 3.162 puta, oko 1,5 puta kraće), a
+    apsolutno vreme samo uz napomenu da je iz jednog merenja. Sama slika iznad je iz kasnijeg
+    pokretanja nego prvo merenje ove lekcije, pa joj se milisekunde razlikuju: 2.853 naspram 2.786
+    ms i 1.789 naspram 1.861 ms. Odnos je ostao isti, a to je upravo ono o čemu je ova tačka.</li>
   <li><b>Merenje samo po sebi malo usporava upit.</b> Instrumentacija svakog iteratora nije
     besplatna, pa vreme iz <code>EXPLAIN ANALYZE</code> ispisa nije isto što i vreme običnog
     pokretanja istog upita. Za poređenje dva plana to ne smeta, jer podjednako koči oba.</li>

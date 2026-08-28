@@ -497,10 +497,10 @@ Upit nad tabelom `wide_events` traži deset najstarijih torki koje ispunjavaju r
 neindeksiranom kolonom, dakle `WHERE amount > 504.9 ORDER BY created_at LIMIT 10`. Uslov ispunjava
 940 od pet miliona torki, to jest 0,0188 procenta, a optimizator i dalje pretpostavlja 33,33. U
 `EXPLAIN` ispisu nijedna kolona nije upozorenje: `type: index`, `key: idx_created_at`, `rows: 10`,
-bez vrednosti `Using filesort` i sa cenom 0,836, dakle manjom od jedan.
+bez vrednosti `Using filesort` i sa cenom oko 0,84, dakle manjom od jedan.
 
 `EXPLAIN ANALYZE` nad istim upitom pokazuje da je sken preko indeksa pročitao 31.621 torku, dakle
-3.162 puta više od procene, i da je to trajalo oko 2.786 milisekundi. Uzrok je sadejstvo klauzula
+3.162 puta više od procene, i da je to trajalo oko 2.853 milisekunde. Uzrok je sadejstvo klauzula
 `ORDER BY` i `LIMIT`: plan čita indeks `idx_created_at` redom i staje kada skupi deset torki koje
 prolaze filter, a pošto je uslov redak, do desete takve torke dolazi se tek posle 31.621 pročitane
 torke. Procena od deset torki odnosi se na ono što plan vraća, a ne na ono što mora da pročita da bi
@@ -508,9 +508,10 @@ to vratio.
 
 Da plan nije samo spor nego zaista loš, pokazuje poređenje sa alternativom. Kada se indeks oduzme
 naredbom `IGNORE INDEX`, dobija se plan sa skenom cele tabele i sortiranjem, kome `EXPLAIN`
-dodeljuje cenu 574.087, oko 686.000 puta veću, a koji se izvršava za oko 1.861 milisekundu, dakle
-približno 1,5 puta brže. Model cene je jeftinijim proglasio sporiji plan, i to se bez izvršavanja
-nije moglo videti.
+dodeljuje cenu 574.636, oko 686.000 puta veću, a koji se izvršava za oko 1.789 milisekundi, dakle
+približno 1,6 puta brže. Model cene je jeftinijim proglasio sporiji plan, i to se bez izvršavanja
+nije moglo videti. Apsolutna vremena razlikuju se od pokretanja do pokretanja, jer zavise od toga
+koliko je stranica tabele zateknuto u baferu, dok odnos između dva plana ostaje isti.
 
 Histogram ni ovde ne pomaže, iako procenu popravlja. Sa 64 i sa 1024 korpe nad kolonom `amount`
 vrednost `filtered` pada sa 33,33 na 0,50 procenta, a procena u stablu sa 3,33 na 0,05 torki, dok

@@ -87,6 +87,14 @@ function ParseTree([string]$text) {
 # ------------------------------------------------------------------- style ---
 # Serbian diacritics enter as XML character references so this .ps1 stays pure ASCII.
 $cc = [char]0x10D; $CCu = [char]0x10C; $ss = [char]0x161; $zz = [char]0x17E; $dj = [char]0x111
+# Uppercase twins, plus c-acute. Added 2026-08-28, after the bad-plan figure shipped into rad.md
+# with "sTA EXPLAIN POKAzE" and "vecu" spelled with the wrong c. Two separate traps:
+#   (a) PowerShell variable names are CASE-INSENSITIVE, so ${SS} in an uppercase heading silently
+#       resolved to $ss (lowercase s-caron) instead of failing. Uppercase text needs its own
+#       variable, not a differently-cased spelling of the lowercase one.
+#   (b) $cc is c-caron (U+010D) and is NOT interchangeable with c-acute (U+0107). Serbian spells
+#       them as two different letters, so "vecu" (comparative of velik) needs $cch.
+$SSu = [char]0x160; $ZZu = [char]0x17D; $DJu = [char]0x110; $cch = [char]0x107
 # Real characters, not XML entities: these end up inside strings that also pass through Esc(),
 # and an entity would come back out double-escaped as literal "&#8594;".
 $tim = [char]0xD7; $mid = [char]0xB7; $arr = [char]0x2192
@@ -409,9 +417,9 @@ $b = [System.Text.StringBuilder]::new()
 [void]$b.AppendLine("<text x='$($W/2)' y='93' text-anchor='middle' font-family=`"$serif`" font-size='13.5' fill='$dim'>wide_events, $(Num ([double]$rareRow[0]) 0) torki $mid uslov ispunjava $(Num ([double]$rareRow[1]) 0) njih, dakle $($rareRow[2] -replace '\.',',')% $mid optimizator pretpostavlja 33,33%</text>")
 
 $panels = @(
-  @{ T = "1 $mid ${SS}TA EXPLAIN POKA${zz}E"; C = $estCol; Lines = @("type=$($tab3[4])  key=$($tab3[6])  rows=$($tab3[9])  filtered=$($tab3[10])  Extra=$($tab3[11])") + ($plan3 | ForEach-Object { $_.Raw }); Note = "Nijedna kolona nije upozorenje. rows kaze 10, cena nije ni ceo broj, nema filesort, nema skena cele tabele." },
-  @{ T = "2 $mid ${SS}TA EXPLAIN ANALYZE IZMERI"; C = $actCol; Lines = ($run3 | ForEach-Object { $_.Raw }); Note = "Isti plan, izvrsen. Da bi nasao tih 10 torki, sken preko indeksa procitao je njih $(Num $scan3.ActRows 0), i to je trajalo $(Num $tChosen 0) ms." },
-  @{ T = "3 $mid DRUGI PLAN, ZA PORE${dj}ENJE"; C = $good; Lines = ($run3i | ForEach-Object { $_.Raw }); Note = "IGNORE INDEX oduzima idx_created_at. EXPLAIN mu daje cenu $(Num $costAlt 0) naspram $(Num $costChosen 2), a izmereno traje $(Num $tAlt 0) ms." }
+  @{ T = "1 $mid ${SSu}TA EXPLAIN POKA${ZZu}E"; C = $estCol; Lines = @("type=$($tab3[4])  key=$($tab3[6])  rows=$($tab3[9])  filtered=$($tab3[10])  Extra=$($tab3[11])") + ($plan3 | ForEach-Object { $_.Raw }); Note = "Nijedna kolona nije upozorenje. rows kaze 10, cena nije ni ceo broj, nema filesort, nema skena cele tabele." },
+  @{ T = "2 $mid ${SSu}TA EXPLAIN ANALYZE IZMERI"; C = $actCol; Lines = ($run3 | ForEach-Object { $_.Raw }); Note = "Isti plan, izvrsen. Da bi nasao tih 10 torki, sken preko indeksa procitao je njih $(Num $scan3.ActRows 0), i to je trajalo $(Num $tChosen 0) ms." },
+  @{ T = "3 $mid DRUGI PLAN, ZA PORE${DJu}ENJE"; C = $good; Lines = ($run3i | ForEach-Object { $_.Raw }); Note = "IGNORE INDEX oduzima idx_created_at. EXPLAIN mu daje cenu $(Num $costAlt 0) naspram $(Num $costChosen 2), a izmereno traje $(Num $tAlt 0) ms." }
 )
 
 $y = 128
@@ -434,7 +442,7 @@ foreach ($p in $panels) {
 $y += 12
 [void]$b.AppendLine("<text x='$($W/2)' y='$y' text-anchor='middle' font-family=`"$mono`" font-size='17' font-weight='bold' fill='$accent'>procena 10 torki $mid stvarno $(Num $scan3.ActRows 0) $mid odstupanje $(Num $div3 0)$tim</text>")
 $y += 28
-[void]$b.AppendLine("<text x='$($W/2)' y='$y' text-anchor='middle' font-family=`"$serif`" font-size='14.5' fill='$ink'>Plan kome EXPLAIN daje cenu $(Num $costChosen 2) traje $(Num $tChosen 0) ms; plan kome daje cenu $(Num $costAlt 0), dakle $(Num ($costAlt/$costChosen) 0) puta ve${cc}u, traje $(Num $tAlt 0) ms.</text>")
+[void]$b.AppendLine("<text x='$($W/2)' y='$y' text-anchor='middle' font-family=`"$serif`" font-size='14.5' fill='$ink'>Plan kome EXPLAIN daje cenu $(Num $costChosen 2) traje $(Num $tChosen 0) ms; plan kome daje cenu $(Num $costAlt 0), dakle $(Num ($costAlt/$costChosen) 0) puta ve${cch}u, traje $(Num $tAlt 0) ms.</text>")
 $y += 24
 [void]$b.AppendLine("<text x='$($W/2)' y='$y' text-anchor='middle' font-family=`"$serif`" font-size='14.5' font-weight='bold' fill='$ink'>Bez izvr${ss}avanja se to nije moglo videti. To je jedini razlog zbog kog EXPLAIN ANALYZE postoji.</text>")
 $y += 40

@@ -2,12 +2,12 @@
 <text x='590' y='70' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c'>SELECT f.title, a.first_name FROM film f JOIN film_actor fa ON fa.film_id = f.film_id JOIN actor a ON a.actor_id = fa.actor_id WHERE f.rating = 'G'</text>
 <text x='40' y='106' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' font-weight='bold' fill='#8a8578' letter-spacing='0.08em'>ISPIS, DOSLOVNO</text>
 <line x1='40' y1='116' x2='1140' y2='116' stroke='#d8d3c8' stroke-width='1'/>
-<text x='40' y='140' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>-&gt; Nested loop inner join  (cost=646 rows=1096) (actual time=0.0466..1.16 rows=976 loops=1)</text>
-<text x='40' y='164' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>    -&gt; Nested loop inner join  (cost=263 rows=1096) (actual time=0.0418..0.562 rows=976 loops=1)</text>
-<text x='40' y='188' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>        -&gt; Filter: (f.rating = 'G')  (cost=103 rows=200) (actual time=0.0333..0.225 rows=178 loops=1)</text>
-<text x='40' y='212' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>            -&gt; Table scan on f  (cost=103 rows=1000) (actual time=0.0315..0.182 rows=1000 loops=1)</text>
-<text x='40' y='236' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#7a1f1f' xml:space='preserve'>        -&gt; Covering index lookup on fa using idx_fk_film_id (film_id=f.film_id)  (cost=0.254 rows=5.48) (actual time=0.00103..0.00162 rows=5.48 loops=178)</text>
-<text x='40' y='260' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#7a1f1f' xml:space='preserve'>    -&gt; Single-row index lookup on a using PRIMARY (actor_id=fa.actor_id)  (cost=0.25 rows=1) (actual time=487e-6..506e-6 rows=1 loops=976)</text>
+<text x='40' y='140' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>-&gt; Nested loop inner join  (cost=646 rows=1096) (actual time=0.0491..1.2 rows=976 loops=1)</text>
+<text x='40' y='164' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>    -&gt; Nested loop inner join  (cost=263 rows=1096) (actual time=0.0462..0.58 rows=976 loops=1)</text>
+<text x='40' y='188' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>        -&gt; Filter: (f.rating = 'G')  (cost=103 rows=200) (actual time=0.0387..0.246 rows=178 loops=1)</text>
+<text x='40' y='212' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>            -&gt; Table scan on f  (cost=103 rows=1000) (actual time=0.0371..0.199 rows=1000 loops=1)</text>
+<text x='40' y='236' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#7a1f1f' xml:space='preserve'>        -&gt; Covering index lookup on fa using idx_fk_film_id (film_id=f.film_id)  (cost=0.254 rows=5.48) (actual time=0.00103..0.00157 rows=5.48 loops=178)</text>
+<text x='40' y='260' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#7a1f1f' xml:space='preserve'>    -&gt; Single-row index lookup on a using PRIMARY (actor_id=fa.actor_id)  (cost=0.25 rows=1) (actual time=504e-6..526e-6 rows=1 loops=976)</text>
 <line x1='40' y1='274' x2='1140' y2='274' stroke='#d8d3c8' stroke-width='1'/>
 <text x='40' y='314' font-family="Georgia, 'Times New Roman', serif" font-size='16' font-weight='bold' fill='#1a1a1a'>Provera 1 · zato što je prosek, broj torki ume da bude razlomljen</text>
 <rect x='40' y='320' width='1100' height='40' fill='#7a1f1f' opacity='0.06'/>
@@ -18,19 +18,19 @@
 <text x='40' y='472' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#8a8578'>Sivo: actual time do poslednje torke, kako ga ispis prijavljuje. Crveno: to isto pomnoženo sa loops, dakle vreme koje je čvor stvarno potrošio.</text>
 <text x='40' y='524' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>Table scan on f</text>
 <text x='458' y='524' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#8a8578'>loops=1</text>
-<rect x='470' y='511' width='162' height='7' fill='#b8b2a6'/>
-<rect x='470' y='520' width='162' height='7' fill='#7a1f1f'/>
-<text x='924' y='524' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>0,1820 × 1 = 0,18 ms</text>
+<rect x='470' y='511' width='171' height='7' fill='#b8b2a6'/>
+<rect x='470' y='520' width='171' height='7' fill='#7a1f1f'/>
+<text x='924' y='524' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>0,1990 × 1 = 0,20 ms</text>
 <text x='40' y='562' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>Covering index lookup on fa using idx_fk_film_id</text>
 <text x='458' y='562' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#8a8578'>loops=178</text>
 <rect x='470' y='549' width='2' height='7' fill='#b8b2a6'/>
-<rect x='470' y='558' width='257' height='7' fill='#7a1f1f'/>
-<text x='924' y='562' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>0,0016 × 178 = 0,29 ms</text>
+<rect x='470' y='558' width='240' height='7' fill='#7a1f1f'/>
+<text x='924' y='562' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>0,0016 × 178 = 0,28 ms</text>
 <text x='40' y='600' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a'>Single-row index lookup on a using PRIMARY</text>
 <text x='458' y='600' text-anchor='end' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#8a8578'>loops=976</text>
 <rect x='470' y='587' width='2' height='7' fill='#b8b2a6'/>
 <rect x='470' y='596' width='440' height='7' fill='#7a1f1f'/>
-<text x='924' y='600' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>0,0005 × 976 = 0,49 ms</text>
+<text x='924' y='600' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>0,0005 × 976 = 0,51 ms</text>
 <text x='40' y='642' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' fill='#5a564c' xml:space='preserve'>Najskuplji čvor ovog upita je Single-row index lookup on a using PRIMARY, čije prijavljeno vreme (0,0005 ms) izgleda</text>
 <text x='40' y='664' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' fill='#5a564c' xml:space='preserve'>zanemarljivo. Ne košta jedno ponavljanje, nego njihov broj. Apsolutna vremena se menjaju od pokretanja do pokretanja; odnos ostaje.</text>
 </svg>

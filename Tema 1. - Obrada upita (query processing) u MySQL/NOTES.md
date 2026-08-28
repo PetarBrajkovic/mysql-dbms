@@ -224,3 +224,23 @@ graded - `MISSION.md` and `RESOURCES.md` are the documents that matter for plann
   column's histogram starts moving the estimate, if the fractional per-loop row count stops being
   fractional, or if the alternative plan fails to beat the chosen one on that run. Worth copying:
   the test is the claim the figure makes, not just one value in it.
+- **Two traps for every future figure script that writes Serbian text (found 2026-08-28, after the
+  chapter-4b figure had already shipped into `rad.docx`):**
+  - **PowerShell variable names are case-insensitive**, so `${SS}` in an uppercase heading resolved
+    to the lowercase `$ss` helper instead of failing on an undefined name, and the figure rendered
+    `šTA EXPLAIN POKAžE`. Uppercase text needs its own variables; `tools/make-lesson05-*.ps1` now
+    defines `$SSu`/`$ZZu`/`$DJu` beside the pre-existing `$CCu`. A name that is merely a different
+    *casing* of an existing one is the same variable, and PowerShell will not warn.
+  - **`č` (U+010D) and `ć` (U+0107) are two different letters**, and the ASCII-only `[char]` helper
+    style makes it easy to reach for whichever one is already defined. That produced "veču" for
+    "veću". The script now has `$cch` for c-acute.
+  - Neither defect was catchable by the self-verifying assertions, which check *numbers* against the
+    live server. Text in a figure has no such guard, so **read the rendered PNG once** before a
+    figure goes into `rad.md`, the same way the prose gets a `serbian-grammar` pass.
+- **Regenerating a figure re-measures it, so re-sync the prose beside it (2026-08-28).** Re-running
+  `tools/make-lesson05-explain-analyze.ps1` to fix the text above moved every run-dependent number
+  (2.786 -> 2.853 ms, 1.861 -> 1.789 ms, cost 574.087 -> 574.636, so the plan gap read 1,6x instead
+  of 1,5x), exactly as the chapter-3 buffer-pool entry above predicts. Row counts, ratios like 48x
+  and 3.162x, and everything in §4.5/§4.6 were unchanged. **After any figure rebuild, grep `rad.md`
+  for the absolute numbers that figure prints**, and prefer rounding in the prose (the paper now
+  says "cena oko 0,84", not 0,836) so the next rebuild does not desync the sentence.

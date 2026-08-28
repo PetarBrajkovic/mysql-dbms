@@ -148,3 +148,39 @@ padding and nothing was trimmed to make room (the user's standing instruction fr
 call). **13c should either take ~0,5 pages instead of ~1, or chapter 4 goes slightly over**; that
 is the user's call at the start of the 13c session, not a decision made here.
 
+### Addendum 2026-08-28 — Slika 4.5 regenerated, figure script fixed
+
+Three text defects were found in `figures/04-explain-05-los-plan` *after* it had shipped into
+`rad.docx`, all from `tools/make-lesson05-explain-analyze.ps1`, and all fixed at the source rather
+than in the SVG:
+
+1. **Panel headings rendered as `šTA EXPLAIN POKAžE` / `POREđENJE`.** The headings are uppercase and
+   were written `${SS}TA ... POKA${zz}E`, but **PowerShell variable names are case-insensitive**, so
+   `${SS}` silently resolved to `$ss` (lowercase s-caron) instead of failing on an undefined name.
+   Fixed by defining real uppercase twins (`$SSu`, `$ZZu`, `$DJu`) beside the existing `$CCu`.
+2. **"veču" for "veću".** `$cc` is c-caron (U+010D) and was used where c-acute (U+0107) belongs;
+   they are two different Serbian letters, not a stylistic variant. Fixed by adding `$cch`.
+3. Both traps are now written up in a comment at the definition site, since the next figure script
+   that copies this style would hit them again.
+
+Re-ran the generator in full (all three figures come from one pass). **Every self-verification
+assertion passed**, so the argument is unchanged: filter divergence still 48x, histogram still
+closes the gap on the non-indexed column and still does nothing on the indexed one, `fa` still
+reports a fractional per-loop row count, and the alternative plan still beats the chosen one.
+
+**Run-dependent numbers moved, as chapter 3's NOTES entry predicts**, and `rad.md` was re-synced to
+the figure now printed beside it: chosen plan ~2.853 ms (was 2.786), alternative ~1.789 ms (was
+1.861), so the gap reads 1,6x rather than 1,5x; alternative cost 574.636 (was 574.087), ratio still
+~686.000x; chosen cost quoted as "oko 0,84" instead of 0,836, so a future regeneration does not
+desync the sentence again. §4.7 now also states in one clause that absolute times vary with
+buffer-pool residency while the ratio holds. **Stable numbers were untouched**: 31.621 rows, 3.162x,
+940 of 5.000.000, and everything in §4.5 and §4.6.
+
+`lessons/0005-*.html` §5 was re-synced the same way (it embeds this figure), and its
+"vremena nisu ponovljiva" bullet now names both runs' milliseconds as its own worked example.
+`LR-0005`'s live-run table is **deliberately left alone**: it is dated evidence from the 2026-08-26
+run, not a claim about the current figure.
+
+Verified again: `make-docx.ps1` clean, 11 inline figures, `Slika 4.3`-`4.5` present, citations
+resolve, zero unresolved `[@...]`.
+
