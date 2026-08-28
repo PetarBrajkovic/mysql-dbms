@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Builds assets/reference-paper.docx - the pandoc --reference-doc that controls
-Word styling for the exported paper (rad.docx). Run it from the repo root:
+Builds <course>/assets/reference-paper.docx - the pandoc --reference-doc that controls
+Word styling for every topic's exported rad.docx. Runnable from anywhere:
 
     python tools/build-reference-doc.py
 
@@ -23,10 +23,11 @@ Consolas VerbatimChar, and code BLOCKS are colored by --highlight-style, which
 make-docx.ps1 passes. pandoc generates the SourceCode style on demand from that.
 
 Re-run this whenever the styling rules change, then commit the regenerated
-assets/reference-paper.docx alongside this script.
+the shared assets/reference-paper.docx alongside this script.
 """
 import io
 import re
+import pathlib
 import subprocess
 import sys
 import zipfile
@@ -86,9 +87,10 @@ def main() -> None:
             data = styles.encode("utf-8") if item.filename == STYLES_PATH else zin.read(item.filename)
             zout.writestr(item, data)
 
-    with open("assets/reference-paper.docx", "wb") as fh:
+    out = pathlib.Path(__file__).resolve().parent.parent / "assets" / "reference-paper.docx"
+    with open(out, "wb") as fh:
         fh.write(buf.getvalue())
-    print("Wrote assets/reference-paper.docx")
+    print(f"Wrote {out}")
 
 
 if __name__ == "__main__":

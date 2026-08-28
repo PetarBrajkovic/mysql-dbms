@@ -1,0 +1,48 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' width='1180' height='696' viewBox='0 0 1180 696'><rect width='1180' height='696' fill='#ffffff'/><text x='590' y='44' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='25' font-weight='bold' fill='#1a1a1a'>Anatomija traga optimizatora</text>
+<text x='590' y='70' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>SELECT c.first_name, c.last_name, p.amount FROM customer c JOIN payment p ON p.customer_id = c.customer_id WHERE p.amount &gt; 10</text>
+<text x='590' y='92' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#8a8578'>isti upit kao u Lekcijama 04 i 05 · trag je JSON od 9.632 bajtova · MISSING_BYTES = 0, dakle potpun je</text>
+<rect x='40' y='106' width='1100' height='90' rx='5' fill='#8a8578' opacity='0.05'/>
+<rect x='40' y='106' width='5' height='90' rx='2' fill='#8a8578'/>
+<text x='58' y='132' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='15' font-weight='bold' fill='#8a8578'>join_preparation</text>
+<text x='300' y='132' font-family="Georgia, 'Times New Roman', serif" font-size='14' font-weight='bold' fill='#1a1a1a'>PRIPREMA</text>
+<text x='470' y='132' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>upit se dovodi u oblik nad kojim se uopšte optimizuje</text>
+<text x='78' y='158' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a'>expanded_query</text>
+<text x='500' y='158' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>upit posle zamene pogleda i zvezdice spiskom kolona</text>
+<text x='78' y='182' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a'>transformations_to_nested_joins</text>
+<text x='500' y='182' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>spojevi prevedeni u ugnježdeni oblik</text>
+<rect x='40' y='202' width='1100' height='324' rx='5' fill='#7a1f1f' opacity='0.05'/>
+<rect x='40' y='202' width='5' height='324' rx='2' fill='#7a1f1f'/>
+<text x='58' y='228' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='15' font-weight='bold' fill='#7a1f1f'>join_optimization</text>
+<text x='300' y='228' font-family="Georgia, 'Times New Roman', serif" font-size='14' font-weight='bold' fill='#1a1a1a'>OPTIMIZACIJA</text>
+<text x='470' y='228' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>ovde se plan bira, i jedino ovde postoje cene</text>
+<text x='78' y='254' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a'>condition_processing</text>
+<text x='500' y='254' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>prepisivanje WHERE uslova</text>
+<text x='108' y='278' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1f5c7a'>→ equality_propagation</text>
+<text x='108' y='298' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1f5c7a'>→ constant_propagation</text>
+<text x='108' y='318' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1f5c7a'>→ trivial_condition_removal</text>
+<text x='78' y='344' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a'>substitute_generated_columns</text>
+<text x='500' y='344' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>zamena izraza generisanom kolonom, ako je ima</text>
+<text x='78' y='368' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a'>table_dependencies</text>
+<text x='500' y='368' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>koja tabela sme da se čita pre koje</text>
+<text x='78' y='392' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a'>ref_optimizer_key_uses</text>
+<text x='500' y='392' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>koje jednakosti mogu da posluže kao ključ za pretragu</text>
+<text x='78' y='416' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a'>rows_estimation</text>
+<text x='500' y='416' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>procena broja torki po tabeli, i analiza opsega</text>
+<text x='78' y='440' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='bold' fill='#7a1f1f'>considered_execution_plans</text>
+<text x='500' y='440' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>razmatrani redosledi i pristupni putevi, SA CENAMA</text>
+<text x='78' y='464' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a'>attaching_conditions_to_tables</text>
+<text x='500' y='464' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>koji se uslov proverava uz koju tabelu</text>
+<text x='78' y='488' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a'>finalizing_table_conditions</text>
+<text x='500' y='488' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>konačan oblik uslova po tabeli</text>
+<text x='78' y='512' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a'>refine_plan</text>
+<text x='500' y='512' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>poslednja doterivanja izabranog plana</text>
+<rect x='40' y='532' width='1100' height='66' rx='5' fill='#8a8578' opacity='0.05'/>
+<rect x='40' y='532' width='5' height='66' rx='2' fill='#8a8578'/>
+<text x='58' y='558' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='15' font-weight='bold' fill='#8a8578'>join_execution</text>
+<text x='300' y='558' font-family="Georgia, 'Times New Roman', serif" font-size='14' font-weight='bold' fill='#1a1a1a'>IZVRŠAVANJE</text>
+<text x='470' y='558' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>prazno: trag beleži odlučivanje, ne merenje</text>
+<text x='78' y='584' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#8a8578'>&quot;steps&quot;: []</text>
+<rect x='40' y='614' width='1100' height='72' fill='#2e6b2e' opacity='0.08' rx='4'/>
+<text x='590' y='638' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='15' font-weight='bold' fill='#1a1a1a'>Trag se dobija i bez izvršavanja upita: dovoljno je tragirati EXPLAIN.</text>
+<text x='590' y='662' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#5a564c'>SET optimizer_trace='enabled=on'; EXPLAIN SELECT ... → faze: join_preparation, join_optimization, join_explain</text>
+</svg>

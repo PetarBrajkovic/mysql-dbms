@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 06 — optimizer_trace i EXPLAIN FOR CONNECTION</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 06 · Poglavlje 4 (EXPLAIN i EXPLAIN ANALYZE), treći deo</p>
+<h1>Zašto baš ovaj plan</h1>
+<p class="subtitle">Lekcija 05 se završila na planu za koji je izmereno da je lošiji od jedne alternative, a <code>EXPLAIN ANALYZE</code> nije umeo da kaže ni koje je alternative optimizator razmatrao, ni koliku je cenu svakoj od njih dao. Ova lekcija otvara dva prozora koja to pokazuju: <code>optimizer_trace</code>, koji beleži samo odlučivanje, i <code>EXPLAIN FOR CONNECTION</code>, koji čita plan tuđe sesije.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Ovo je <strong>poslednji deo Poglavlja 4</strong> i jedini alat u celom radu koji odgovara na
+  pitanje <span class="hi">zašto</span>, a ne <span class="hi">šta</span>. Kad završiš lekciju, treba
+  da umeš bez podsetnika: <strong>(1)</strong> da uključiš trag, pročitaš ga i isključiš, ne
+  izgubivši ga usput, <strong>(2)</strong> da u njemu nađeš planove koji su procenjeni pa odbačeni,
+  zajedno sa cenama, <strong>(3)</strong> da objasniš, na primeru iz Lekcije 05, kako je izabran plan
+  koji nije bio najjeftiniji, i <strong>(4)</strong> da kažeš šta ni trag ne pokazuje, i zašto
+  <code>EXPLAIN FOR CONNECTION</code> ne popunjava tu rupu.
+</div>
+
+<h2>1 · Dva prozora koja <code>EXPLAIN</code> ne otvara</h2>
+<p>
+  Do sada su u Poglavlju 4 bila dva alata, i oba su gledala isti plan: <code>EXPLAIN</code> ga
+  prikazuje procenjenog, <code>EXPLAIN ANALYZE</code> izmerenog. Oba su ograničena na
+  <strong>jedan plan, tvoj, i tek pošto je izabran</strong>. Preostala dva alata pomeraju po jednu od
+  te tri granice.
+</p>
+
+<table class="exp">
+  <tr><td><code>EXPLAIN</code></td><td>plan koji bi se izvršio, sa procenama. Ne izvršava upit.</td></tr>
+  <tr><td><code>EXPLAIN ANALYZE</code></td><td>isti plan, sa merenjem uz svaku procenu. Izvršava upit i čeka da se završi.</td></tr>
+  <tr><td><code>optimizer_trace</code></td><td>kako je plan izabran: razmatrane alternative, njihove cene i razlozi odbijanja. Samo u sopstvenoj sesiji.</td></tr>
+  <tr><td><code>EXPLAIN FOR CONNECTION</code></td><td>plan naredbe koja upravo radi u drugoj sesiji. Bez merenja i bez alternativa.</td></tr>
+</table>
+
+<p>
+  Vredi odmah primetiti da se poslednja dva <strong>ne preklapaju</strong>. Trag ide duboko, ali ne
+  prelazi granicu sesije: on beleži odluke koje je optimizator doneo <span class="hi">za tvoje
+  upite</span>, i nijedna druga sesija ih ne vidi. <code>EXPLAIN FOR CONNECTION</code> prelazi
+  granicu sesije, ali vraća samo plan, isti onaj koji bi ti dobio i sam. Za tuđi upit koji traje predugo ne postoji način da se, dok se izvršava, vidi zašto je izabrao baš taj plan.
+</p>
+
+<h2>2 · Kako se trag uključuje, i šta je u njemu</h2>
+<p>
+  Trag nije naredba nego <strong>sesijski prekidač i jedna tabela</strong>. Postupak je uvek isti
+  i ima četiri koraka: uključi, pokreni upit, pročitaj tabelu, isključi.
+</p>
+
+<pre class="out"><span class="dim">SET optimizer_trace = 'enabled=on';   -- 1. ukljuci (samo za ovu sesiju)</span>
+<span class="dim">SELECT ...;                           -- 2. pokreni ono sto te zanima</span>
+<span class="dim">SET optimizer_trace = 'enabled=off';  -- 3. iskljuci, PRE nego sto pokrenes bilo sta drugo</span>
+<span class="dim">SELECT TRACE FROM INFORMATION_SCHEMA.OPTIMIZER_TRACE;   -- 4. procitaj</span></pre>
+
+<p>
+  Redosled poslednja dva koraka je jedina stvarna zamka: <code>optimizer_trace_limit</code> je
+  podrazumevano <code>1</code>, pa se čuva <strong>samo poslednji</strong> praćeni upit. Ako posle
+  svog upita pokreneš bilo koji drugi <code>SELECT</code> dok je trag još uključen, prebrisaćeš baš ono zbog čega si trag i uključio. Zato <span class="hi">gasi trag pre nego što počneš da ga čitaš</span>.
+  Sama naredba koja čita <code>OPTIMIZER_TRACE</code> je izuzeta, pa ona ne smeta.
+</p>
+
+<p>
+  Tabela <code>INFORMATION_SCHEMA.OPTIMIZER_TRACE</code> ima četiri kolone, i sve četiri se
+  koriste:
+</p>
+<table class="exp">
+  <tr><td><code>QUERY</code></td><td>tekst naredbe na koju se trag odnosi. Provera da čitaš ono što misliš da čitaš.</td></tr>
+  <tr><td><code>TRACE</code></td><td>sam trag, kao JSON dokument.</td></tr>
+  <tr><td><code>MISSING_BYTES_BEYOND_MAX_MEM_SIZE</code></td><td>koliko bajtova nije stalo. Nula znači da je trag potpun; sve preko toga znači da čitaš krnj dokument.</td></tr>
+  <tr><td><code>INSUFFICIENT_PRIVILEGES</code></td><td><code>1</code> kad upit dira pogled ili proceduru sa <code>SQL SECURITY DEFINER</code> čiji nisi vlasnik. Tada je trag namerno prazan.</td></tr>
+</table>
+
+<figure class="fig">
+  <img src="../figures/04-explain-06-anatomija-traga.png"
+       alt="Figura u tri vodoravne trake, po jedna za svaku fazu traga. Prva traka nosi naziv
+            join_preparation i u njoj su dva koraka: expanded_query i transformations_to_nested_joins.
+            Druga traka, obojena crveno i najveća, nosi naziv join_optimization i u njoj je devet
+            koraka redom: condition_processing, substitute_generated_columns, table_dependencies,
+            ref_optimizer_key_uses, rows_estimation, considered_execution_plans,
+            attaching_conditions_to_tables, finalizing_table_conditions i refine_plan. Ispod prvog
+            koraka uvučene su tri transformacije uslova: equality_propagation, constant_propagation
+            i trivial_condition_removal. Korak considered_execution_plans je istaknut crvenom bojom
+            i uz njega piše da su tu razmatrani redosledi i pristupni putevi, sa cenama. Treća traka
+            nosi naziv join_execution i u njoj je prazna lista koraka. Na dnu je zelena traka sa
+            porukom da se trag dobija i bez izvršavanja upita, ako se prati EXPLAIN, i da se treća
+            faza tada zove join_explain.">
+  <figcaption>Trag jednog upita nad dve tabele, u celini. Cene postoje samo u srednjoj fazi, i to
+    u jednom njenom koraku.</figcaption>
+</figure>
+
+<p>
+  Trag ima <strong>tri faze</strong>, i vredi odmah reći šta one nisu: to
+  <span class="hi">nije istih pet faza</span> koje je Poglavlje 3 nabrojalo, nego njihovo grublje
+  grupisanje. Raščlanjivanje je gotovo pre nego što trag uopšte počne, a optimizacija i planiranje
+  su ovde spojeni u jedan blok. U
+  <code>join_preparation</code> se upit dovodi u oblik nad kojim se uopšte optimizuje. U
+  <code>join_optimization</code> se plan bira, i <span class="hi">jedino tu postoje cene</span>.
+  <code>join_execution</code> je prazna, jer trag beleži odlučivanje, a ne merenje: merenje je posao
+  <code>EXPLAIN ANALYZE</code>-a iz prošle lekcije.
+</p>
+
+<p>
+  Iz toga sledi nešto vrlo praktično. Pošto je sve zanimljivo u srednjoj fazi, a srednja faza se
+  odvija i kad se upit ne izvršava, <strong>trag možeš dobiti i nad <code>EXPLAIN</code>-om</strong>.
+  Treća faza se tada zove <code>join_explain</code> umesto <code>join_execution</code>, a sve ostalo
+  je isto, sa svim cenama. Za spor upit to je velika razlika u odnosu na
+  <code>EXPLAIN ANALYZE</code>: ceo račun optimizatora dobijaš odmah, ne čekajući da se sken od pet miliona torki završi.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>sakila</code>. Upit je onaj isti iz Lekcija 04 i
+      05, namerno, da bi se videlo šta je novo. Sve u ovom bloku je sesijsko i ništa se ne menja
+      trajno, pa nema šta da se čisti posle.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> sakila;
+
+<span class="c">-- (1) Podrazumevano stanje: trag je iskljucen dok se ne trazi.</span>
+<span class="k">SELECT</span> @@optimizer_trace, @@optimizer_trace_max_mem_size, @@optimizer_trace_limit;
+
+<span class="c">-- (2) Cetiri koraka.</span>
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=on'</span>;
+
+<span class="k">SELECT</span> c.first_name, c.last_name, p.amount
+<span class="k">FROM</span>   customer c
+<span class="k">JOIN</span>   payment p <span class="k">ON</span> p.customer_id = c.customer_id
+<span class="k">WHERE</span>  p.amount &gt; 10;
+
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=off'</span>;   <span class="c">-- gasi PRE citanja</span>
+
+<span class="k">SELECT</span> QUERY, MISSING_BYTES_BEYOND_MAX_MEM_SIZE, <span class="fn">LENGTH</span>(TRACE)
+<span class="k">FROM</span>   INFORMATION_SCHEMA.OPTIMIZER_TRACE;
+
+<span class="c">-- Ceo trag. U Workbench-u ga otvori u Value editoru (desni klik na celiju).</span>
+<span class="k">SELECT</span> TRACE <span class="k">FROM</span> INFORMATION_SCHEMA.OPTIMIZER_TRACE;
+
+<span class="c">-- (3) Tri faze, bez rucnog citanja celog JSON-a.</span>
+<span class="k">SELECT</span> <span class="fn">JSON_KEYS</span>(step) <span class="k">AS</span> faza
+<span class="k">FROM</span>   INFORMATION_SCHEMA.OPTIMIZER_TRACE,
+       <span class="fn">JSON_TABLE</span>(TRACE, <span class="s">'$.steps[*]'</span> <span class="k">COLUMNS</span> (step <span class="k">JSON PATH</span> <span class="s">'$'</span>)) <span class="k">AS</span> t;
+
+<span class="c">-- Koraci unutar faze optimizacije, redom kojim ih optimizator radi.</span>
+<span class="k">SELECT</span> <span class="fn">JSON_KEYS</span>(step) <span class="k">AS</span> korak
+<span class="k">FROM</span>   INFORMATION_SCHEMA.OPTIMIZER_TRACE,
+       <span class="fn">JSON_TABLE</span>(TRACE, <span class="s">'$.steps[1].join_optimization.steps[*]'</span>
+                  <span class="k">COLUMNS</span> (step <span class="k">JSON PATH</span> <span class="s">'$'</span>)) <span class="k">AS</span> t;
+
+<span class="c">-- (4) Isto to, ali bez izvrsavanja upita: prati EXPLAIN.</span>
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=on'</span>;
+<span class="k">EXPLAIN</span> <span class="k">SELECT</span> c.first_name, p.amount <span class="k">FROM</span> customer c
+  <span class="k">JOIN</span> payment p <span class="k">ON</span> p.customer_id = c.customer_id <span class="k">WHERE</span> p.amount &gt; 10;
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=off'</span>;
+
+<span class="k">SELECT</span> <span class="fn">JSON_KEYS</span>(step) <span class="k">AS</span> faza
+<span class="k">FROM</span>   INFORMATION_SCHEMA.OPTIMIZER_TRACE,
+       <span class="fn">JSON_TABLE</span>(TRACE, <span class="s">'$.steps[*]'</span> <span class="k">COLUMNS</span> (step <span class="k">JSON PATH</span> <span class="s">'$'</span>)) <span class="k">AS</span> t;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">(1) podrazumevano</span>
+enabled=off,one_line=off    1048576    1
+
+<span class="dim">(2) trag postoji, potpun je, i nije velik za ovako mali upit</span>
+QUERY                              MISSING_BYTES...   LENGTH(TRACE)
+SELECT c.first_name, c.last_na...  <span class="em">0</span>                  ~9.600
+
+<span class="dim">(3) tri faze, pa devet koraka u srednjoj</span>
+["join_preparation"]      condition_processing
+["join_optimization"]     substitute_generated_columns
+["join_execution"]        table_dependencies
+                          ref_optimizer_key_uses
+                          <span class="em">rows_estimation</span>
+                          <span class="em">considered_execution_plans</span>
+                          attaching_conditions_to_tables
+                          finalizing_table_conditions
+                          refine_plan
+
+<span class="dim">(4) isti posao, bez izvrsavanja upita</span>
+["join_preparation"]
+["join_optimization"]
+[<span class="em">"join_explain"</span>]</pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Od devet koraka srednje faze, dva su ono zbog čega se trag uopšte i čita:
+      <code>rows_estimation</code> je odakle dolaze brojevi koje je Lekcija 05 poredila sa
+      izmerenim, a <code>considered_execution_plans</code> je jedino mesto u celom MySQL-u gde
+      piše koji su planovi razmatrani i koliku je cenu svaki od njih dobio. Odeljci 3 i 4 se bave samo njima.</p>
+    <p class="interpret">Prvi korak, <code>condition_processing</code>, je Poglavlje 3 viđeno
+      iznutra. On ispisuje <code>equality_propagation</code>, <code>constant_propagation</code> i
+      <code>trivial_condition_removal</code>, svaki sa uslovom kakav je bio posle njega. To je
+      dokaz, a ne tvrdnja, da se <strong>transformacije dešavaju pre nego što se plan uopšte
+      bira</strong>.</p>
+    <p class="interpret">Razlika između koraka <b>(2)</b> i <b>(4)</b> svodi se na jednu reč:
+      <code>join_explain</code> naspram <code>join_execution</code>. Sve što tebi treba je u srednjoj
+      fazi, koja je u oba slučaja ista, pa <span class="hi">za trag nikad nije potrebno da čekaš da
+      se spor upit izvrši</span>.</p>
+  </div>
+</div>
+
+<h2>3 · Odbijeni planovi, i njihove cene</h2>
+<p>
+  Lekcija 04 je zabeležila jedan slučaj koji tada nije mogao da se objasni: <code>possible_keys</code>
+  imenuje indeks, a <code>key</code> je <code>NULL</code>. Zaključak je bio da to nije indeks koji
+  nedostaje niti indeks koji se ne može upotrebiti, nego <strong>kandidat koji je procenjen pa
+  izgubio</strong>. Trag je mesto gde se ta rečenica pretvara u broj.
+</p>
+
+<figure class="fig">
+  <img src="../figures/04-explain-07-odbijeni-planovi.png"
+       alt="Figura sa dva panela, oba ispisana iz tabele OPTIMIZER_TRACE. Gornji panel nosi naslov
+            Dva redosleda spoja, oba procenjena, i pokazuje dva vodoravna stubića. Kraći, zeleni,
+            označen je kao izabran i nosi redosled payment pa customer; duži, sivi, označen je kao
+            odbačen i nosi redosled customer pa payment. Uz svaki stubić stoji njegova vrednost
+            cost_for_plan. Ispod piše da EXPLAIN ispisuje samo pobednika i upozorenje da oba
+            završetka u tragu nose oznaku chosen true, jer to znači najbolji do sada. Donji panel
+            nosi naslov Indeks koji je koštao previše i pokazuje jedan red EXPLAIN ispisa u kom je
+            type jednako ALL, possible_keys imenuje indeks, a key je NULL. Ispod su dva stubića:
+            dugi crveni je pretraga preko indeksa, označena kao odbačena, a kratki zeleni je sken
+            cele tabele, označen kao izabran. Na dnu je istaknut doslovan red iz traga sa oznakama
+            chosen false i cause cost.">
+  <figcaption>Isti upiti kao u prethodne dve lekcije, sa jedinim brojevima koje <code>EXPLAIN</code>
+    nikad ne ispiše: cenama planova koji nisu izabrani.</figcaption>
+</figure>
+
+<p>
+  Korak <code>considered_execution_plans</code> je lista, a ne jedan zapis. Za spoj dve tabele u
+  njoj su <strong>dva</strong> ulaza, po jedan za svaku tabelu koja može da bude prva, i svaki
+  nosi <code>rest_of_plan</code> sa nastavkom i konačnom cenom <code>cost_for_plan</code>. Za svaku
+  tabelu se pod <code>considered_access_paths</code> vidi i koji su pristupni putevi procenjeni i
+  po kojoj ceni, uključujući one koji nisu izabrani.
+</p>
+
+<p>
+  Jedna sitnica pri čitanju, koja ume da zavara: <span class="hi">oznaka
+  <code>"chosen": true</code> ne znači konačnog pobednika</span>, nego „najbolji do sada“. Prvi
+  potpun plan je uvek označen tako, jer nema šta da ga pobedi. Pobednik je onaj sa
+  <strong>manjim <code>cost_for_plan</code></strong>, i to je jedini pouzdan način da se pročita.
+</p>
+
+<div class="note">
+  <span class="lbl">Ne prepisuj apsolutne cene</span>
+  Cene u ovom odeljku se menjaju od pokretanja do pokretanja, jer zavise od toga koliko se stranica
+  zateklo u bafer pulu. To je isti nalaz koji je Poglavlje 3 već izvelo za cenu skena. Odnos dve
+  cene i to koja je manja ostaju isti, pa se u radu navode <strong>odnosi i smer</strong>, a
+  apsolutan broj samo uz napomenu da je iz jednog merenja.
+</div>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>sakila</code>. Prvi deo koristi upit iz
+      Lekcije 04, drugi upit nad tabelom <code>film</code> kod kog <code>key</code> ostaje
+      <code>NULL</code>.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> sakila;
+
+<span class="c">-- A. Dva redosleda spoja, oba procenjena, jedan ispisan.</span>
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=on'</span>;
+<span class="k">EXPLAIN</span> <span class="k">SELECT</span> c.first_name, c.last_name, p.amount
+        <span class="k">FROM</span> customer c <span class="k">JOIN</span> payment p <span class="k">ON</span> p.customer_id = c.customer_id
+        <span class="k">WHERE</span> p.amount &gt; 10;
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=off'</span>;
+
+<span class="k">SELECT</span> <span class="fn">JSON_UNQUOTE</span>(<span class="fn">JSON_EXTRACT</span>(plan_node, <span class="s">'$.table'</span>))               <span class="k">AS</span> prva,
+       <span class="fn">JSON_EXTRACT</span>(plan_node, <span class="s">'$.rest_of_plan[0].table'</span>)             <span class="k">AS</span> druga,
+       <span class="fn">JSON_EXTRACT</span>(plan_node, <span class="s">'$.rest_of_plan[0].cost_for_plan'</span>)     <span class="k">AS</span> cena
+<span class="k">FROM</span>   INFORMATION_SCHEMA.OPTIMIZER_TRACE,
+       <span class="fn">JSON_TABLE</span>(TRACE,
+         <span class="s">'$.steps[1].join_optimization.steps[*].considered_execution_plans[*]'</span>
+         <span class="k">COLUMNS</span> (plan_node <span class="k">JSON PATH</span> <span class="s">'$'</span>)) <span class="k">AS</span> t;
+
+<span class="c">-- B. Indeks koji EXPLAIN navede u possible_keys, pa ga ne upotrebi.</span>
+<span class="k">EXPLAIN</span> <span class="k">SELECT</span> title <span class="k">FROM</span> film <span class="k">WHERE</span> original_language_id <span class="k">IS NULL</span>;
+
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=on'</span>;
+<span class="k">EXPLAIN</span> <span class="k">SELECT</span> title <span class="k">FROM</span> film <span class="k">WHERE</span> original_language_id <span class="k">IS NULL</span>;
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=off'</span>;
+
+<span class="k">SELECT</span> <span class="fn">JSON_EXTRACT</span>(TRACE, <span class="s">'$.steps[1].join_optimization.steps[*]'</span>
+                    <span class="s">'.rows_estimation[0].range_analysis.table_scan.cost'</span>) <span class="k">AS</span> cena_skena,
+       <span class="fn">JSON_EXTRACT</span>(TRACE, <span class="s">'$.steps[1].join_optimization.steps[*].rows_estimation[0]'</span>
+                    <span class="s">'.range_analysis.analyzing_range_alternatives'</span>
+                    <span class="s">'.range_scan_alternatives[0].cost'</span>)                 <span class="k">AS</span> cena_indeksa,
+       <span class="fn">JSON_EXTRACT</span>(TRACE, <span class="s">'$.steps[1].join_optimization.steps[*].rows_estimation[0]'</span>
+                    <span class="s">'.range_analysis.analyzing_range_alternatives'</span>
+                    <span class="s">'.range_scan_alternatives[0].cause'</span>)                <span class="k">AS</span> razlog;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">A. dva redosleda, dve cene, jedna ispisana u EXPLAIN-u</span>
+prva              druga               cena
+`customer` `c`    "`payment` `p`"     <span class="dim">veca</span>
+`payment` `p`     "`customer` `c`"    <span class="em">manja  &lt;- ovo je plan koji EXPLAIN prikaze</span>
+
+<span class="dim">B. EXPLAIN: indeks je tu, i nije upotrebljen</span>
+type   possible_keys                     key     rows
+ALL    idx_fk_original_language_id       <span class="em">NULL</span>    1000
+
+<span class="dim">B. trag: zasto</span>
+cena_skena    cena_indeksa    razlog
+[114.1]       [1101.01]       [<span class="em">"cost"</span>]</pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">U delu <b>A</b> nema iznenađenja u samom planu: pobeđuje redosled koji
+      <code>EXPLAIN</code> i ispisuje. Iznenađenje je da drugi red rezultata uopšte postoji. Optimizator je
+      procenio i obrnut redosled, dao mu cenu, i odbacio ga, a od svega toga u
+      <code>EXPLAIN</code> ispisu nema ni traga. Za spoj dve tabele to je zanimljivo; za spoj šest
+      tabela iz odeljka 5 to je razlika između „ne razumem zašto“ i pisanog obrazloženja.</p>
+    <p class="interpret">Deo <b>B</b> je odgovor na pitanje iz Lekcije 04. Indeks nije
+      preskočen zato što je neupotrebljiv: on je uredno ušao u
+      <code>range_scan_alternatives</code>, dobio svoju cenu, pa je odbačen sa
+      <code>"chosen": false</code> i <code>"cause": "cost"</code>. Razlog je što je
+      <code>original_language_id</code> jednako <code>NULL</code> u <span class="hi">svih hiljadu
+      torki</span>, pa pretraga preko indeksa pogađa ceo sadržaj tabele i još plaća skokove do
+      torki, dok je sken jedno linearno čitanje. <code>EXPLAIN</code> je za sve to imao jednu reč:
+      <code>NULL</code>.</p>
+  </div>
+</div>
+
+<h2>4 · Odgovor na pitanje kojim se Lekcija 05 završila</h2>
+<p>
+  Lekcija 05 je ostavila otvoren slučaj. Upit
+  <code>… WHERE amount &gt; 504.9 ORDER BY created_at LIMIT 10</code> nad tabelom
+  <code>wide_events</code> dobija plan koji u <code>EXPLAIN</code> ispisu izgleda savršeno
+  (<code>type: index</code>, <code>key: idx_created_at</code>, <code>rows: 10</code>, cena ispod
+  jedinice), a izmereno je da je oko 1,5 puta sporiji od alternative kojoj <code>EXPLAIN</code>
+  daje cenu blizu <span class="hi">šeststo hiljada puta veću</span>. Pitanje je bilo: kako je
+  optimizator to izabrao.
+</p>
+
+<figure class="fig">
+  <img src="../figures/04-explain-08-zasto-bas-ovaj-plan.png"
+       alt="Figura sa četiri numerisana panela. Prvi panel pokazuje EXPLAIN ispis lošeg plana iz
+            Lekcije 05: type index, key idx_created_at, rows 10, i stablo sa cenom 0,838. Drugi
+            panel pokazuje deo traga pod nazivom considered_execution_plans, u kom postoji tačno
+            jedan razmatran pristupni put, sken cele tabele nad blizu pet miliona torki, sa cenom
+            preko petsto sedamdeset hiljada i oznakom chosen true; ispod je istaknuta poruka da je
+            procenjen samo jedan pristupni put i da se indeks idx_created_at tu uopšte ne pominje.
+            Treći panel pokazuje korak reconsidering_access_paths_for_index_ordering, u kom je
+            polje steps prazna lista, a index_order_summary kaže da indeks obezbeđuje redosled,
+            imenuje idx_created_at i nosi plan_changed true. Četvrti panel poredi isti upit sa
+            LIMIT-om i bez njega: sa LIMIT 10 plan_changed je true i EXPLAIN daje type index, a bez
+            LIMIT-a plan_changed je false i EXPLAIN daje type ALL sa filesort. Na dnu je crvena
+            traka sa zaključkom da plan nije izabran zato što je bio najjeftiniji, nego zato što
+            postoji LIMIT.">
+  <figcaption>Isti plan, pročitan iz traga. Cena koju <code>EXPLAIN</code> prijavljuje nije razlog
+    izbora, nego posledica koja je izračunata posle njega.</figcaption>
+</figure>
+
+<p>
+  Odgovor je da <strong>plan uopšte nije izabran po ceni</strong>, i trag to kaže u dva koraka koja
+  stoje jedan ispod drugog.
+</p>
+<ul>
+  <li><b>Pretraga po ceni je razmotrila jedan jedini pristupni put.</b> U
+    <code>considered_execution_plans</code> stoji tačno jedan ulaz, i to sken cele tabele nad blizu
+    pet miliona torki, sa cenom preko petsto sedamdeset hiljada, označen sa
+    <code>"chosen": true</code>. <span class="hi">Indeks <code>idx_created_at</code> se tu ne
+    pominje.</span> Nije procenjen i nije odbačen, nego uopšte nije bio kandidat, jer nad kolonom
+    <code>amount</code> ne postoji nijedan indeks koji bi ga učinio kandidatom.</li>
+  <li><b>Kasniji korak je tu procenu poništio.</b> Iza izbora plana dolazi
+    <code>reconsidering_access_paths_for_index_ordering</code>, korak koji postoji da bi se izbeglo
+    sortiranje. On zaključuje <code>"index_provides_order": true</code>, imenuje
+    <code>idx_created_at</code> i javlja <code>"plan_changed": true</code>. Njegovo polje
+    <code>"steps"</code> je <strong>prazna lista</strong>, što znači da u tom koraku
+    <span class="hi">nijedna cena nije izračunata</span>. Plan je zamenjen, a da nije upoređen ni sa
+    čim.</li>
+</ul>
+
+<p>
+  Šta okida zamenu, vidi se kad se <code>LIMIT</code> ukloni: isti upit bez njega daje
+  <code>"plan_changed": false</code>, a <code>EXPLAIN</code> tada prijavljuje
+  <code>type: ALL</code> sa <code>Using filesort</code>, dakle upravo onaj plan koji je pretraga po
+  ceni i izabrala. Sa <code>LIMIT 10000</code> zamena se opet dešava, pa ni veličina granice nije
+  ono što odlučuje. Odlučuje <strong>postojanje</strong> <code>LIMIT</code>-a.
+</p>
+
+<p>
+  Time se zatvara i pitanje iz prošle lekcije o ceni <code>0,838</code>. Ta cena nije razlog izbora
+  nego <strong>posledica</strong>: izračunata je za plan koji je već bio postavljen, uz pretpostavku
+  da će sken preko indeksa stati posle desete torke. Pretpostavka je pogrešna zato što uslov nad
+  <code>amount</code> pušta tek jednu od nekoliko hiljada torki, pa je stvarno pročitano preko
+  trideset hiljada torki umesto deset. Ali ta pretpostavka nikad nije bila upoređena ni sa jednom
+  alternativom, pa ni greška u njoj nije imala gde da se pokaže.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>obrada_upita</code> i tabela
+      <code>wide_events</code>. Pratimo <code>EXPLAIN</code>, ne sam upit, pa se ništa ne čeka:
+      ceo račun optimizatora stiže odmah.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> obrada_upita;
+
+<span class="k">SET</span> optimizer_trace_max_mem_size = 16777216;
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=on'</span>;
+
+<span class="k">EXPLAIN</span> <span class="k">SELECT</span> id, created_at, amount <span class="k">FROM</span> wide_events
+        <span class="k">WHERE</span> amount &gt; 504.9 <span class="k">ORDER</span> <span class="k">BY</span> created_at <span class="k">LIMIT</span> 10;
+
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=off'</span>;
+
+<span class="c">-- Sta je zaista procenjeno.</span>
+<span class="k">SELECT</span> <span class="fn">JSON_PRETTY</span>(<span class="fn">JSON_EXTRACT</span>(TRACE,
+         <span class="s">'$.steps[1].join_optimization.steps[*].considered_execution_plans'</span>))
+<span class="k">FROM</span>   INFORMATION_SCHEMA.OPTIMIZER_TRACE;
+
+<span class="c">-- Korak koji je tu procenu ponistio. Ovo je ceo odgovor.</span>
+<span class="k">SELECT</span> <span class="fn">JSON_PRETTY</span>(<span class="fn">JSON_EXTRACT</span>(TRACE,
+         <span class="s">'$.steps[1].join_optimization.steps'</span>
+         <span class="s">'[*].reconsidering_access_paths_for_index_ordering'</span>))
+<span class="k">FROM</span>   INFORMATION_SCHEMA.OPTIMIZER_TRACE;
+
+<span class="c">-- Sta okida zamenu: isti upit bez LIMIT-a.</span>
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=on'</span>;
+<span class="k">EXPLAIN</span> <span class="k">SELECT</span> id, created_at, amount <span class="k">FROM</span> wide_events
+        <span class="k">WHERE</span> amount &gt; 504.9 <span class="k">ORDER</span> <span class="k">BY</span> created_at;
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=off'</span>;
+
+<span class="k">SELECT</span> <span class="fn">JSON_PRETTY</span>(<span class="fn">JSON_EXTRACT</span>(TRACE,
+         <span class="s">'$.steps[1].join_optimization.steps'</span>
+         <span class="s">'[*].reconsidering_access_paths_for_index_ordering.index_order_summary'</span>))
+<span class="k">FROM</span>   INFORMATION_SCHEMA.OPTIMIZER_TRACE;
+
+<span class="k">EXPLAIN</span> <span class="k">SELECT</span> id, created_at, amount <span class="k">FROM</span> wide_events
+        <span class="k">WHERE</span> amount &gt; 504.9 <span class="k">ORDER</span> <span class="k">BY</span> created_at;
+
+<span class="k">SET</span> optimizer_trace_max_mem_size = <span class="k">DEFAULT</span>;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">procenjen je tacno jedan pristupni put, i to nije indeks</span>
+"considered_access_paths": [ {
+    "rows_to_scan": 4909177,
+    "access_type": <span class="em">"scan"</span>,
+    "cost": <span class="em">574820</span>,
+    "chosen": true } ],
+"cost_for_plan": 574820
+
+<span class="dim">a onda korak koji nista ne racuna</span>
+"reconsidering_access_paths_for_index_ordering": {
+    "clause": "ORDER BY",
+    "steps": <span class="em">[]</span>,
+    "index_order_summary": {
+        "index_provides_order": true,
+        "index": <span class="em">"idx_created_at"</span>,
+        "plan_changed": <span class="em">true</span> } }
+
+<span class="dim">bez LIMIT-a, zamene nema</span>
+"index_provides_order": <span class="em">false</span>,  "plan_changed": <span class="em">false</span>
+EXPLAIN:  type=ALL   key=NULL   Extra=Using where; Using filesort</pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Uporedi prvi i drugi ispis. U prvom je cena <span class="hi">574.820</span>,
+      u <code>EXPLAIN</code>-u je <span class="hi">0,838</span>. To nisu dve procene istog plana nego
+      cene <strong>dva različita plana</strong>, i onaj sa velikom cenom je onaj koji je
+      pobedio u jedinom poređenju koje se dogodilo. Manja cena pripada planu koji nikad ni sa čim
+      nije poređen.</p>
+    <p class="interpret">Prazno <code>"steps": []</code> je najvažniji detalj u celoj lekciji. Kad
+      bi tu stajala lista sa dve cene, zaključak bi bio „optimizator je uporedio i pogrešio, jer mu
+      je procena bila loša“. Ovako zaključak glasi: <strong>na tom mestu se ne poredi, nego se
+      primenjuje pravilo</strong>. Zato ovde ne pomaže ni bolja statistika, što je Lekcija 05 već
+      proverila histogramom nad kolonom <code>amount</code>: histogram popravlja procenu, a odluka se ne
+      donosi na osnovu procene.</p>
+    <p class="interpret">Poslednji par ispisa je provera koja zatvara argument. Ako ukloniš
+      <code>LIMIT</code>, plan se ne menja i dobijaš sken sa <code>filesort</code>, dakle baš onaj
+      koji je pretraga po ceni izabrala. Znači da je okidač <code>LIMIT</code>, a ne cena i ne broj
+      torki.</p>
+  </div>
+</div>
+
+<h2>5 · Šta ni trag ne pokazuje</h2>
+<p>
+  Trag je najdublji alat u Poglavlju 4, ali nije potpun zapis, i tri stvari vredi znati pre nego
+  što se na njega osloniš u odbrani.
+</p>
+<ul>
+  <li><b>Ne sadrži sve odbačene planove, nego samo one do kojih se stiglo.</b> Optimizator
+    <strong>odseca</strong> delimične planove čim postanu skuplji od najboljeg pronađenog, pa se
+    ono što je odsečeno nikad ne dovrši i u tragu se pojavi samo kao
+    <code>"pruned_by_cost": true</code>. Na spoju šest tabela iz baze <code>sakila</code> izmereno
+    je oko sto sedamdeset razmatranih delimičnih planova, od kojih je otprilike polovina napuštena
+    pre kraja. To je ušteda, ne propust, ali znači da odgovor „taj plan nije ni razmotren“ često
+    glasi „razmotren je delimično, pa napušten“. Sami brojevi zavise od pokretanja, jer odsecanje
+    zavisi od cena, a cene od bafer pula.</li>
+  <li><b>Ume da bude odsečen zbog memorije.</b> <code>optimizer_trace_max_mem_size</code> je na ovom
+    serveru podrazumevano <code>1048576</code> bajtova. Spusti ga na <code>16384</code> i pokreni
+    isti spoj šest tabela: <code>MISSING_BYTES_BEYOND_MAX_MEM_SIZE</code> prijavi preko dvesta
+    pedeset hiljada bajtova koji nisu stali. <span class="hi">Uvek pogledaj tu kolonu pre nego što
+    zaključiš da nečega u tragu nema.</span></li>
+  <li><b>Ne kaže koliko je plan zaista trajao.</b> U tragu nema nijednog izmerenog broja, samo
+    procene, jer je faza <code>join_execution</code> prazna. Za merenje se i dalje ide na
+    <code>EXPLAIN ANALYZE</code>. Ta dva alata se koriste zajedno: prvo merenje pokaže da nešto ne
+    valja, pa trag pokaže zašto je izabrano.</li>
+</ul>
+
+<h2>6 · <code>EXPLAIN FOR CONNECTION</code>: tuđi upit, uživo</h2>
+<p>
+  Preostaje slučaj koji nijedan alat do sada nije pokrivao: upit koji <strong>upravo radi u drugoj
+  sesiji</strong> i ne završava se. Ne možeš ga pokrenuti ponovo da bi ga izmerio, jer bi to bio
+  drugi upit; ne možeš uključiti trag unazad, jer je trag sesijski. Možeš mu pročitati plan.
+</p>
+
+<figure class="fig">
+  <img src="../figures/04-explain-09-explain-for-connection.png"
+       alt="Figura sa dve kolone, jedna za svaku sesiju. Leva kolona nosi naslov Sesija A radi i
+            pokazuje spor upit koji broji torke tabele wide_events po uslovu nad kolonom notes, a
+            ispod njega red iz tabele PROCESSLIST sa brojem veze, oznakom COMMAND jednako Query i
+            stanjem executing. Desna kolona nosi naslov Sesija B pita i pokazuje naredbu EXPLAIN
+            FOR CONNECTION sa tim brojem, i plan koji je vraćen: tabela wide_events, tip pristupa
+            ALL, key NULL. Ispod je isti plan u obliku stabla. Zatim sledi traka sa četiri
+            odbijanja, svako sa svojom naredbom i brojem greške: EXPLAIN ANALYZE FOR CONNECTION daje
+            grešku 1235, EXPLAIN FOR CONNECTION nad vezom koja miruje daje 3012, nad nepostojećim
+            brojem veze daje 1094, a kroz pripremljenu naredbu daje 1295. Na dnu je zelena traka sa
+            porukom da su to dva prozora i da nijedan ne zamenjuje drugi.">
+  <figcaption>Dve stvarne sesije istog servera. Sesija B čita plan sesije A, ne prekidajući je i ne
+    usporavajući je.</figcaption>
+</figure>
+
+<p>
+  Naredba je <code>EXPLAIN FOR CONNECTION <span class="hi">broj</span></code>, gde je broj ono što
+  <code>SHOW PROCESSLIST</code> ili <code>information_schema.PROCESSLIST</code> prijavljuje kao
+  <code>ID</code>. Za tuđe sesije treba privilegija <code>PROCESS</code>; za svoje ne treba ništa.
+  Prima i <code>FORMAT=TREE</code> i <code>FORMAT=JSON</code>, pa se tuđi plan čita istim rečnikom
+  kao i sopstveni, a svaki poziv se beleži u globalnom brojaču
+  <code>Com_explain_other</code>.
+</p>
+
+<p>
+  Korisnije od onoga što radi jeste <strong>ono što odbija</strong>, jer se ta odbijanja prvi put uvek pomešaju:
+</p>
+<table class="exp">
+  <tr><td><code>ERROR 1235</code></td><td>uz <code>ANALYZE</code>. Merenje traži da upit pokreneš ti, u svojoj sesiji, i sačekaš da se završi. Ne postoji način da se izmeri tuđi upit u toku.</td></tr>
+  <tr><td><code>ERROR 3012</code></td><td>ta veza izvršava naredbu koja nema plan. Radi samo nad <code>SELECT</code>, <code>UPDATE</code>, <code>INSERT</code>, <code>DELETE</code> i <code>REPLACE</code>.</td></tr>
+  <tr><td>prazan rezultat</td><td>veza postoji, ali <strong>miruje</strong> (<code>COMMAND: Sleep</code>). Nema greške nego nula redova, i priručnik to izričito navodi. Ovo se lako pomeša sa prethodnim redom.</td></tr>
+  <tr><td><code>ERROR 1094</code></td><td>veza ne postoji, ili je upit u međuvremenu završio. Za kratke upite ovo je čest ishod, i nije greška u kucanju.</td></tr>
+  <tr><td><code>ERROR 1295</code></td><td>izmereno: kroz pripremljenu naredbu ne prolazi, pa se broj veze mora otkucati doslovno. Priručnik posebno navodi i obrnut slučaj, da ne radi ni kad je cilj pripremljena naredba.</td></tr>
+</table>
+
+<p>
+  Poslednja dva reda tabele vredi razdvojiti, jer izgledaju kao isti slučaj a nisu.
+  <span class="hi">Veza koja miruje</span> nije greška: <code>EXPLAIN FOR CONNECTION</code> vrati
+  prazan rezultat, kao što priručnik i kaže. <code>ERROR 3012</code> dobijaš kad veza jeste zauzeta,
+  ali naredbom koja nema plan, na primer <code>DO SLEEP(...)</code>. Oba su provereno reprodukovana
+  na 8.4.11.
+</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>obrada_upita</code>, tabela
+      <code>wide_events</code>, i <span class="hi">dva otvorena taba</span>. Ovo je jedini primer u
+      Poglavlju 4 koji se ne može odraditi iz jednog taba.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="c">-- ===== SESIJA A (prvi tab) =====</span>
+<span class="k">USE</span> obrada_upita;
+<span class="k">SELECT</span> <span class="fn">CONNECTION_ID</span>();          <span class="c">-- zapamti ovaj broj</span>
+
+<span class="c">-- Pusti spor upit, pa odmah predji u drugi tab.</span>
+<span class="k">SELECT</span> <span class="k">SQL_NO_CACHE</span> <span class="fn">COUNT</span>(*) <span class="k">FROM</span> wide_events
+<span class="k">WHERE</span> notes <span class="k">LIKE</span> <span class="s">'%zzqzq%'</span> <span class="k">AND</span> <span class="fn">LOWER</span>(notes) <span class="k">LIKE</span> <span class="s">'%qzq%'</span>;
+
+<span class="c">-- ===== SESIJA B (drugi tab, dok gornji upit jos radi) =====</span>
+<span class="k">USE</span> obrada_upita;
+
+<span class="k">SELECT</span> ID, COMMAND, STATE, TIME, <span class="fn">LEFT</span>(INFO, 60) <span class="k">AS</span> upit
+<span class="k">FROM</span>   information_schema.PROCESSLIST
+<span class="k">WHERE</span>  COMMAND &lt;&gt; <span class="s">'Sleep'</span> <span class="k">AND</span> ID &lt;&gt; <span class="fn">CONNECTION_ID</span>();
+
+<span class="c">-- Zameni 42 brojem iz prethodnog reda.</span>
+<span class="k">EXPLAIN FOR CONNECTION</span> 42;
+<span class="k">EXPLAIN FORMAT</span>=TREE <span class="k">FOR CONNECTION</span> 42;
+<span class="k">SHOW GLOBAL STATUS</span> <span class="k">LIKE</span> <span class="s">'Com_explain_other'</span>;
+
+<span class="c">-- Cetiri odbijanja, jednom pa zauvek.</span>
+<span class="k">EXPLAIN ANALYZE</span> <span class="k">FOR CONNECTION</span> 42;   <span class="c">-- 1235</span>
+<span class="k">EXPLAIN FOR CONNECTION</span> 999999;         <span class="c">-- 1094</span>
+<span class="k">PREPARE</span> s <span class="k">FROM</span> <span class="s">'EXPLAIN FOR CONNECTION 42'</span>;
+<span class="k">EXECUTE</span> s;                              <span class="c">-- 1295</span>
+
+<span class="c">-- I dokaz da trag ne prelazi granicu sesije: ovo je uvek 0.</span>
+<span class="k">SELECT</span> <span class="fn">COUNT</span>(*) <span class="k">FROM</span> INFORMATION_SCHEMA.OPTIMIZER_TRACE;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out"><span class="dim">plan tudje sesije, dok ona jos radi</span>
+table          type   possible_keys   key     rows       filtered   Extra
+wide_events    <span class="em">ALL</span>    NULL            NULL    4909177    100.00     Using where
+
+-&gt; Aggregate: count(0)  (cost=1.07e+6 rows=1)
+    -&gt; Filter: ((wide_events.notes like '%zzqzq%') and ...)  (cost=574821 rows=4.91e+6)
+        -&gt; Table scan on wide_events  (cost=574821 rows=4.91e+6)
+
+<span class="dim">odbijanja iz gornjeg bloka</span>
+ERROR <span class="em">1235</span> (42000): This version of MySQL doesn't yet support
+                    'EXPLAIN ANALYZE FOR CONNECTION'
+ERROR <span class="em">1094</span> (HY000): Unknown thread id: 999999
+ERROR <span class="em">1295</span> (HY000): This command is not supported in the prepared
+                    statement protocol yet
+
+<span class="dim">a ovo dobijes nad vezom koja radi DO SLEEP(...), dakle naredbu bez plana</span>
+ERROR <span class="em">3012</span> (HY000): EXPLAIN FOR CONNECTION command is supported only for
+                    SELECT/UPDATE/INSERT/DELETE/REPLACE
+
+<span class="dim">a nad vezom koja MIRUJE nema greske, nego nema ni redova</span>
+Empty set (0.00 sec)
+
+<span class="dim">a tragova tudje sesije nema</span>
+COUNT(*)
+<span class="em">0</span></pre>
+
+    <h3 class="lab">Kako da ga pročitaš</h3>
+    <p class="interpret">Plan koji dobiješ je isti onaj koji bi dobio i da si sam pokrenuo taj upit,
+      pod uslovom da se statistika u međuvremenu nije promenila. Vrednost nije u obliku ispisa nego u
+      tome što se <span class="hi">ne mora čekati da se upit završi</span>: za upit koji radi već
+      pola sata to je jedini način da se vidi šta radi, a da se ne prekine.</p>
+    <p class="interpret"><code>ERROR 1235</code> nije propust u implementaciji nego posledica
+      definicije. <code>EXPLAIN ANALYZE</code> meri tako što instrumentira iteratore
+      <strong>pre</strong> nego što se upit pokrene; upit koji je već krenuo ne može se naknadno
+      instrumentirati. Isto važi za trag: on se piše dok optimizator radi, a tuđi optimizator je
+      odavno završio.</p>
+    <p class="interpret">Poslednji red je najkraći način da se zapamti odnos dva alata iz ove
+      lekcije. Sesija B vidi <strong>plan</strong> sesije A, ali nijedan njen
+      <strong>trag</strong>. Dubina i doseg se u MySQL-u ne dobijaju zajedno.</p>
+  </div>
+</div>
+
+<div class="slide">
+  <q>The MySQL optimizer includes the capability to perform tracing; the interface is provided by
+  a set of <code>optimizer_trace_xxx</code> system variables and the
+  <code>INFORMATION_SCHEMA.OPTIMIZER_TRACE</code> table.</q>
+  <span class="sr">MySQL 8.4 Reference Manual, <a href="https://dev.mysql.com/doc/refman/8.4/en/optimizer-tracing.html">Tracing the Optimizer</a></span>
+  <span class="gloss">Priručnik trag opisuje krajnje suvo, kao skup promenljivih i jednu tabelu, i
+    nigde ga ne reklamira onako kako ga je ova lekcija koristila. Rečenicu koju treba znati napamet
+    zato formuliši sam, iz onoga što si izmerio: <strong>trag je jedino mesto na kom piše koji su
+    planovi razmatrani, koliku je cenu svaki dobio i zašto su odbačeni</strong>. Ta rečenica se
+    brani figurama iz odeljaka 3 i 4, ne citatom.</span>
+</div>
+
+<h2>7 · Proveri sebe</h2>
+<p>Osam pitanja, jedan tačan odgovor po pitanju. Klikni i odmah dobijaš objašnjenje; ako pogrešiš,
+  pročitaj zašto pre nego što pređeš na sledeće.</p>
+
+<div class="quiz">
+  <p>Bez vraćanja na tekst. Cilj je da vidiš šta ti je stvarno ostalo.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Šta <code>optimizer_trace</code> pokazuje, a nijedan oblik <code>EXPLAIN</code>-a ne pokazuje?</p>
+    <label><input type="radio">Koliko je svaki iterator izabranog plana zaista trajao pri izvršavanju</label>
+    <label><input type="radio">Plan naredbe koja se trenutno izvršava u nekoj drugoj sesiji servera</label>
+    <label><input type="radio">Planove koji su procenjeni pa odbačeni, sa cenama i razlozima odbijanja</label>
+    <label><input type="radio">Redosled u kom su torke stizale iz motora u serverski sloj obrade</label>
+    <p class="why">Trag beleži odlučivanje. Merenje je posao <code>EXPLAIN ANALYZE</code>-a, a tuđa sesija je posao <code>EXPLAIN FOR CONNECTION</code>.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">2. Zašto se trag gasi pre nego što se pročita, a ne posle?</p>
+    <label><input type="radio">Jer se čuva samo poslednji praćeni upit, pa bi ga svaki sledeći prebrisao</label>
+    <label><input type="radio">Jer bi inače ostao uključen i za sve ostale sesije koje rade na serveru</label>
+    <label><input type="radio">Jer se tabela sa tragom puni tek onda kad se prekidač vrati na vrednost off</label>
+    <label><input type="radio">Jer bi uključen trag zaključao tabelu i sprečio da se njen sadržaj pročita</label>
+    <p class="why"><code>optimizer_trace_limit</code> je podrazumevano 1. Naredba koja čita <code>OPTIMIZER_TRACE</code> je izuzeta, ali bilo koji drugi upit nije.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Trag ima tri faze. U kojoj se nalaze cene?</p>
+    <label><input type="radio">U fazi <code>join_execution</code>, jer se cena zna tek kad se plan izvrši</label>
+    <label><input type="radio">U sve tri, jer se cena preračunava posle svakog završenog koraka rada</label>
+    <label><input type="radio">U fazi <code>join_preparation</code>, gde se upit dovodi u konačan oblik</label>
+    <label><input type="radio">Samo u fazi <code>join_optimization</code>, i to u jednom njenom koraku</label>
+    <p class="why">Cene su u koraku <code>considered_execution_plans</code>. Faza <code>join_execution</code> je prazna, jer trag ne meri.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">4. Kako se dobija trag sporog upita, a da se ne čeka da se on izvrši?</p>
+    <label><input type="radio">Postavljanjem promenljive <code>optimizer_trace_features</code> na vrednost bez izvršavanja</label>
+    <label><input type="radio">Praćenjem <code>EXPLAIN</code>-a tog upita: faza optimizacije je ista, sa svim cenama</label>
+    <label><input type="radio">Prekidanjem upita naredbom <code>KILL</code> pošto trag stigne da se zapiše</label>
+    <label><input type="radio">Nikako, jer se trag zapisuje tek onda kad poslednji iterator vrati torku</label>
+    <p class="why">Treća faza se tada zove <code>join_explain</code> umesto <code>join_execution</code>, a sve ostalo je isto.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">5. U tragu lošeg plana iz Lekcije 05, koliko je pristupnih puteva procenjeno?</p>
+    <label><input type="radio">Dva: sken cele tabele i sken preko indeksa, pa je jeftiniji pobedio</label>
+    <label><input type="radio">Nijedan, jer je <code>LIMIT</code> presekao pretragu pre prvog računa</label>
+    <label><input type="radio">Jedan, sken cele tabele; indeks se u tom koraku ne pominje uopšte</label>
+    <label><input type="radio">Tri, po jedan za svaki indeks koji nad tom tabelom uopšte postoji</label>
+    <p class="why">Po koloni <code>amount</code> nema indeksa, pa je jedini kandidat bio sken. Indeks je ušao kasnije, drugim putem.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">6. Šta znači prazno <code>"steps": []</code> u koraku koji je zamenio plan?</p>
+    <label><input type="radio">Da u tom koraku nijedna cena nije izračunata, nego je primenjeno pravilo</label>
+    <label><input type="radio">Da je taj korak odsečen zbog granice memorije koju trag sme da zauzme</label>
+    <label><input type="radio">Da je taj korak pokrenut, ali da nijedan indeks nije obezbedio redosled</label>
+    <label><input type="radio">Da je optimizator uporedio dve cene i da su obe ispale potpuno jednake</label>
+    <p class="why">Zato tu ne pomaže ni bolja statistika: odluka se na tom mestu ne donosi na osnovu procene.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">7. Zašto u tragu nema baš svakog odbačenog plana?</p>
+    <label><input type="radio">Jer se u tragu čuvaju samo planovi koji su bili jeftiniji od izabranog</label>
+    <label><input type="radio">Jer promenljiva <code>optimizer_trace_limit</code> ograničava broj upisanih planova</label>
+    <label><input type="radio">Jer se odbačeni planovi upisuju tek kad se isti upit pokrene po drugi put</label>
+    <label><input type="radio">Jer se delimični planovi odsecaju čim postanu skuplji od najboljeg dotad</label>
+    <p class="why">Odsečeni se pojave samo kao <code>"pruned_by_cost": true</code>, bez dovršenog plana. Druga rupa je memorija, i nju prijavljuje <code>MISSING_BYTES</code>.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">8. Šta <code>EXPLAIN FOR CONNECTION</code> daje o upitu koji radi u drugoj sesiji?</p>
+    <label><input type="radio">I plan i merenje, ali tek pošto se taj upit u drugoj sesiji završi</label>
+    <label><input type="radio">Samo plan; ni merenje ni trag ne prelaze granicu između dve sesije</label>
+    <label><input type="radio">Plan i trag, jer se oba čuvaju na nivou servera, a ne pojedine sesije</label>
+    <label><input type="radio">Merenje bez plana, jer se plan te sesije ne može pročitati spolja</label>
+    <p class="why">Uz <code>ANALYZE</code> je <code>ERROR 1235</code>, a tabela <code>OPTIMIZER_TRACE</code> u tvojoj sesiji ima nula redova o tuđim upitima.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<div class="note">
+  <span class="lbl">Pitaj svog predavača</span>
+  Ako ti je nešto ostalo mutno (najčešće je to razlika između koraka koji računa cenu i koraka koji
+  primenjuje pravilo, ili to zašto <code>"chosen": true</code> stoji na dva mesta),
+  <strong>pitaj u četu</strong>. Isto važi ako hoćeš da pročitamo trag nekog tvog upita, da vidimo
+  kako izgleda <code>considered_execution_plans</code> za spoj šest tabela, ili da napravimo indeks
+  nad <code>amount</code> pa da u tragu proverimo da li se korak sa <code>ORDER BY</code> tada
+  uopšte pokreće.
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong>
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/optimizer-tracing.html">MySQL 8.4 Reference
+  Manual, Tracing the Optimizer</a> (kratko poglavlje, sa promenljivima i opisom tabele
+  <code>OPTIMIZER_TRACE</code>; počni od
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/optimizer-tracing-typical-usage.html">Typical
+  Usage</a>). Dopuna:
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/information-schema-optimizer-trace-table.html">The INFORMATION_SCHEMA OPTIMIZER_TRACE Table</a>
+  (za <code>MISSING_BYTES_BEYOND_MAX_MEM_SIZE</code> i
+  <code>INSUFFICIENT_PRIVILEGES</code>),
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/optimizer-features-to-trace.html">Optimizer Features to Trace</a>
+  (za <code>greedy_search=off</code> kad trag naraste) i
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/explain.html">EXPLAIN Statement</a>
+  (odeljak <span class="hi">Obtaining Execution Plan Information for a Named Connection</span>).
+  Izvori su na engleskom, što je dozvoljeno: samo lekcija mora biti na srpskom. ·
+  <strong>Vidi još:</strong>
+  <a href="../reference/05-optimizer-trace.html">referentna kartica: <code>optimizer_trace</code> i <code>EXPLAIN FOR CONNECTION</code></a>,
+  <a href="0005-explain-analyze-procena-naspram-stvarnog.html">Lekcija 05</a>,
+  <a href="0004-explain-formati-i-tipovi-pristupa.html">Lekcija 04</a>,
+  <a href="0003-od-sql-a-do-plana-izvrsavanja.html">Lekcija 03</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §2c, §2d i §2e.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 -- Lekcija 0002 / Poglavlje 2, §5 - šav između serverskog sloja i motora, i mesto
 -- na kom taj šav namerno propušta: spuštanje uslova u indeks (ICP).
 -- Ova dva upita (A i B ispod) generišu par figura preko
--- tools/make-lesson02-icp-comparison.ps1 (ne preko tools/make-figure.ps1, jer je "off" stanju
+-- tools/make-lesson02-icp-comparison.ps1 (ne preko ../../tools/make-figure.ps1, jer je "off" stanju
 -- potreban SET optimizer_switch u ISTOJ sesiji kao EXPLAIN ANALYZE):
 --   figures/02-arhitektura-01-icp-ukljucen.png  (A, jedan okvir)
 --   figures/02-arhitektura-02-icp-iskljucen.png (B, Filter okvir iznad skena)

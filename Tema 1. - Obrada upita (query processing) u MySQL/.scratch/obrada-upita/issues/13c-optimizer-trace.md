@@ -9,9 +9,14 @@ Blocked by: 13b
 Execution ticket, last of the three that deliver chapter 4. Split from the original ticket 13; see
 13a for why.
 
-**Target length**: ~1 page of `rad.md`. Chapter 4's budget was raised from 4 to 6 pages on
+**Target length**: ~1 page of `rad.md`. **Confirmed 2026-08-28**: chapter 4's budget was raised a
+second time, 6 → 6.6 pages, precisely so this section keeps its full page instead of being cut to
+~0,5. Do not trim it back. See `GLOSSARY.md` §4, second revision. Chapter 4's budget was raised from 4 to 6 pages on
 2026-08-26, leaving ~3 pages for 13b and 13c together, so this section is **no longer forced to
 fold into 4b to fit**.
+
+**Resolved 2026-08-26: it does NOT fold**, and lesson 0006 (2026-08-28) confirmed why — see
+`learning-records/0006-*.md`. The paragraph below is kept as the record of how that was decided.
 
 **It may still fold, on its own merits.** `NOTES.md` flagged when the split was decided that 4c is
 the thin one: the user has already read an optimizer trace twice (chapter 3, and once in passing

@@ -1,0 +1,41 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' width='1180' height='960' viewBox='0 0 1180 960'><rect width='1180' height='960' fill='#ffffff'/><text x='590' y='44' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='25' font-weight='bold' fill='#1a1a1a'>Zašto baš ovaj plan: odgovor koji daje samo trag</text>
+<text x='590' y='70' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>SELECT id, created_at, amount FROM wide_events WHERE amount &gt; 504.9 ORDER BY created_at LIMIT 10</text>
+<text x='590' y='92' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#8a8578'>loš plan iz Lekcije 05 · tamo je izmereno da je loš, ovde se vidi kako je izabran</text>
+<text x='40' y='132' font-family="Georgia, 'Times New Roman', serif" font-size='13' font-weight='bold' fill='#1f5c7a' letter-spacing='0.06em'>1 · ŠTA EXPLAIN KAŽE DA JE IZABRAO</text>
+<line x1='40' y1='140' x2='1140' y2='140' stroke='#d8d3c8' stroke-width='1'/>
+<text x='40' y='161' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='bold' fill='#1f5c7a' xml:space='preserve'>type=index  key=idx_created_at  rows=10  filtered=33.33  Extra=Using where</text>
+<text x='40' y='182' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='bold' fill='#1f5c7a' xml:space='preserve'>-&gt; Limit: 10 row(s)  (cost=0.838 rows=3.33)</text>
+<text x='40' y='203' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a' xml:space='preserve'>    -&gt; Filter: (wide_events.amount &gt; 504.90)  (cost=0.838 rows=3.33)</text>
+<text x='40' y='224' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a' xml:space='preserve'>        -&gt; Index scan on wide_events using idx_created_at  (cost=0.838 rows=10)</text>
+<text x='40' y='250' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#5a564c' xml:space='preserve'>Izabran je sken preko indeksa idx_created_at, sa cenom 0,838.</text>
+<text x='40' y='296' font-family="Georgia, 'Times New Roman', serif" font-size='13' font-weight='bold' fill='#7a1f1f' letter-spacing='0.06em'>2 · ŠTA JE TRAG ZAISTA PROCENIO</text>
+<line x1='40' y1='304' x2='1140' y2='304' stroke='#d8d3c8' stroke-width='1'/>
+<text x='40' y='325' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>&quot;considered_execution_plans&quot;: [ {</text>
+<text x='40' y='346' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>    &quot;table&quot;: &quot;`wide_events`&quot;,</text>
+<text x='40' y='367' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>    &quot;considered_access_paths&quot;: [ {</text>
+<text x='40' y='388' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>        &quot;rows_to_scan&quot;: 4909177,</text>
+<text x='40' y='409' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>        &quot;access_type&quot;: &quot;scan&quot;,</text>
+<text x='40' y='430' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>        &quot;cost&quot;: 574821,</text>
+<text x='40' y='451' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>        &quot;chosen&quot;: true } ],</text>
+<text x='40' y='472' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>    &quot;cost_for_plan&quot;: 574821 } ]</text>
+<rect x='40' y='481' width='1100' height='30' rx='4' fill='#7a1f1f' opacity='0.09'/>
+<text x='52' y='500' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' font-weight='bold' fill='#7a1f1f' xml:space='preserve'>Jedan jedini pristupni put je procenjen, i to sken cele tabele, cenom 574.821. Indeks idx_created_at se ovde ne pominje.</text>
+<text x='40' y='548' font-family="Georgia, 'Times New Roman', serif" font-size='13' font-weight='bold' fill='#a32020' letter-spacing='0.06em'>3 · KORAK KOJI JE PONIŠTIO TU PROCENU</text>
+<line x1='40' y1='556' x2='1140' y2='556' stroke='#d8d3c8' stroke-width='1'/>
+<text x='40' y='577' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>&quot;reconsidering_access_paths_for_index_ordering&quot;: {</text>
+<text x='40' y='598' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>    &quot;clause&quot;: &quot;ORDER BY&quot;,</text>
+<text x='40' y='619' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#a32020' xml:space='preserve'>    &quot;steps&quot;: [],</text>
+<text x='40' y='640' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>    &quot;index_order_summary&quot;: {</text>
+<text x='40' y='661' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>        &quot;index_provides_order&quot;: true,</text>
+<text x='40' y='682' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>        &quot;index&quot;: &quot;idx_created_at&quot;,</text>
+<text x='40' y='703' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>        &quot;access_type&quot;: &quot;index&quot;,</text>
+<text x='40' y='724' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#a32020' xml:space='preserve'>        &quot;plan_changed&quot;: true } }</text>
+<text x='40' y='754' font-family="Georgia, 'Times New Roman', serif" font-size='14.5' fill='#5a564c' xml:space='preserve'>Prazno &quot;steps&quot; znači da u ovom koraku nijedna cena nije izračunata. Plan je zamenjen, a da nije upoređen ni sa čim.</text>
+<text x='40' y='798' font-family="Georgia, 'Times New Roman', serif" font-size='13' font-weight='bold' fill='#5a564c' letter-spacing='0.06em'>4 · ŠTA OKIDA ZAMENU</text>
+<line x1='40' y1='806' x2='1140' y2='806' stroke='#d8d3c8' stroke-width='1'/>
+<text x='40' y='832' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>... ORDER BY created_at LIMIT 10   →  plan_changed: true,  EXPLAIN: type=index, key=idx_created_at</text>
+<text x='40' y='856' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>... ORDER BY created_at            →  plan_changed: false, EXPLAIN: type=ALL, key=NULL, Extra=Using where; Using filesort</text>
+<rect x='40' y='874' width='1100' height='62' fill='#7a1f1f' opacity='0.08' rx='4'/>
+<text x='590' y='898' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='16' font-weight='bold' fill='#7a1f1f'>Plan nije izabran zato što je bio najjeftiniji. Izabran je zato što postoji LIMIT.</text>
+<text x='590' y='924' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#1a1a1a'>Cena 0,838 koju EXPLAIN prijavljuje nije razlog izbora; ona je posledica, izračunata posle zamene.</text>
+</svg>

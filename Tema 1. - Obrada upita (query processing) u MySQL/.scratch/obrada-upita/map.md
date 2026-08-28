@@ -40,7 +40,7 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   PDFs in `../../Predavanja/` (Stoimenov SUBP slides) — is for *learning* only and is **never cited**
   in the paper. Deck-backed claims are cited to their published origin instead: Ramakrishnan & Gehrke
   for theory, the MySQL manual for MySQL-specifics. Applies to every chapter; see WORKFLOW.md rule 7.
-- **Paper export**: `tools/make-docx.ps1` (title page `naslovna.md` + `rad.md`, IEEE citations) is the
+- **Paper export**: `../tools/make-docx.ps1` (shared, at the course level) (title page `naslovna.md` + `rad.md`, IEEE citations) is the
   one canonical way to build `rad.docx`; never run bare `pandoc rad.md ...`, which drops the title page.
 
 ## Decisions so far
@@ -53,7 +53,7 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   covering (`COUNT(*)`) - selectivity only decides the access path once the query needs
   uncovered columns, a sharper lesson for chapter 4 than originally assumed.
 - [Scaffold the Tema 1 workspace and initialise git](issues/03-scaffold-workspace.md): `rad.md`,
-  `references.bib`, `ieee.csl`, `examples/`, `figures/` and the full teach workspace
+  `references.bib`, `../ieee.csl` (shared), `examples/`, `figures/` and the full teach workspace
   (`MISSION.md`, `RESOURCES.md`, `NOTES.md`, `lessons/`, `reference/`, `learning-records/`) all
   created at the Tema 1 root.
 - [Prove the Markdown to DOCX pipeline with IEEE citations](issues/02-pandoc-export-pipeline.md):
@@ -102,7 +102,7 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   capture/naming/filing didn't scale, so the medium changed from Workbench (Visual Explain,
   in-app TREE text, result grid) to a fully automated agent-run pipeline - `myflames` renders
   `EXPLAIN ANALYZE FORMAT=JSON` to SVG (flame graph/tree/diagram), headless Edge rasterizes it to
-  PNG, `tools/make-figure.ps1` / `tools/make-table-figure.ps1` drive it end to end from
+  PNG, `../tools/make-figure.ps1` / `../tools/make-table-figure.ps1` (shared) drive it end to end from
   `mysql-credentials.cnf` (gitignored). Naming, budget, captions, and the examples/-as-source-of-
   truth rule are unchanged; see ticket 09's "Reopened" section and `figures/README.md` for the
   mechanics.

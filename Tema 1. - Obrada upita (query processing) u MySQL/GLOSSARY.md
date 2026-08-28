@@ -2,9 +2,16 @@
 
 Label: `wayfinder:issue-08-answer` (mirrors `.scratch/obrada-upita/issues/08-terminology-and-skeleton.md`)
 
-This file is what `academic-research-writer` is held to on every chapter, from ticket 10 onward. It
-exists so a term is decided once and never re-translated later — see `WORKFLOW.md` rule set. Do not
-deviate from a term below without updating this file first and noting why.
+Terminology and chapter skeleton for **this topic only**. It exists so a term is decided once and
+never re-translated later. Do not deviate from a term below without updating this file first and
+noting why. The rules this vocabulary is *applied* under - language, voice, citations, the em-dash
+ban, the lecture-deck policy - are shared by every paper in the course and live in `../WRITING.md`.
+
+**How to read it cheaply:** §1 and §2 are the always-relevant term tables. Each `§2x` subsection
+belongs to one chapter — read only the one you are working on. §4 (skeleton and page budget) matters
+only when a chapter is being written; §3 only for chapter 8. The reasoning behind each locked
+non-choice lives in `.scratch/obrada-upita/terminology-rationale.md`; the one-line rule here is the
+binding part.
 
 ---
 
@@ -56,10 +63,9 @@ Ramakrishnan & Gehrke passage to cite; they don't go into `references.bib`.)
 
 ## 2. Terminology — no deck precedent (locked, new coinage)
 
-These are post-2016 / MySQL-specific and the decks are silent on them (research ticket 06 and 07 both
-confirm the gap for chapters 6–8). One consistent pattern across all six: **Serbian term, with the
-English original in parentheses on first use only, Serbian-only after that.** Chosen over a mixed
-per-term rule because it is mechanically easy for `academic-research-writer` to enforce.
+Post-2016 / MySQL-specific terms the decks are silent on. **Convention for §2 and every §2x
+subsection: Serbian term, English original in parentheses on first use only, Serbian-only after
+that.**
 
 | Concept | Serbian term (first use) | After first use |
 |---|---|---|
@@ -76,10 +82,7 @@ redundant, not clarifying.
 
 ### 2a. Architecture terms (locked 2026-08-24, chapter 2)
 
-Added while teaching chapter 2 (lesson `0002`). Same pattern as §2: Serbian term, English original in
-parentheses on first use only. The decks describe a generic DBMS architecture (Parser, Optimizator,
-Evaluator plana, Katalog — 03_Optimizacija p. 3) but have **no** vocabulary for MySQL's
-server/engine split, so these are new coinage.
+New coinage: the decks have no vocabulary for MySQL's server/engine split.
 
 | Concept | Serbian term (first use) | After first use |
 |---|---|---|
@@ -100,33 +103,16 @@ server/engine split, so these are new coinage.
 | Row-level locking | zaključavanje na nivou torke | zaključavanje na nivou torke |
 | MVCC | MVCC *(viševerzijska kontrola konkurentnosti)* | MVCC |
 
-Three deliberate non-choices, recorded so they are not "fixed" later:
-
-- **"pluggable" is not translated adjectivally.** `priključiv` / `priključni` is not well attested in
-  standard Serbian for this sense, so the concept is carried by the noun phrase *modularna
-  arhitektura motora* plus one explanatory clause on first use ("motor se priključuje i
-  menja, a serverski sloj ostaje isti"). Do not swap in `priključivi motori` later.
-- **`handler` stays in code font, untranslated.** It is a C++ class name (`sql/handler.h`), not a
-  concept word — translating it would break the link to the source the chapter cites. Same rule as
-  SQL keywords under the lesson-language preference in `NOTES.md`.
-- **"storage engine" is not translated as `skladišni motor`, even though that is the literal
-  word-for-word rendering.** `skladišni` collocates with physical storage space in standard Serbian
-  (`skladišni prostor`, `skladišna hala`), not with a mechanical/software engine — the compound
-  parses but reads like "warehouse engine." Same class of problem as the `pluggable` non-choice
-  above: a literal per-word translation that fails the collocation test. Fixed 2026-08-24: the
-  definition uses *mehanizam skladištenja (storage engine)* on first use; everywhere after that,
-  including headings and titles, the short form *motor* carries the concept alone — the lesson body
-  already used `motor` on its own successfully dozens of times, including with agentive verbs
-  ("motor procenjuje", "motor kaže da...") that would read stiffer with `mehanizam`. Do not swap in
-  `skladišni motor` later, and do not replace the short form `motor` with `mehanizam` throughout —
-  only the first-use definition needed fixing.
+**Locked non-choices** (reasoning: `.scratch/obrada-upita/terminology-rationale.md`):
+`pluggable` is carried by the noun phrase *modularna arhitektura motora*, never `priključivi motori`;
+`handler` stays untranslated in code font, as a class name; *storage engine* is
+*mehanizam skladištenja* on first use and the short form **motor** everywhere after, never
+`skladišni motor` and never `mehanizam` throughout.
 
 ### 2b. Pipeline and optimizer terms (locked 2026-08-24, chapter 3)
 
-Added while teaching chapter 3 (lesson `0003`). Same pattern as §2: Serbian term, English original in
-parentheses on first use only. The decks name the generic components (Parser, Optimizator, Evaluator
-plana) but have **no** vocabulary for MySQL's phase boundaries, its cost model tables, or its
-join-order search, so most of these are new coinage.
+Mostly new coinage: the decks name the generic components but not MySQL's phase boundaries, cost
+model tables, or join-order search.
 
 | Concept | Serbian term (first use) | After first use |
 |---|---|---|
@@ -156,30 +142,15 @@ join-order search, so most of these are new coinage.
 | Index dive | zaron u indeks *(index dive)* | zaron u indeks |
 | Hypergraph join optimizer | hipergrafski optimizator spoja *(hypergraph join optimizer)* | hipergrafski optimizator |
 
-Four deliberate non-choices, recorded so they are not "fixed" later:
-
-- **"poluspoj", written solid, not "semi-spoj" and not "polu-spoj".** Two separate points. (a) The
-  prefix `polu-` is the standard Serbian calque of `semi-` (`poluprovodnik`, `poluprečnik`), whereas
-  `semi-` is an unassimilated borrowing. (b) `polu-` is written **joined** to its base
-  (`poluvreme`, `poluostrvo`, `polufinale`, `polukrug`), taking a hyphen only before a capitalised
-  proper noun (`polu-Nemac`); `anti-` behaves identically, hence `antispoj`. Checked against the
-  orthography rule, not guessed. `rad.md` never used the term, and the two chapter-2 learning
-  artifacts that said *semi-spoj* in a parenthetical (`lessons/0002-...html`,
-  `reference/01-...html`) were corrected on the user's instruction 2026-08-24, so the workspace is
-  consistent with no exceptions.
-- **`optimizer_trace`, `cause: "cost"` and other trace keys stay verbatim, in code font.** They are
-  JSON keys the reader must recognise in real output, not concept words. Same rule as `handler` in §2a.
-- **"cena" is never rendered as *trošak* or *cost*.** §1 already locked *cena*, and the whole chapter
-  turns on it being one consistent word.
-- **"pruning" is not translated as *orezivanje*.** *Orezivanje* collocates with plants; *odsecanje*
-  is what the search actually does to a branch of the plan tree, and it reads as a search-algorithm
-  term rather than a gardening one.
+**Locked non-choices** (reasoning: `.scratch/obrada-upita/terminology-rationale.md`):
+**`poluspoj`/`antispoj` written solid**, never `semi-spoj` or `polu-spoj`; trace keys
+(`optimizer_trace`, `cause: "cost"`, …) stay verbatim in code font; **cena**, never *trošak* or
+*cost*; **odsecanje**, never *orezivanje*.
 
 ### 2c. EXPLAIN vocabulary (locked 2026-08-24, chapter 4)
 
-Added while teaching chapter 4, first lesson (lesson `0004`). Same pattern as §2: Serbian term,
-English original in parentheses on first use only. The decks have *pristupni put* and *sken preko
-indeksa* (§1), but nothing for `EXPLAIN`'s own output vocabulary, so the rest is new coinage.
+New coinage beyond §1's `pristupni put` and `sken preko indeksa`: the decks have nothing for
+`EXPLAIN`'s own output vocabulary.
 
 | Concept | Serbian term (first use) | After first use |
 |---|---|---|
@@ -197,33 +168,16 @@ indeksa* (§1), but nothing for `EXPLAIN`'s own output vocabulary, so the rest i
 | Full-text index | `FULLTEXT` indeks | `FULLTEXT` indeks |
 | Iterator (one node of the tree) | iterator | iterator |
 
-Four deliberate non-choices, recorded so they are not "fixed" later:
-
-- **"access type" is `tip pristupa`, not `tip spoja`, even though the manual's own column
-  documentation calls `type` the "join type".** The value describes how *one* table is reached, not
-  how *two* tables are joined, and `tip spoja` would collide head-on with §1's join algorithms
-  (*spoj sa ugnježdenom petljom* and the rest). The manual's name is a historical artifact; using it
-  in Serbian would import a confusion that the English does not force on a careful reader.
-- **`pretraga po indeksu` (index lookup) is a different term from §1's `sken preko indeksa`
-  (index scan), and the two must not be merged.** A lookup is one targeted probe that lands on a
-  key; a scan reads a run of entries. Chapter 4 turns on exactly that difference (`ref`/`eq_ref`
-  against `index`/`range`), so collapsing them into one Serbian word would erase the chapter's
-  point.
-- **`filesort` stays untranslated, in code font.** It is the literal string MySQL prints in
-  `Extra`, and every plausible translation (*sortiranje u fajl*) asserts something false: MySQL
-  sorts in memory whenever the result fits and only spills to disk when it does not. Same class of
-  decision as `handler` in §2a: a name, not a concept word.
-- **Column names and `Extra` values stay verbatim, in code font**, and are never translated:
-  `type`, `key`, `key_len`, `rows`, `filtered`, `possible_keys`, `Extra`, `Using index`,
-  `Using index condition`, `Using where`, `Using temporary`, `Using filesort`. Same rule as the
-  `optimizer_trace` keys in §2b: the reader has to recognise these strings in real output, so a
-  translation would break the link to what the server actually prints. Serbian prose explains them,
-  it does not replace them.
+**Locked non-choices** (reasoning: `.scratch/obrada-upita/terminology-rationale.md`):
+**`tip pristupa`**, never `tip spoja`, even though the manual calls the `type` column a "join type";
+**`pretraga po indeksu` (lookup) and §1's `sken preko indeksa` (scan) are different terms and must
+not be merged**; `filesort` stays untranslated; **column names and `Extra` values stay verbatim in
+code font** (`type`, `key`, `key_len`, `rows`, `filtered`, `possible_keys`, `Using index`,
+`Using index condition`, `Using where`, `Using temporary`, `Using filesort`).
 
 ### 2d. EXPLAIN ANALYZE vocabulary (locked 2026-08-26, chapter 4b)
 
-Added while teaching chapter 4, second lesson (lesson `0005`). §2c covered the vocabulary of a plan
-that was never run; this covers the second set of numbers that appears once it is.
+§2c covers a plan that was never run; this covers the second set of numbers that appears once it is.
 
 | Concept | Serbian term (first use) | After first use |
 |---|---|---|
@@ -237,30 +191,35 @@ that was never run; this covers the second set of numbers that appears once it i
 | Iterator executor | iteratorski izvršilac | iteratorski izvršilac |
 | Skew (of a column's distribution) | neravnomernost raspodele | neravnomernost |
 
-Five deliberate non-choices, recorded so they are not "fixed" later:
+**Locked non-choices** (reasoning: `.scratch/obrada-upita/terminology-rationale.md`):
+`actual time`, `rows`, `loops`, `(never executed)` stay verbatim (`rows` appears in both brackets and
+is disambiguated in prose as *procena* vs *stvarni broj torki*, never renamed); **ponavljanje**, not
+*iteracija*; **korpa**, not *razred*/*interval*/*kanta*; **optimizator opsega**, not
+*opsežni optimizator*; **odstupanje**, not *divergencija*/*razlaženje*.
 
-- **`actual time`, `rows`, `loops` and `(never executed)` stay verbatim, in code font**, exactly as
-  §2c's rule for column names. `rows` in particular appears in **both** brackets of the same line
-  and means a different thing in each; Serbian prose disambiguates by calling one *procena* and the
-  other *stvarni broj torki*, never by renaming the key.
-- **"ponavljanje", not *iteracija*, for one pass of a looped node.** *Iterator* is already locked in
-  §2c as one node of the tree, so *iteracija* would be read as something the iterator does rather
-  than as one execution of the whole subtree. *Ponavljanje* has no such collision and is what
-  `loops` literally counts.
-- **"korpa", not *razred*, *interval*, or *kanta*, for a histogram bucket.** *Razred* and *interval*
-  are the statistics words for a class interval, and they assert something false about MySQL's
-  `singleton` histograms, where a bucket holds exactly **one value**, not a range. *Korpa* is the
-  established Serbian rendering of *bucket* in the hashing sense and carries no interval claim.
-  The type names themselves (`singleton`, `equi-height`) stay verbatim, since they are the strings
-  `COLUMN_STATISTICS` prints.
-- **"optimizator opsega", not *opsežni optimizator*, for the range optimizer.** *Opsežan* means
-  extensive/comprehensive, so *opsežni optimizator* says "the thorough optimizer", which is not what
-  the component is. It is the part that plans a *sken opsega* (§2b), so the genitive construction is
-  the one that keeps the two terms visibly related.
-- **"odstupanje", not *divergencija* or *razlaženje*.** *Odstupanje* is the ordinary Serbian word for
-  a measured value missing a predicted one, which is exactly the relation here. The other two are
-  either a bare anglicism or suggest two things drifting apart over time, which estimates and
-  measurements do not do.
+### 2e. Optimizer-trace vocabulary (locked 2026-08-28, chapter 4c)
+
+Short by design: §2b already locked `trag optimizatora`, `odsecanje planova`, `delimični plan` and
+`pretraga redosleda spoja`, and §1 has `pristupni put`. Only what those miss is here.
+
+| Concept | Serbian term (first use) | After first use |
+|---|---|---|
+| Considered plan (`considered_execution_plans`) | razmatran plan | razmatran plan |
+| Rejected plan (`"chosen": false`) | odbačen plan | odbačen plan |
+| Trace phase (`join_optimization` etc.) | faza traga | faza traga |
+| Index-ordering override | naknadna zamena plana zbog redosleda | naknadna zamena plana |
+| Truncated trace | krnj trag | krnj trag |
+| Named connection | imenovana veza *(named connection)* | imenovana veza |
+| Connection id | broj veze (`connection_id`) | broj veze |
+| Status counter (`Com_explain_other`) | brojač | brojač |
+| Session-scoped (of a variable or of state) | sesijski | sesijski |
+
+**Locked non-choices** (reasoning: `.scratch/obrada-upita/terminology-rationale.md`):
+**`pristupni put` (§1), never `put pristupa`** — a near-miss that had to be reverted across a whole
+lesson, and the false analogy with `tip pristupa` will be tempting again in chapter 5;
+**odbačen plan** (optimizer rejects an alternative) is distinct from **odbijanje** (server refuses a
+statement); **razmatran plan**, not *kandidat-plan*; **faza traga (three) is not a pipeline phase
+(five)** and the two must never be merged; all trace keys stay verbatim in code font.
 
 ## 3. Hard constraint — plan cache vs. parse-tree cache (chapter 8)
 
@@ -284,34 +243,26 @@ ticket exists precisely so nothing gets fixed before it's known. Each chapter ti
 | 1 | Uvod | 1.5 |
 | 2 | Arhitektura obrade upita u MySQL-u | 2 |
 | 3 | Od SQL-a do plana izvršavanja | 3.5 |
-| 4 | EXPLAIN i EXPLAIN ANALYZE | 6 |
+| 4 | EXPLAIN i EXPLAIN ANALYZE | 6.6 |
 | 5 | Iterator model i pipeline operatora | 3 |
 | 6 | Vektorizovano izvršavanje | 2 |
 | 7 | Paralelno izvršavanje upita | 2 |
 | 8 | Keširanje i ponovna upotreba planova | 2 |
 | 9 | Zaključak | 1 |
 
-Total ≈ 23 pages against the map's nominal "~20 pages" — accepted; a few pages over is not a problem.
+Total ≈ 23.6 pages against the map's nominal "~20 pages" — accepted; a few pages over is not a problem.
 Do not trim pre-emptively; a chapter's real length is only known once it's written.
 
-**Revision (2026-08-26, user's decision): chapter 4 raised from 4 to 6 pages**, total from ≈21 to
-≈23. Chapter 4 is taught as three lessons and written as three tickets (13a/13b/13c), and 13a alone
-— three output formats, twelve columns, twelve access types, the `Extra` values — came out at ~3
-pages of dense, unpadded prose. The alternative was squeezing `EXPLAIN ANALYZE` and the optimizer
-trace into ~1 shared page, which would have gutted the chapter's actual centrepiece
-(estimated-vs-actual row divergence). The chapter is the paper's most hands-on one and the figure
-centrepiece, so it gets the pages. 13b and 13c now have ~3 pages between them.
+Chapter 4's budget was raised twice by the user (4 -> 6 on 2026-08-26, 6 -> 6.6 on 2026-08-28) as
+its three lessons turned out denser than planned. The standing rule from both decisions:
+**never trim written prose to make room** — raise the budget instead. Reasoning:
+`.scratch/obrada-upita/terminology-rationale.md`.
 
 ## 5. Voice and citation density
 
-- **Voice**: impersonal *se*-construction throughout ("posmatra se", "analizira se", "prikazuje se").
-  Not first person plural ("mi pokazujemo") — the plural of modesty reads oddly for a single-author
-  seminar paper, and impersonal *se* is the more conservative default for Serbian faculty submissions.
-- **Citation density**: cite at the end of any paragraph that makes a factual or technical claim
-  (per-paragraph, not per-section) — but a paragraph with no factual claim (e.g. a transition sentence
-  or a worked-example walkthrough already covered by an earlier citation) does not need one bolted on
-  just to have one. Err toward citing when in doubt; this paper leans on primary sources (MySQL docs,
-  worklogs) for claims that are easy to get subtly wrong — see §3 above for the sharpest example.
+Not here: these are the same for every paper in this course and live in **`../WRITING.md`**
+("Voice and citation density"). This section is kept only as a signpost, so a chapter written
+against this file does not conclude the rules were never set.
 
 ---
 

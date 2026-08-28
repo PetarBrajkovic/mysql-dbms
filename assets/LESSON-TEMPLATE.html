@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<!--
+  LESSON TEMPLATE — the component contract for lessons/NNNN-*.html.
+
+  Read THIS instead of a previous lesson. Every lesson in this workspace is 30-50 KB and they are
+  all built from the components below; copying one to learn the structure costs ten times what this
+  file costs and tempts you into copying its content too. Open a real lesson only when the user asks
+  about that lesson.
+
+  Rules this template already encodes (see NOTES.md for the full list):
+    - Serbian, Latin script, for every word the user reads. SQL and MySQL output stay as code.
+    - No italics anywhere. Emphasis is <strong> or <span class="hi"> (red, used sparingly).
+    - Every block <pre> gets a copy button automatically from assets/copy.js — nothing to add.
+    - Lessons end with a quiz, never with .recall cards. (.recall still exists in the CSS for
+      lesson 0001, which predates the preference. Do not use it in a new lesson.)
+    - Terms come from GLOSSARY.md. A new term is added there first, never coined inline.
+
+  Full component list lives in assets/lesson.css, which is commented section by section:
+    .slide      a quotation from a primary source, in its own words
+    .levels / .level.logical / .level.physical    the two-level box (chapter 1)
+    .arch       layered server/engine diagram, with the seam as its loudest element
+    .stages     the five-stage pipeline strip
+    .note       callout, with a <span class="lbl"> label
+    .scope      scope guard: "this uses a tool from a later chapter"
+    .gloss      inline glossary aside
+    .try        runnable Workbench block (structure below)
+    .exp        two-column term/meaning table, usable anywhere in the body
+    .fig        figure + caption
+    .quiz       self-graded multiple choice (contract in assets/quiz.js)
+    .interpret  "how to read this result" paragraph
+    .meta       footer: primary source + cross-links
+  Inside <pre>: .k keyword, .s string, .c comment, .fn function, .dim de-emphasised,
+  .em emphasis. <pre class="sql run"> is input SQL; <pre class="out"> is server output.
+-->
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija NN — kratak naslov</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija NN · Poglavlje N (naziv poglavlja)</p>
+<h1>Naslov koji je tvrdnja, ne tema</h1>
+<p class="subtitle">Jedna do dve rečenice: šta je prethodna lekcija ostavila otvoreno i šta ova zatvara.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Zašto ovo postoji u radu, i šta korisnik treba da ume bez podsetnika kad završi lekciju.
+  Formuliši kao <strong>(1) … (2) … (3) …</strong>, jer se na to vezuje kviz na kraju.
+</div>
+
+<h2>1 · Prva ideja</h2>
+<p>Objašnjenje. Svaka tvrdnja koja se može proveriti nosi link na primarni izvor.</p>
+
+<div class="slide">
+  Doslovan citat iz primarnog izvora — <strong>preuzet sa same stranice, nikad iz sećanja</strong>.
+  <span class="src">MySQL 8.4 Reference Manual, naslov stranice</span>
+</div>
+
+<table class="exp">
+  <tr><td><code>pojam</code></td><td>šta znači, u jednoj liniji</td></tr>
+</table>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> šta mora već da postoji (baza, tabela, indeks), i da li
+      nešto treba počistiti posle.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> sakila;
+<span class="c">-- Komentari u SQL-u smeju biti na srpskom, bez dijakritike.</span>
+<span class="k">SELECT</span> 1;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Opis oblika rezultata, ne tacni brojevi — oni se menjaju sa statistikom
+i sa stanjem bafer-pula.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> veži rezultat nazad na ideju poglavlja.</p>
+  </div>
+</div>
+
+<div class="scope">
+  <span class="lbl">Van obima</span>
+  Koristi se alat iz kasnijeg poglavlja. Za sada je dovoljno znati X; puno objašnjenje je u Poglavlju N.
+</div>
+
+<figure class="fig">
+  <img src="../figures/NN-poglavlje-NN-naziv.png"
+       alt="Potpun opis figure u rečenicama: šta je na kojoj osi, koje su vrednosti, šta je istaknuto.
+            Alt tekst je i provera da figura zaista pokazuje ono što tekst tvrdi.">
+  <figcaption><b>Slika N.N</b> — natpis koji kaže zaključak figure, plus izvor podataka
+    (<code>examples/NN-poglavlje/NN-naziv.sql</code>, izmereno na MySQL 8.4.11).</figcaption>
+</figure>
+
+<h2>N · Provera</h2>
+<div class="quiz">
+  <p>Po jedno pitanje na svaku netrivijalnu tvrdnju lekcije. Sve četiri opcije iste dužine,
+     bez opcije koja se odaje formatiranjem.</p>
+  <div class="q" data-correct="1">
+    <p class="stem">1. Pitanje?</p>
+    <label><input type="radio"> Prva opcija, uverljiva</label>
+    <label><input type="radio"> Druga opcija, tačna</label>
+    <label><input type="radio"> Treća opcija, uverljiva</label>
+    <label><input type="radio"> Četvrta opcija, uverljiva</label>
+    <p class="why">Jedna linija: zašto je to odgovor.</p>
+  </div>
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong> jedan najkvalitetniji izvor, sa linkom i kratkim
+  uputstvom odakle da počne. Izvori smeju biti na engleskom; samo lekcija mora biti na srpskom. ·
+  <strong>Vidi još:</strong> referentna kartica, prethodne lekcije, <a href="../GLOSSARY.md">GLOSSARY.md</a> §Nx. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu — lekcija je početak, ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>

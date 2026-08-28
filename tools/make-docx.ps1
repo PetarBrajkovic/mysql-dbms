@@ -22,10 +22,12 @@
     * Figure captions are numbered by hand in the caption text (Slika N: ...).
 
   Styling:
-    * --reference-doc=assets/reference-paper.docx justifies the body, centers
+    * --reference-doc=<course>/assets/reference-paper.docx justifies the body, centers
       figures and their captions, and leaves the front page (raw OpenXML with its
       own inline centering) alone. Rebuild that file with
-      tools/build-reference-doc.py if the rules change.
+      <course>/tools/build-reference-doc.py if the rules change. The CSL and the
+      reference doc are shared by every topic; naslovna.md, rad.md and references.bib
+      are the topic's own.
     * --syntax-highlighting colors fenced code blocks (```sql). Inline `code`
       already renders in Consolas via the reference doc's VerbatimChar style.
 
@@ -35,18 +37,29 @@
   empty band at the top of the title page.
 
 .EXAMPLE
-  .\tools\make-docx.ps1
+  # always run from inside the topic folder:
+  ..\tools\make-docx.ps1
 #>
 param(
+    [string]$Topic,
     [string]$Out = 'rad.docx'
 )
 
 $ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent $PSScriptRoot
+# --- Shared tool, lives at the course level -------------------------------------
+# $course is the shared layer (assets, ieee.csl, templates), one level above this script.
+# $root is the TOPIC folder being worked on: the current directory, since these scripts are
+# always run from a topic folder (WORKFLOW.md rule zero). -Topic overrides it.
+$course = Split-Path -Parent $PSScriptRoot
+$root = if ($Topic) { (Resolve-Path $Topic).Path } else { (Get-Location).Path }
+if ((Resolve-Path $root).Path -eq (Resolve-Path $course).Path) {
+    throw "Run this from a topic folder (e.g. '$course\Tema 1. - ...'), not from the course root. Or pass -Topic."
+}
+# -------------------------------------------------------------------------------
 Push-Location $root
 try {
-    pandoc naslovna.md rad.md --citeproc --csl=ieee.csl `
-        --reference-doc=assets/reference-paper.docx --syntax-highlighting=tango `
+    pandoc naslovna.md rad.md --citeproc --csl="$course/ieee.csl" `
+        --reference-doc="$course/assets/reference-paper.docx" --syntax-highlighting=tango `
         -M title="" -M author="" -o $Out --resource-path=.
     if ($LASTEXITCODE -ne 0) { throw "pandoc exited with code $LASTEXITCODE" }
     Write-Host "Exported $Out (title page + body, IEEE citations)." -ForegroundColor Green

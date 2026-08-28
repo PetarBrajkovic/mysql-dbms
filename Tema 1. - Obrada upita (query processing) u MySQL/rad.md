@@ -2,7 +2,7 @@
 title: "Obrada upita (Query Processing) u MySQL-u"
 author: "Petar Brajković"
 bibliography: references.bib
-csl: ieee.csl
+csl: ../ieee.csl
 ---
 
 # 1. Uvod

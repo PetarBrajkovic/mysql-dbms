@@ -2,7 +2,7 @@
 -- Upit ispod stoji iza para figura:
 --   figures/03-od-sql-a-do-plana-02-redosled-spoja-dubina-62.png (podrazumevano)
 --   figures/03-od-sql-a-do-plana-03-redosled-spoja-dubina-1.png  (pohlepno)
--- koje pravi tools/make-lesson03-joinorder-comparison.ps1 (ne tools/make-figure.ps1,
+-- koje pravi tools/make-lesson03-joinorder-comparison.ps1 (ne ../../tools/make-figure.ps1,
 -- jer "posle" stanju treba SET optimizer_search_depth u ISTOJ sesiji kao EXPLAIN ANALYZE).
 --
 -- Šest tabela iz sakila baze. Redosled u kom se spajaju nije onaj u kom su napisane -

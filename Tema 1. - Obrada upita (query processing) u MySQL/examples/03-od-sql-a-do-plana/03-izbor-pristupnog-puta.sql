@@ -1,7 +1,7 @@
 -- Lekcija 0003 / Poglavlje 3, §5 - izbor pristupnog puta po ceni.
 -- Ovi upiti stoje iza figure:
 --   figures/03-od-sql-a-do-plana-01-ukrstanje-cena.png
--- koju crta tools/make-lesson03-cost-crossing.ps1 (ne tools/make-figure.ps1: figura
+-- koju crta tools/make-lesson03-cost-crossing.ps1 (ne ../../tools/make-figure.ps1: figura
 -- nije oblik jednog plana, nego dve krive cene, pa joj treba čitav niz pokretanja).
 --
 -- Isti upit, ista tabela, isti indeksi. Menja se samo gornja granica opsega, a sa

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referenca — optimizer_trace i EXPLAIN FOR CONNECTION</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica</p>
+<h1>Trag optimizatora i tuđa sesija</h1>
+<p class="subtitle">Poslednja kartica Poglavlja 4. Kartice 03 i 04 čitaju izabran plan; ova čita odlučivanje koje je do njega dovelo. Sve je izmereno na 8.4.11, nad bazama <code>sakila</code> i <code>obrada_upita</code>.</p>
+
+<h2>Četiri alata, četiri različita pitanja</h2>
+<table>
+  <tr><td><code>EXPLAIN</code></td><td>koji bi se plan izvršio, sa procenama</td></tr>
+  <tr><td><code>EXPLAIN ANALYZE</code></td><td>koliko taj plan zaista košta, izmereno</td></tr>
+  <tr><td><code>optimizer_trace</code></td><td><strong>zašto baš taj plan</strong>: alternative, cene, razlozi odbijanja</td></tr>
+  <tr><td><code>EXPLAIN FOR CONNECTION</code></td><td>koji plan izvršava <strong>druga sesija</strong>, upravo sada</td></tr>
+</table>
+
+<h2>Postupak, četiri koraka i uvek tim redom</h2>
+<pre class="sql"><span class="k">SET</span> optimizer_trace = <span class="s">'enabled=on'</span>;
+<span class="k">SELECT</span> ...;                              <span class="c">-- ili EXPLAIN SELECT ...</span>
+<span class="k">SET</span> optimizer_trace = <span class="s">'enabled=off'</span>;    <span class="c">-- gasi PRE citanja</span>
+<span class="k">SELECT</span> TRACE <span class="k">FROM</span> INFORMATION_SCHEMA.OPTIMIZER_TRACE;</pre>
+
+<div class="note">
+  <span class="lbl">Rečenica koju treba umeti napamet</span>
+  <code>optimizer_trace_limit</code> je <strong>1</strong>, pa se čuva samo poslednji praćeni upit.
+  Zato se trag <span class="hi">gasi pre nego što se čita</span>: svaki drugi upit pokrenut dok je
+  uključen prebriše baš ono zbog čega si ga i uključio. Naredba koja čita <code>OPTIMIZER_TRACE</code> je izuzeta.
+</div>
+
+<h2>Tabela <code>INFORMATION_SCHEMA.OPTIMIZER_TRACE</code></h2>
+<table>
+  <tr><td><code>QUERY</code></td><td>tekst naredbe na koju se trag odnosi</td></tr>
+  <tr><td><code>TRACE</code></td><td>sam trag, JSON dokument</td></tr>
+  <tr><td><code>MISSING_BYTES_BEYOND_MAX_MEM_SIZE</code></td><td>koliko bajtova nije stalo; <strong>0 znači potpun trag</strong></td></tr>
+  <tr><td><code>INSUFFICIENT_PRIVILEGES</code></td><td><code>1</code> kad upit dira <code>SQL SECURITY DEFINER</code> objekat čiji nisi vlasnik</td></tr>
+</table>
+
+<h2>Promenljive</h2>
+<table class="vals">
+  <tr><td><code>optimizer_trace</code></td><td><code>enabled=off,one_line=off</code></td></tr>
+  <tr><td><code>optimizer_trace_max_mem_size</code></td><td><code>1048576</code></td></tr>
+  <tr><td><code>optimizer_trace_limit</code></td><td><code>1</code></td></tr>
+  <tr><td><code>optimizer_trace_offset</code></td><td><code>-1</code></td></tr>
+  <tr><td><code>optimizer_trace_features</code></td><td><code>greedy_search=on,range_optimizer=on,dynamic_range=on,repeated_subselect=on</code></td></tr>
+</table>
+<p class="meta" style="margin-top:-0.4rem">Sve je sesijsko. <code>greedy_search=off</code> smanjuje trag kad on, na spoju mnogo tabela, pređe granicu memorije.</p>
+
+<h2>Tri faze traga</h2>
+<table>
+  <tr><td><code>join_preparation</code></td><td>upit se dovodi u oblik nad kojim se optimizuje</td></tr>
+  <tr><td><code>join_optimization</code></td><td>plan se bira; <strong>jedino ovde postoje cene</strong></td></tr>
+  <tr><td><code>join_execution</code></td><td>prazno: trag beleži odlučivanje, ne merenje</td></tr>
+  <tr><td><code>join_explain</code></td><td>ime treće faze kad se prati <code>EXPLAIN</code> umesto samog upita</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Najkorisniji trik</span>
+  Trag sporog upita dobija se tako što se prati <span class="hi"><code>EXPLAIN</code> tog upita</span>,
+  a ne sam upit. Faza optimizacije je identična, sa svim cenama, a ne čeka se ni sekunde. Suprotno
+  od <code>EXPLAIN ANALYZE</code>-a, koji mora da izvrši upit do kraja.
+</div>
+
+<h2>Koraci faze <code>join_optimization</code></h2>
+<table>
+  <tr><td><code>condition_processing</code></td><td>prepisivanje <code>WHERE</code> uslova: <code>equality_propagation</code>, <code>constant_propagation</code>, <code>trivial_condition_removal</code></td></tr>
+  <tr><td><code>table_dependencies</code></td><td>koja tabela sme da se čita pre koje</td></tr>
+  <tr><td><code>ref_optimizer_key_uses</code></td><td>koje jednakosti mogu da posluže kao ključ za pretragu</td></tr>
+  <tr><td><code>rows_estimation</code></td><td>procena broja torki po tabeli; <code>range_analysis</code> je ovde</td></tr>
+  <tr><td><code>considered_execution_plans</code></td><td><strong>razmatrani redosledi i pristupni putevi, sa cenama</strong></td></tr>
+  <tr><td><code>attaching_conditions_to_tables</code></td><td>koji se uslov proverava uz koju tabelu</td></tr>
+  <tr><td><code>reconsidering_access_paths_for_index_ordering</code></td><td>naknadna zamena plana zbog <code>ORDER BY</code>; menja plan samo uz <code>LIMIT</code></td></tr>
+  <tr><td><code>refine_plan</code></td><td>poslednja doterivanja izabranog plana</td></tr>
+</table>
+
+<h2>Kako se čita <code>considered_execution_plans</code></h2>
+<table>
+  <tr><td><code>plan_prefix</code></td><td>tabele koje su već u redosledu</td></tr>
+  <tr><td><code>considered_access_paths</code></td><td>pristupni putevi za tu tabelu, svaki sa svojom cenom</td></tr>
+  <tr><td><code>rest_of_plan</code></td><td>nastavak redosleda; konačna cena je na kraju grane</td></tr>
+  <tr><td><code>cost_for_plan</code></td><td><strong>ukupna cena tog redosleda</strong>; po njoj se poredi</td></tr>
+  <tr><td><code>"chosen": true</code></td><td><span class="hi">„najbolji do sada“, ne konačni pobednik</span>; pobednik je manji <code>cost_for_plan</code></td></tr>
+  <tr><td><code>"chosen": false</code> uz <code>"cause"</code></td><td>zašto je odbačen; <code>"cost"</code> znači: procenjen pa skuplji</td></tr>
+  <tr><td><code>"usable": false</code></td><td>nije ni bio kandidat (npr. <code>ref</code> bez odgovarajuće jednakosti)</td></tr>
+  <tr><td><code>pruned_by_cost</code></td><td>delimični plan napušten pre kraja, jer je već bio skuplji od najboljeg</td></tr>
+</table>
+
+<h2>Tri rupe u tragu</h2>
+<table>
+  <tr><td>odsecanje</td><td>napušteni delimični planovi se ne dovršavaju; vide se samo kao <code>pruned_by_*</code></td></tr>
+  <tr><td>memorija</td><td>proveri <code>MISSING_BYTES_BEYOND_MAX_MEM_SIZE</code> pre nego što zaključiš da nečega nema</td></tr>
+  <tr><td>merenje</td><td>u tragu nema nijednog izmerenog broja; za to i dalje <code>EXPLAIN ANALYZE</code></td></tr>
+</table>
+
+<h2>Šta je trag rekao o lošem planu iz kartice 04</h2>
+<table class="vals">
+  <tr><td>razmatranih pristupnih puteva</td><td>1 (sken cele tabele)</td></tr>
+  <tr><td>cena tog jedinog razmatranog plana</td><td>≈ 574.800</td></tr>
+  <tr><td>cena koju <code>EXPLAIN</code> prijavljuje</td><td>0,838</td></tr>
+  <tr><td>korak koji je plan zamenio</td><td><code>reconsidering_access_paths_for_index_ordering</code></td></tr>
+  <tr><td>izračunatih cena u tom koraku</td><td><strong>nijedna</strong> (<code>"steps": []</code>)</td></tr>
+  <tr><td>okidač zamene</td><td><code>LIMIT</code> (bez njega: <code>plan_changed: false</code>)</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Zaključak koji nosi ceo odeljak rada</span>
+  Plan nije izabran zato što je bio najjeftiniji, nego zato što postoji <code>LIMIT</code>. Cena
+  <code>0,838</code> nije razlog izbora nego <strong>posledica</strong>, izračunata posle zamene.
+  Zato tu ne pomaže ni bolja statistika: <span class="hi">na tom mestu se ne poredi, nego se
+  primenjuje pravilo</span>.
+</div>
+
+<h2><code>EXPLAIN FOR CONNECTION</code></h2>
+<table>
+  <tr><td>sintaksa</td><td><code>EXPLAIN [FORMAT=TREE|JSON] FOR CONNECTION &lt;broj&gt;</code></td></tr>
+  <tr><td>odakle broj</td><td><code>SHOW PROCESSLIST</code> ili <code>information_schema.PROCESSLIST</code></td></tr>
+  <tr><td>privilegija</td><td><code>PROCESS</code> za tuđe sesije; za svoju ništa</td></tr>
+  <tr><td>uticaj na upit</td><td>nikakav: ne prekida ga i ne usporava</td></tr>
+  <tr><td>brojač</td><td><code>Com_explain_other</code> (gledaj <code>SHOW GLOBAL STATUS</code>)</td></tr>
+</table>
+
+<h2>Kad ne uspe: pet ishoda</h2>
+<table>
+  <tr><td><code>ERROR 1235</code></td><td>uz <code>ANALYZE</code>: upit koji je već krenuo ne može se instrumentirati</td></tr>
+  <tr><td><code>ERROR 3012</code></td><td>veza je zauzeta, ali naredbom koja nema plan (npr. <code>DO SLEEP(...)</code>)</td></tr>
+  <tr><td>prazan rezultat</td><td>veza <strong>miruje</strong> (<code>COMMAND: Sleep</code>); nije greška, nego nula redova</td></tr>
+  <tr><td><code>ERROR 1094</code></td><td><code>Unknown thread id</code>: veza ne postoji ili je upit završio</td></tr>
+  <tr><td><code>ERROR 1295</code></td><td>izmereno: ne prolazi kroz pripremljenu naredbu, pa se broj mora otkucati</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Granica koju vredi pamtiti</span>
+  Trag ide duboko, ali <strong>ne prelazi granicu sesije</strong>: tuđih tragova u tvojoj sesiji nema. <code>EXPLAIN FOR CONNECTION</code> prelazi granicu, ali vraća
+  <strong>samo plan</strong>. Dubina i doseg se ne dobijaju zajedno.
+</div>
+
+<p class="meta">
+  Termini su zaključani u <a href="../GLOSSARY.md">GLOSSARY.md</a> §2e (trag optimizatora,
+  razmatran plan, odsecanje po ceni, pristupni put …). Izvori:
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/optimizer-tracing.html">Tracing the Optimizer</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/information-schema-optimizer-trace-table.html">The INFORMATION_SCHEMA OPTIMIZER_TRACE Table</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/optimizer-features-to-trace.html">Optimizer Features to Trace</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/explain.html">EXPLAIN Statement</a>.
+  Upiti iza svake brojke: <code>examples/04-explain/08…11-*.sql</code>.
+  Napravljeno lekcijom <a href="../lessons/0006-optimizer-trace-i-explain-for-connection.html">0006</a>.
+</p>
+
+<style>
+  /* Same look as reference cards 03 and 04. */
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; margin: 0.8rem 0; }
+  td { border-bottom: 1px solid var(--rule); padding: 0.45rem 0.6rem; vertical-align: top; }
+  td:first-child { width: 15rem; }
+  td:last-child { color: var(--ink-soft); }
+  table.vals td:last-child { text-align: right; white-space: nowrap; }
+</style>
+
+<script src="../../assets/copy.js"></script>
+</body>
+</html>

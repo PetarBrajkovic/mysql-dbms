@@ -8,39 +8,14 @@
 
 ## What was taught
 
-The conceptual spine of Chapter 3, zooming into steps 3-5 of the path Lesson 0002 laid out, exactly
-as LR-0002 recommended:
+Chapter 3's spine, zooming into steps 3-5 of the path lesson 0002 laid out:
 
-1. **Five named phases, each with a file and an entry point in 8.4:** parser → resolution
-   (`Query_block::prepare()`, `sql_resolver.cc`) → optimizer (`JOIN::optimize()`,
-   `sql_optimizer.cc`) → planner (`Optimize_table_order`, `sql_planner.cc`) → executor
-   (`sql_executor.cc`, `sql/iterators/`).
-
-2. **The server names its own phases.** `optimizer_trace` has exactly three top-level steps:
-   `join_preparation`, `join_optimization`, `join_execution`. The planner has no step of its own
-   because it is a sub-phase of the optimizer; the parser has none because the trace starts once the
-   tree already exists. This turned the phase list from an assertion into an observation, and the
-   trace then carried the rest of the lesson.
-
-3. **The parser/resolver boundary is measurable, not interpretive.** A statement that is broken in
-   both ways at once always reports the parse error. `SELECT nepostojeca FROM wide_events WHERE;`
-   gives 1064; fix only the grammar and the same statement gives 1054. This is the cheapest
-   defensible demo in the whole paper.
-
-4. **Permanent transformations live in resolution, not optimization** (the research memo's headline
-   finding, now demonstrated). `SHOW WARNINGS` after `EXPLAIN` prints the statement as
-   `customer c semi join (rental r)` although the query says `IN (SELECT ...)`; the trace shows the
-   same rewrite inside `join_preparation`, with `decorrelated_predicates`. WL#7082's stated reason is
-   memory lifetime: optimization runs per execution and its memory is freed, preparation runs once
-   per statement.
-
-5. **Transformation vs strategy is the chapter's sharpest line.** The semijoin transformation carries
-   no cost at all (`chosen: true`, no number). The semijoin *strategy* is costed:
-   FirstMatch 18124.9, MaterializeLookup 2027.95 (chosen), DuplicatesWeedout 18350. Same
-   logical/physical split Chapter 1 opened with.
-
-6. **Cost is arithmetic over published constants**, and both cost decisions (access path, join order)
-   were shown flipping live.
+1. **Five named phases, each with a file and entry point in 8.4:** parser -> resolution (`Query_block::prepare()`) -> optimizer (`JOIN::optimize()`) -> planner (`Optimize_table_order`) -> executor (`sql/iterators/`).
+2. **The server names its own phases.** `optimizer_trace` has three top-level steps; the planner has none because it is a sub-phase of the optimizer, the parser none because the trace starts after the tree exists.
+3. **The parser/resolver boundary is measurable.** A doubly-broken statement always reports the parse error: 1064 first, 1054 only after the grammar is fixed. Cheapest defensible demo in the paper.
+4. **Permanent transformations live in resolution, not optimization.** `SHOW WARNINGS` prints `semi join` for an `IN (SELECT ...)`; WL#7082's reason is memory lifetime.
+5. **Transformation vs strategy is the chapter's sharpest line.** The semijoin transformation carries no cost; the semijoin *strategy* is costed.
+6. **Cost is arithmetic over published constants**, with both cost decisions shown flipping live.
 
 ## Non-obvious insights to revisit
 
@@ -92,63 +67,11 @@ spells out the rejection reason as `cause: "cost"`, which is the single most use
 whole chapter: the index was not unusable, it was dearer. `usable: false` is the other, different
 reason. The `notes` column is load-bearing (non-covering); a covering query never crosses.
 
-## Live run (2026-08-24, MySQL 8.4.11) — every number in the lesson is measured
-
-| what | measured |
-|---|---|
-| Parse error precedes name resolution | `1064` before `1054` |
-| Table-scan cost, `wide_events` | `578,220` (cold-pool arithmetic: `580,134`) |
-| Range scan, `customer_id` ≤ 9,000 | `462,848`, `chosen: true` |
-| Range scan, `customer_id` ≤ 12,000 | `660,854`, `chosen: false`, `cause: "cost"` |
-| Access-path crossover | between N = 10,000 and N = 11,000 |
-| Semijoin strategies costed | FirstMatch 18,124.9 / MaterializeLookup 2,027.95 / DuplicatesWeedout 18,350 |
-| Six-table join, depth 62 vs depth 1 | ~150x cost, 5.76 ms vs 21.28 ms |
-| Partial plans considered, prune 1 / 0 / depth 1 | 63 / 89 / 21 |
-| `wide_events` PRIMARY pages in buffer pool | 2,651 (predicted ~2,552) |
-
-## Artifacts produced
-
-- `examples/03-od-sql-a-do-plana/01..05-*.sql`, all five smoke-tested against the live server.
-- `figures/03-od-sql-a-do-plana-01-ukrstanje-cena.png` (+ `.svg`), a two-curve cost chart built from
-  a 15-point sweep of the trace, by the new `tools/make-lesson03-cost-crossing.ps1`. This is the
-  first figure in the workspace that myflames cannot produce: the teaching point is a pair of cost
-  *curves*, and one plan tree is only ever one point on them.
-- `figures/03-od-sql-a-do-plana-02/03-redosled-spoja-dubina-62/1.png` (+ `.svg`), via the new
-  `tools/make-lesson03-joinorder-comparison.ps1` (same shape as the lesson-02 ICP script, because the
-  "after" state needs a session-scoped `SET` alongside the `EXPLAIN ANALYZE`).
-- `GLOSSARY.md` §2b: ~26 new terms, plus four recorded non-choices.
-
-## Terminology decision worth remembering
-
-**`poluspoj` / `antispoj`, written solid, not `polu-spoj` / `anti-spoj`.** Checked against the
-orthography norm rather than guessed: the prefixoid `polu-` is written joined to its base
-(`poluvreme`, `poluostrvo`, `polufinale`, `polukrug`), with a hyphen only before a capitalised proper
-noun (`polu-Nemac`). `anti-` behaves the same way. `rad.md` never used the term. The two chapter-2
-learning artifacts that said `semi-spoj` in a parenthetical (`lessons/0002-*.html`,
-`reference/01-*.html`) were flagged rather than silently edited, and the user asked for them to be
-corrected the same day, so the workspace is consistent with no grandfathered exceptions.
-
-## Write-up (2026-08-24)
-
-Chapter 3 prose written with `academic-research-writer` (+ `serbian-grammar`) and appended to
-`rad.md`, ~3.5 pages across six subsections (3.1 five phases, 3.2 parser/resolution and the
-transformation-vs-strategy line, 3.3 cost model, 3.4 access-path choice, 3.5 join-order search,
-3.6 what is deferred). Two of the four lesson figures were carried into the paper, matching the
-chapter's figure budget of 2:
-
-- **Slika 3.1**, the five-phase pipeline diagram (`...-04-pet-faza-pregled`), rasterized SVG→PNG via
-  headless Edge (the SVG had no PNG twin, since it is a hand-built conceptual diagram, not a myflames
-  output). Two em dashes in the SVG text were removed first, per WORKFLOW rule 8 (applies to figure
-  text too).
-- **Slika 3.2**, the access-path cost crossover (`...-01-ukrstanje-cena`), the worked example the
-  ticket demanded.
-
-The two join-order figures (`...-02/03-redosled-spoja-dubina-62/1`) stayed in the lesson only; the
-150:1 result is carried into §3.5 as cited prose to respect the 2-figure budget. `WL#7082` added to
-`references.bib` as `mysqlwl7082` (a published MySQL worklog, citable; not a lecture deck). DOCX
-export verified clean.
-
 ## Next
 
 Chapter 4 inherits three things from here: the estimated-vs-actual thread, the "cost varies between
 runs" caveat, and the optimizer trace as a tool the user has already used once.
+
+## Evidence
+
+Measured numbers, artifacts and write-up notes for this session: `.scratch/obrada-upita/measurements/0003-five-phases-and-one-cost.md`.

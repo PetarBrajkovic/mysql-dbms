@@ -1,0 +1,28 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' width='1180' height='706' viewBox='0 0 1180 706'><rect width='1180' height='706' fill='#ffffff'/><text x='590' y='44' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='25' font-weight='bold' fill='#1a1a1a'>Ono što EXPLAIN prečuti: poraženi planovi i njihove cene</text>
+<text x='590' y='70' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#8a8578'>oba panela su ispisi iz INFORMATION_SCHEMA.OPTIMIZER_TRACE · EXPLAIN za iste upite ne pokazuje nijedan od ovih brojeva</text>
+<text x='40' y='118' font-family="Georgia, 'Times New Roman', serif" font-size='14' font-weight='bold' fill='#7a1f1f' letter-spacing='0.06em'>1 · DVA REDOSLEDA SPOJA, OBA PROCENJENA</text>
+<line x1='40' y1='126' x2='1140' y2='126' stroke='#d8d3c8' stroke-width='1'/>
+<text x='40' y='146' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>SELECT c.first_name, c.last_name, p.amount FROM customer c JOIN payment p ON p.customer_id = c.customer_id WHERE p.amount &gt; 10</text>
+<text x='40' y='178' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#5a564c' xml:space='preserve'>payment p → customer c   ·   izabran</text>
+<rect x='40' y='184' width='345' height='22' rx='3' fill='#2e6b2e' opacity='0.82'/>
+<text x='395' y='201' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='14' font-weight='bold' fill='#2e6b2e'>cost_for_plan = 3.599,06</text>
+<text x='40' y='244' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#5a564c' xml:space='preserve'>customer c → payment p   ·   odbačen</text>
+<rect x='40' y='250' width='560' height='22' rx='3' fill='#8a8578' opacity='0.82'/>
+<text x='610' y='267' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='14' font-weight='bold' fill='#8a8578'>cost_for_plan = 5.836,15</text>
+<text x='40' y='316' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#5a564c' xml:space='preserve'>Skuplji redosled košta 1,62 puta više. EXPLAIN ispisuje samo pobednika, pa se iz njega ne vidi ni da je drugi redosled uopšte razmatran.</text>
+<text x='40' y='338' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#8a8578' xml:space='preserve'>Pažnja pri čitanju: oba završetka nose &quot;chosen&quot;: true, jer to znači &quot;najbolji do sada&quot;. Pobednik je onaj sa manjim cost_for_plan.</text>
+<text x='40' y='388' font-family="Georgia, 'Times New Roman', serif" font-size='14' font-weight='bold' fill='#7a1f1f' letter-spacing='0.06em'>2 · INDEKS KOJI JE KOŠTAO PREVIŠE</text>
+<line x1='40' y1='396' x2='1140' y2='396' stroke='#d8d3c8' stroke-width='1'/>
+<text x='40' y='416' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>SELECT title FROM film WHERE original_language_id IS NULL</text>
+<text x='40' y='442' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>EXPLAIN: type=ALL  possible_keys=idx_fk_original_language_id  key=NULL  rows=1000</text>
+<text x='40' y='470' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#5a564c' xml:space='preserve'>range scan preko idx_fk_original_language_id   ·   odbačen</text>
+<rect x='40' y='476' width='560' height='22' rx='3' fill='#a32020' opacity='0.82'/>
+<text x='610' y='493' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='14' font-weight='bold' fill='#a32020'>cost = 1.101,01</text>
+<text x='40' y='536' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' fill='#5a564c' xml:space='preserve'>sken cele tabele film            ·   izabran</text>
+<rect x='40' y='542' width='58' height='22' rx='3' fill='#2e6b2e' opacity='0.82'/>
+<text x='108' y='559' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='14' font-weight='bold' fill='#2e6b2e'>cost = 114,10</text>
+<rect x='40' y='590' width='1100' height='30' rx='4' fill='#a32020' opacity='0.09'/>
+<text x='52' y='608' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' font-weight='bold' fill='#a32020'>&quot;rows&quot;: 1000,  &quot;cost&quot;: 1101.01,  &quot;chosen&quot;: false,  &quot;cause&quot;: &quot;cost&quot;</text>
+<text x='40' y='648' font-family="Georgia, 'Times New Roman', serif" font-size='14' fill='#5a564c' xml:space='preserve'>EXPLAIN kaže samo key=NULL. Trag kaže i zašto: indeks bi ovde koštao 9,65 puta više od skena, jer pogađa sve torke.</text>
+<text x='40' y='672' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#8a8578' xml:space='preserve'>Apsolutne cene su iz jednog pokretanja i zavise od toga koliko se stranica zateklo u bafer pulu; ono što se ne menja jeste koja je od dve manja.</text>
+</svg>
