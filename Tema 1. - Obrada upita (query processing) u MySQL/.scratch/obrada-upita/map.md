@@ -268,11 +268,37 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   per-chapter loop. **Budget flag for chapter 6**: 22 + 2.5 + 0.75 projects to ~25.25 against the
   hard ≤25, so there is no slack left and chapter 6 absorbs any overrun.
 
+- [Chapter 6. Gde MySQL ne prati obrazac](issues/21-gde-mysql-ne-prati-obrazac.md): the merged
+  chapter written and closed, §6.1-6.3, ~1.620 words plus one figure. Its shape is the one the merge
+  was for: **one framing, three boundaries**. Every claim in it has the form *MySQL does not do X*,
+  and none of them stops at "no", because a negative claim falls to a single counterexample. §6.1
+  defines vectorized execution from its published origin (MonetDB/X100, with DuckDB's
+  `STANDARD_VECTOR_SIZE` = 2.048 as the contrast) and then **derives** row-at-a-time execution from
+  chapter 5's `Read()` rather than asserting it, with the measured consequence that a predicate costs
+  ~20 ns per row **whatever its selectivity**; it closes on the OLTP/OLAP trade-off and on HeatWave as
+  a separate executor beside MySQL, not a change to it. §6.2 is the centre: three necessary
+  conditions, of which the manual documents one and WL#11720's Scope a second (*non-locking*
+  `SELECT COUNT(*)`), while measurement supplies the two it omits, namely that the plan must really
+  read the clustered index (`FORCE INDEX(PRIMARY)`; the default `COUNT(*)` plan takes the narrowest
+  **secondary** index and silently measures nothing) and that there must be no predicate: **2,9x
+  against 1,01x**, which chapter 2's `handler` seam and chapter 5's `Read()` jointly predict, with
+  PostgreSQL's `Gather` node as the contrast. §6.3 keeps `GLOSSARY.md` §3's hard constraint and
+  sharpens it past "not shared": three `EXECUTE`s give three traces with estimates ~12x apart, so the
+  plan is **re-derived per execution against the actual parameter value**, and `Com_stmt_reprepare`
+  0 -> 1 shows what "internal structure" is. **Seven new citations, IEEE [8]-[14]** (`boncz2005`,
+  `duckdbdocs`, `mysqlheatwave`, `mysqlwl11720`, `postgresql18`, `mysqlblogqc`, `oracleconcepts`):
+  the highest count in the paper, because this is the one chapter with zero deck coverage. Eighth
+  clean pass of the per-chapter loop, and it **closed the map's oldest fog entry**: the synthetic
+  dataset needed no change for parallelism. **Budget, and the one thing left open**: the chapter
+  rendered at **4 pages against its 2.5**, taking the export to 26 against the hard ≤25; a
+  redundancy-only prose trim moved it by **zero** (ticket 20's finding, confirmed), while cutting
+  every figure's width 5.0in -> 4.3in took it **26 -> 25 with nothing removed**, and 3.9in buys
+  nothing further. The paper therefore stands **exactly at 25 with chapter 7 unwritten**, so the
+  ceiling needs a decision that is the user's: raise it ~1 page, or reclaim ~1 page from chapters 1-4
+  under the suspended trim rule. Flagged on ticket 18.
+
 ## Not yet specified
 
-- **Whether the synthetic dataset needs to grow or change** for the parallel-execution chapter
-  specifically — unknown until the MySQL install and the first EXPLAIN runs reveal what the optimizer
-  does at what row counts.
 - **A final Serbian proofreading / consistency pass** over the whole paper. Almost certainly needed,
   but its shape depends on how consistent the terminology glossary keeps things.
 

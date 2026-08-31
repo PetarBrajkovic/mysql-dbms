@@ -81,3 +81,70 @@
   howpublished = {\url{https://dev.mysql.com/worklog/task/?id=11785}},
   note         = {MySQL Worklog, Server-8.0; pristupljeno 31. avgusta 2026}
 }
+
+% First cited in Chapter 6 (6.1). The canonical published description of vectorized
+% execution. The lecture decks cover none of chapter 6, so the definition of
+% vectorized execution rests on this rather than on a vendor page.
+@inproceedings{boncz2005,
+  author    = {Boncz, Peter A. and Zukowski, Marcin and Nes, Niels},
+  title     = {{MonetDB/X100}: Hyper-Pipelining Query Execution},
+  booktitle = {Proc. 2nd Biennial Conf. Innovative Data Systems Research (CIDR)},
+  pages     = {225--237},
+  year      = {2005}
+}
+
+% First cited in Chapter 6 (6.1). One concrete, current vectorized engine, for the
+% batch size MySQL is contrasted against.
+@misc{duckdbdocs,
+  author       = {{DuckDB}},
+  title        = {{DuckDB} Documentation: Execution Format},
+  howpublished = {\url{https://duckdb.org/docs/current/internals/vector.html}},
+  note         = {pristupljeno 31. avgusta 2026}
+}
+
+% First cited in Chapter 6 (6.1). Oracle's own description of the vectorized,
+% hybrid-columnar accelerator that stands beside MySQL's own executor.
+@misc{mysqlheatwave,
+  author       = {{Oracle Corporation}},
+  title        = {{MySQL HeatWave} User Guide},
+  howpublished = {\url{https://dev.mysql.com/doc/heatwave/en/mys-hw-about-heatwave.html}},
+  note         = {odeljak 1.1, ``About MySQL HeatWave''; pristupljeno 31. avgusta 2026}
+}
+
+% First cited in Chapter 6 (6.2). A published MySQL Worklog (citable per WORKFLOW.md
+% rule 7): its Scope names the single query shape InnoDB parallel index read applies
+% to, which the manual documents only under CHECK TABLE.
+@misc{mysqlwl11720,
+  author       = {{Oracle Corporation}},
+  title        = {{WL\#11720}: {InnoDB}: Parallel read of index},
+  howpublished = {\url{https://dev.mysql.com/worklog/task/?id=11720}},
+  note         = {MySQL Worklog, Server-8.0; pristupljeno 31. avgusta 2026}
+}
+
+% First cited in Chapter 6 (6.2). The contrast case: a planner that decides a plan
+% is parallel and puts the parallelism into the plan itself.
+@misc{postgresql18,
+  author       = {{The PostgreSQL Global Development Group}},
+  title        = {{PostgreSQL} 18 Documentation, Section 15.1: How Parallel Query Works},
+  howpublished = {\url{https://www.postgresql.org/docs/current/how-parallel-query-works.html}},
+  note         = {pristupljeno 31. avgusta 2026}
+}
+
+% First cited in Chapter 6 (6.3). The removal of the query cache in 8.0, from the
+% MySQL Server Team blog (the same venue as mysqlblogjson).
+@misc{mysqlblogqc,
+  author       = {Lord, Matt},
+  title        = {{MySQL} 8.0: Retiring Support for the Query Cache},
+  howpublished = {\url{https://dev.mysql.com/blog-archive/mysql-8-0-retiring-support-for-the-query-cache/}},
+  year         = {2017},
+  note         = {MySQL Server Team Blog; pristupljeno 31. avgusta 2026}
+}
+
+% First cited in Chapter 6 (6.3). The shared plan cache MySQL does not have,
+% described by the vendor that does have it.
+@misc{oracleconcepts,
+  author       = {{Oracle Corporation}},
+  title        = {Oracle {AI} Database Concepts: Memory Architecture},
+  howpublished = {\url{https://docs.oracle.com/en/database/oracle/oracle-database/23/cncpt/memory-architecture.html}},
+  note         = {poglavlje 17; pristupljeno 31. avgusta 2026}
+}

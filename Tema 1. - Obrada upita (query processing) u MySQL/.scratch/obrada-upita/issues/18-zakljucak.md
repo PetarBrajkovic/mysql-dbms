@@ -19,4 +19,12 @@ introduction promises what the paper actually delivered.
 
 Written with the `academic-research-writer` skill, in Serbian.
 
+**Budget, as measured on 2026-08-31 after chapter 6:** the paper is at **exactly 25 rendered pages**,
+which is the hard ceiling, and this chapter is not written yet. Figure widths were already cut
+5.0in -> 4.3in to reclaim the page chapter 6 overran by, and a further shrink buys nothing. So the
+first thing this ticket needs is a decision: **raise the ceiling by ~1 page, or reclaim ~1 page from
+chapters 1-4** under the trim suspension in `../../../GLOSSARY.md` section 4, which licenses cutting
+redundancy but never taught material, figures or citations. The chapter 1 revisit this ticket already
+calls for is the natural place to look for some of it.
+
 ## Answer

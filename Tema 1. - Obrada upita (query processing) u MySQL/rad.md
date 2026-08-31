@@ -190,7 +190,7 @@ isključena, i predstavlja glavni prozor u odluke optimizatora do kraja rada; nj
 tema je poglavlja 4 [@mysql84refman].
 
 ![Slika 3.1: Pet faza obrade upita i granica cene, sa preslikavanjem na tri koraka u tragu
-optimizatora.](figures/03-od-sql-a-do-plana-04-pet-faza-pregled.png){width=5.0in}
+optimizatora.](figures/03-od-sql-a-do-plana-04-pet-faza-pregled.png){width=4.3in}
 
 Slika 3.1 prikazuje tih pet faza poređanih odozgo naniže, sa jednom linijom povučenom preko sredine.
 Sve iznad te linije menja oblik naredbe i radi se jednom, a sve ispod nje bira se po ceni i ponavlja
@@ -259,7 +259,7 @@ indeks postoji; on zapravo bira jeftiniji od dva izračunata puta, a koji je jef
 torki koje filter obuhvata [@mysql84refman].
 
 ![Slika 3.2: Ukrštanje cene skena tabele i cene skena opsega preko indeksa za isti upit, pri
-rastućem opsegu.](figures/03-od-sql-a-do-plana-01-ukrstanje-cena.png){width=4.6in}
+rastućem opsegu.](figures/03-od-sql-a-do-plana-01-ukrstanje-cena.png){width=4.1in}
 
 Slika 3.2 prikazuje obe cene za upit `SELECT notes FROM wide_events WHERE customer_id BETWEEN 1 AND N`,
 pri rastućem N. Cena skena tabele je konstantna, jer sken čita celu tabelu bez obzira na uslov, dok
@@ -331,7 +331,7 @@ torki čvora `Filter` u stablu; `FORMAT=JSON` verzije 1 isti broj daje gotov, u 
 stablo prikazuje kao zaseban čvor.
 
 ![Slika 4.1: Isti upit i isti plan u tri formata ispisa naredbe
-`EXPLAIN`.](figures/04-explain-01-tri-formata-jedan-plan.png){width=5.0in}
+`EXPLAIN`.](figures/04-explain-01-tri-formata-jedan-plan.png){width=4.3in}
 
 Podela na dva oblika nije, međutim, podela na tekstualni i mašinski čitljiv ispis. Počev od verzije
 8.3 postoji i druga verzija JSON formata, koja umesto oblika po tabeli daje isto stablo iteratora koje
@@ -376,7 +376,7 @@ najgorem [@mysql84refman]. Slika 4.2 prikazuje svih dvanaest, svaku izmerenu na 
 bazom `sakila`, uz boju koja ih grupiše po tome koliko torki jedan pristup može da vrati.
 
 ![Slika 4.2: Dvanaest vrednosti kolone `type`, poređanih redosledom iz priručnika i obojenih po broju
-torki koje jedan pristup može da vrati.](figures/04-explain-02-lestvica-tipova-pristupa.png){width=4.6in}
+torki koje jedan pristup može da vrati.](figures/04-explain-02-lestvica-tipova-pristupa.png){width=4.1in}
 
 Iz slike se vidi ono što se iz samog spiska ne vidi: te grupe se ne poklapaju sa redosledom iz
 priručnika. Tip `unique_subquery`, osmi po redu, vraća najviše jednu torku, isto što i treći po redu
@@ -472,7 +472,7 @@ dakle, znači da je odluka doneta na osnovu pogrešnog broja, ali ne i da je sam
 li jeste, vidi se tek kada se izabrani plan uporedi sa nekim drugim.
 
 ![Slika 4.3: Procena naspram stvarnog broja torki po čvorovima plana, i dejstvo histograma na koloni
-bez indeksa i na koloni sa indeksom.](figures/04-explain-03-procena-naspram-stvarnog.png){width=5.0in}
+bez indeksa i na koloni sa indeksom.](figures/04-explain-03-procena-naspram-stvarnog.png){width=4.3in}
 
 ## 4.6. Prosek po ponavljanju
 
@@ -485,7 +485,7 @@ dobija se, dakle, tek množenjem sa `loops`, zbog čega čvor sa najmanjim prija
 bude najskuplji deo plana. Vreme se čita na isti način, jer i `actual time` meri jedno ponavljanje.
 
 ![Slika 4.4: Vrednosti `rows` i `actual time` kao proseci po ponavljanju: prijavljeno vreme jednog
-ponavljanja naspram ukupnog vremena čvora.](figures/04-explain-04-loops-i-prosek.png){width=5.0in}
+ponavljanja naspram ukupnog vremena čvora.](figures/04-explain-04-loops-i-prosek.png){width=4.3in}
 
 ## 4.7. Plan koji ispis prikazuje kao savršen
 
@@ -517,7 +517,7 @@ ispravljena selektivnost stigne da taj broj podigne. Bolja statistika popravila 
 a nije promenila odluku.
 
 ![Slika 4.5: Isti upit u tri prikaza: procena koju ispisuje `EXPLAIN`, merenje koje dodaje `EXPLAIN
-ANALYZE` i alternativni plan dobijen naredbom `IGNORE INDEX`.](figures/04-explain-05-los-plan.png){width=5.0in}
+ANALYZE` i alternativni plan dobijen naredbom `IGNORE INDEX`.](figures/04-explain-05-los-plan.png){width=4.3in}
 
 Ono što `EXPLAIN ANALYZE` ni ovde nije pokazalo jeste zašto je lošiji plan uopšte izabran. Ispis
 meri jedan plan, onaj koji je pobedio, i ne pominje ni koje je alternative optimizator razmatrao ni
@@ -557,7 +557,7 @@ histogram nad kolonom `amount` popravlja procenu a ne menja plan: odluka nije ni
 procene.
 
 ![Slika 4.6: Trag optimizatora za upit iz odeljka 4.7, sa procenjenim pristupnim putevima i korakom
-koji je plan zamenio.](figures/04-explain-08-zasto-bas-ovaj-plan.png){width=5.0in}
+koji je plan zamenio.](figures/04-explain-08-zasto-bas-ovaj-plan.png){width=4.3in}
 
 Trag ipak nije potpun zapis pretrage. Vrednost `"chosen": true` znači „najbolji do sada”, a ne
 pobednika, pa se pobednik prepoznaje po manjoj vrednosti `cost_for_plan`, dok delimični planovi koji
@@ -639,7 +639,7 @@ procenila ni iterator čije bi se vreme merilo.
 
 ![Slika 5.1: Osam redova ispisa naredbe `EXPLAIN ANALYZE` i osam iteratora koji im odgovaraju:
 kontrola ide nadole kroz pozive metode `Read()`, a torke se vraćaju nagore, jedna po
-jedna.](figures/05-model-iteratora-01-stablo-iteratora.png){width=5.0in}
+jedna.](figures/05-model-iteratora-01-stablo-iteratora.png){width=4.3in}
 
 ## 5.3. Vrednost `loops` je broj poziva metode `Init()`
 
@@ -687,7 +687,7 @@ postoji: on je suprotnost materijalizaciji, jer se rezultat šalje klijentu kako
 njegovo prisustvo u stablu znak da na tom mestu barijere nema.
 
 ![Slika 5.2: Isti sken tabele sa istim uslovom i istim ograničenjem `LIMIT 10`, bez klauzule
-`ORDER BY` i sa njom.](figures/05-model-iteratora-02-pipeline-i-blokada.png){width=5.0in}
+`ORDER BY` i sa njom.](figures/05-model-iteratora-02-pipeline-i-blokada.png){width=4.3in}
 
 ## 5.5. Struktura `AccessPath` je plan, iterator je izvršavanje
 
@@ -712,11 +712,145 @@ najviše jednu torku, tvrdnja da MySQL upite ne izvršava vektorizovano prestaje
 
 # 6. Gde MySQL ne prati obrazac
 
+Prethodna poglavlja opisivala su šta MySQL radi. Ovo poglavlje skuplja na jedno mesto tri tvrdnje
+suprotnog oblika: MySQL ne izvršava upit nad paketima torki, ne paralelizuje izvršavanje plana i ne
+čuva izabrani plan za sledeće izvršenje. Odrična tvrdnja je slabija nego što izgleda, jer je obara
+jedan jedini protivprimer, pa se nijedan od tri odeljka ne zaustavlja na obliku „nema", nego traži
+granicu na kojoj to „nema" prelazi u „ima, ali samo pod ovim uslovima". Sve tri granice su izmerene
+na živom serveru.
+
 ## 6.1. Vektorizovano izvršavanje
+
+Vektorizovano izvršavanje znači da jedan poziv operatora ne obrađuje jednu torku nego paket torki
+*(batch)*, najčešće nekoliko stotina do nekoliko hiljada njih, pa se režija poziva i interpretacije
+izraza raspodeljuje na ceo paket umesto da se plaća po torki. Taj model izvršavanja opisan je u
+sistemu MonetDB/X100, uz merenje koje pokazuje da klasičan Volcano izvršilac najveći deo vremena
+troši upravo na tu režiju, a ne na sam izračun [@boncz2005]. Danas je uobičajen u sistemima
+namenjenim analitičkom workloadu (OLAP): DuckDB, na primer, sve operatore gradi nad vektorom fiksne
+veličine, čija podrazumevana vrednost `STANDARD_VECTOR_SIZE` iznosi 2.048 torki [@duckdbdocs]. Uz
+vektorizaciju obično ide i kolonarno skladištenje *(columnar storage)*, jer se paket vrednosti jedne
+kolone obrađuje bez skakanja kroz memoriju.
+
+MySQL upite ne izvršava tako, i to nije zaseban podatak nego posledica interfejsa iz poglavlja 5:
+metoda `Read()` po definiciji vraća jednu torku po pozivu [@mysqlwl11785].
+
+Odsustvo vektorizacije ne može da se uključi i isključi da bi se izmerila razlika, jer je reč o
+arhitektonskoj odluci, ali se njena posledica meri neposredno. Ako se svaki izraz izračunava jednom
+za svaku torku, onda svaki dodatni predikat mora da doda približno konstantan iznos po torki,
+nezavisno od toga koliko torki taj predikat propušta. Nad tabelom `wide_events` od pet miliona
+torki, u jednoj niti, isti klasterovani sken sa šest predikata povezanih operatorom `AND` traje oko
+1,4 puta duže nego isti sken bez ijednog predikata, a iz razlike između jednog i šest predikata
+izlazi cena od približno 20 nanosekundi po torki po jednom predikatu. Kontrolno merenje pokazuje da
+selektivnost tu ništa ne menja: predikat koji ne propušta gotovo nijednu torku (`amount > 999999`)
+traje praktično isto koliko i predikat koji propušta većinu (`amount > 100`), jer se izraz izračuna
+i za torku koja odmah otpada. Vektorizovani izvršilac bi tu istu proveru amortizovao kroz ceo paket
+torki, a uz kolonarno skladištenje mogao bi i ceo paket da preskoči odjednom.
+
+Iz toga ne sledi da je izvršavanje torku po torku mana. Ono daje kratko vreme do prve torke i malu
+potrošnju memorije, što je upravo ono što traži transakcioni workload (OLTP), dakle veliki broj
+kratkih upita koji dodiruju malo torki. Cena se plaća na suprotnom kraju, kod upita koji prolaze
+kroz milione torki, i Oracle taj kompromis ne skriva nego ga rešava zasebnim proizvodom: HeatWave
+podatke drži u memoriji u hibridnom kolonarnom formatu i upit izvršava tako što kroz plan gura
+vektorske blokove, odnosno isečke kolonarnih podataka, od jednog operatora do drugog, što
+dokumentacija izričito suprotstavlja obradi zasnovanoj na pojedinačnim torkama [@mysqlheatwave].
+HeatWave je, međutim, zaseban izvršilac koji stoji pored MySQL-a, čiji iteratorski izvršilac ostaje
+onakav kakav je opisan u poglavlju 5.
 
 ## 6.2. Paralelno izvršavanje upita
 
+Poglavlje 2 zabeležilo je da promenljiva `thread_handling` podrazumevano ima vrednost
+`one-thread-per-connection`, pa je paralelnost u MySQL-u pre svega paralelnost između konekcija.
+Unutar jednog upita ipak postoji jedan oblik paralelizma, a tačna tvrdnja o njemu uža je i od
+tvrdnje da MySQL nema paralelizam i od tvrdnje da paralelizuje upite.
+
+Ono što postoji jeste paralelno čitanje klasterovanog indeksa, koje kontroliše sesijska promenljiva
+`innodb_parallel_read_threads`. Priručnik tu mogućnost dokumentuje uz naredbu `CHECK TABLE` i navodi
+dva uslova: promenljiva mora biti veća od 1, a stvarni broj radnih niti jednak je manjoj od dve
+vrednosti, zadate vrednosti promenljive i broja podstabala indeksa koja treba pročitati
+[@mysql84refman]. Radni zadatak koji je tu mogućnost uveo precizniji je o tome za koji upit ona
+važi, jer u odeljku `Scope` izričito stoji da se podstabla indeksa čitaju paralelno samo ako je
+zahtev nezaključavajući `SELECT COUNT(*)` [@mysqlwl11720]. Merenje pokazuje da su i uz taj jedan
+oblik upita potrebna još dva uslova, koja radni zadatak ne pominje.
+
+Prvi uslov je da se klasterovani indeks zaista i čita. Za `COUNT(*)` je svaki indeks pokrivajući, pa
+optimizator bira najuži sekundarni, što se u ispisu vidi kao ime tog indeksa u koloni `key` uz
+vrednost `Using index` u koloni `Extra`. Podrazumevani plan zato paralelno čitanje nikada i ne
+dobije, a merenje kroz sve vrednosti promenljive daje ravnu liniju koja izgleda kao dokaz da
+paralelizma nema. Zbog toga u primerima uz ovo poglavlje stoji `FORCE INDEX(PRIMARY)`: bez tog
+nagoveštaja meri se pogrešan plan.
+
+Drugi uslov je odsustvo predikata, i on je granica koju ovo poglavlje traži.
+
+![Slika 6.1: Isti klasterovani sken tabele `wide_events`, bez klauzule `WHERE` i sa jednom takvom
+klauzulom, kroz pet vrednosti promenljive `innodb_parallel_read_threads` (medijana od tri merenja,
+MySQL 8.4.11).](figures/06-gde-mysql-ne-prati-obrazac-01-paralelni-sken-granica.png){width=4.3in}
+
+Bez predikata, prelazak sa jedne na šesnaest niti daje ubrzanje od 2,9 puta; sa jednom jedinom
+dodatom klauzulom `WHERE`, isto to ubrzanje iznosi 1,01 puta, dakle ništa. Objašnjenje nije
+heuristika nego šav iz poglavlja 2. Kada nema ni predikata ni projekcije, InnoDB može sam da
+prebroji torke u više podstabala i serverskom sloju vrati samo zbir, pa pojedinačne torke nikada ne
+pređu granicu između dva sloja. Čim se pojavi `WHERE`, o predikatu odlučuje iterator na serverskom
+sloju, pa svaka torka mora da pređe kroz `handler`, jedna po jedna, pozivima metode `Read()` iz
+poglavlja 5, i to u jednoj niti. Granica MySQL-ovog paralelizma je, dakle, tačno na šavu između
+serverskog sloja i motora, a poglavlja 2 i 5 je zajedno predviđaju.
+
+Poređenje sa sistemom koji istu stvar rešava drugačije čini tu granicu oštrijom. U PostgreSQL-u
+odluku donosi optimizator: kada zaključi da je paralelno izvršavanje najbrža strategija, u plan
+ugrađuje čvor `Gather` ili `Gather Merge`, čije se podstablo izvršava u radnim procesima, a ako taj
+čvor stoji u korenu plana, ceo upit se izvršava paralelno [@postgresql18]. U MySQL-u plan nikada
+nije paralelan, nego je paralelno samo jedno čitanje ispod plana. Zato u ispisu naredbe `EXPLAIN` iz
+poglavlja 4 i nema čvora koji bi paralelizam označavao: reč je o paralelizmu unutar operacije, a ne
+o paralelizmu na nivou upita.
+
 ## 6.3. Keširanje i ponovna upotreba planova
+
+Pitanje da li se izabrani plan čuva za sledeći put meša tri različite stvari, pa se odgovor dobija
+tek kada se one razdvoje. Keš rezultata upita *(query cache)* čuvao je same rezultate i uklonjen je
+u verziji 8.0, uz obrazloženje da je podrazumevano isključen još od verzije 5.6 i da se korisnicima
+umesto njega preporučuje keširanje izvan servera [@mysqlblogqc]. Deljeni keš plana čuvao bi planove
+izvršenja između sesija i u MySQL-u ne postoji. Keš pripremljene naredbe *(prepared statement)* čuva
+unutrašnju strukturu naredbe i postoji, ali samo u okviru jedne sesije.
+
+Kako izgleda sistem koji deljeni keš plana ima, vidi se kod Oracle-a. U njegovom deljenom pulu
+*(shared pool)* za svaku naredbu stoji po jedna deljena SQL oblast, dostupna svim korisnicima, a u
+njoj i stablo raščlanjivanja i plan izvršenja; privatne oblasti pojedinačnih sesija pokazuju na istu
+deljenu oblast, pa dve sesije koje izvršavaju isti upit dele jedan plan [@oracleconcepts]. U
+MySQL-u zajedničke oblasti te vrste nema,
+i to se najkraće vidi na pripremljenoj naredbi: naredba pripremljena u jednoj sesiji u drugoj ne
+postoji ni pod kojim imenom, pa se njeno izvršenje odbija greškom `ERROR 1243 (HY000)`.
+
+Priručnik je o tome šta MySQL zaista kešira izričit. Keševe pripremljenih naredbi i uskladištenih
+programa server održava po sesiji, naredbe keširane u jednoj sesiji nisu dostupne drugim sesijama, a
+kada se sesija završi, server ih odbacuje; ono što se pri tome kešira jeste unutrašnja struktura u
+koju je naredba pretvorena, dakle stablo raščlanjivanja sa razrešenim imenima, a ne plan izvršenja
+[@mysql84refman].
+
+Da se plan zaista ne kešira, može se pokazati alatom iz odeljka 4.8. Ako je plan sačuvan, drugo
+izvršenje iste pripremljene naredbe nema šta da upiše u trag optimizatora. Tri izvršenja jedne
+naredbe sa parametrom nad kolonom `country_code`, međutim, daju tri zasebna traga, svaki sa
+sopstvenom procenom broja torki i sopstvenom cenom. Razlike među njima nisu male: vrednost `US`
+pokriva oko 71% torki u tabeli, a svaka od ostalih zemalja oko 2%, pa je procena za `US` oko
+dvanaest puta veća od procena za druge dve vrednosti, sa srazmerno većom cenom. Optimizacija se,
+dakle, obavlja nad stvarnom vrednošću parametra, a ne jednom za sve vrednosti: MySQL ne pravi
+generički plan, pa nema ni mehanizam koji bi generički i konkretni plan poredio. Tvrdnja je time
+jača od one sa kojom je odeljak počeo, jer plan nije samo nedeljen između sesija, nego se iznova
+izvodi pri svakom izvršenju.
+
+Ostaje pitanje šta je onda ta unutrašnja struktura, a odgovor daje ponovna priprema. Priručnik
+navodi da server prati promene metapodataka tabela na koje se pripremljena naredba odnosi i da
+naredbu pri sledećem izvršenju automatski priprema ponovo, dakle ponovo je raščlanjuje i iznova
+gradi unutrašnju strukturu, uz najviše tri pokušaja [@mysql84refman]. Na maloj probnoj tabeli to se
+vidi u jednom potezu: pripremljena naredba oblika `SELECT * FROM t` prvi put vraća dve kolone, a
+posle naredbe `ALTER TABLE ... ADD COLUMN` isti, nepromenjeni tekst naredbe vraća tri kolone, dok
+brojač `Com_stmt_reprepare` odlazi sa nule na jedinicu. Znak `*` je, dakle, bio razrešen u konkretnu
+listu kolona i zapamćen, pa promena te liste poništava zapamćenu strukturu. Keširano je upravo ono
+što priručnik naziva unutrašnjom strukturom, a plan koji bi tu strukturu izvršio nije deo onoga što
+se pamti.
+
+Precizan oblik tvrdnje kojom se poglavlje zatvara zato glasi: MySQL nema ni keš rezultata upita ni
+deljeni keš plana, ali ima sesijski keš pripremljene naredbe, dok se plan izvršenja izvodi iznova
+pri svakom izvršenju, nad stvarnom vrednošću parametra. Sva tri odeljka time završavaju na istom
+mestu: odrična tvrdnja o sistemu tačna je samo uz uslove pod kojima je proverena.
 
 # 7. Zaključak
 

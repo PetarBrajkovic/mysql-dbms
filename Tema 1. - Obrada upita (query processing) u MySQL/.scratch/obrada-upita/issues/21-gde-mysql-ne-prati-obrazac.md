@@ -1,8 +1,8 @@
 # Chapter 6. Gde MySQL ne prati obrazac
 
 Type: task
-Status: open
-Blocked by: 14
+Status: closed 2026-08-31
+Blocked by: 14 (closed)
 
 ## Question
 
@@ -46,3 +46,49 @@ the material than chapters 1-5 did.
    measured against the ≤25 target, and the work committed.
 
 ## Answer
+
+Written and closed 2026-08-31, resolving all four items of the definition of done. Sections 6.1-6.3,
+~1.620 words plus one figure. The shared framing is written once at the chapter head, as the merge
+intended: three claims of the form "MySQL does not do X", each carried to the boundary where the
+"not" turns into "yes, but only under these conditions".
+
+- **6.1** defines vectorized execution from its published origin (MonetDB/X100) with DuckDB's
+  `STANDARD_VECTOR_SIZE` = 2.048 as the concrete contrast, then *derives* MySQL's row-at-a-time
+  execution from chapter 5's `Read()` rather than asserting it as a separate fact. The measurable
+  consequence is the ~20 ns per row per predicate that does not move with selectivity. Closes on the
+  trade-off (OLTP against OLAP) and on HeatWave as a separate executor standing beside MySQL rather
+  than as a change to it.
+- **6.2** is the centre of gravity: three conditions, all of them necessary. The manual documents the
+  feature only under `CHECK TABLE`; WL#11720's Scope names the single query shape it applies to; and
+  measurement adds the two conditions the worklog omits, namely that the plan must really read the
+  clustered index (hence `FORCE INDEX(PRIMARY)`, the trap from LR-0008 (b)) and that there must be no
+  predicate. 2,9x against 1,01x, explained by chapter 2's `handler` seam and chapter 5's `Read()`
+  jointly, with PostgreSQL's `Gather` node as the contrast that makes the boundary visible.
+- **6.3** keeps the `GLOSSARY.md` section 3 hard constraint and sharpens it: Oracle's shared SQL area
+  is shown as what a shared plan cache actually looks like; three `EXECUTE`s of one prepared statement
+  produce three traces whose estimates are ~12x apart, so the plan is re-derived per execution against
+  the actual parameter value; and `Com_stmt_reprepare` going 0 -> 1 after an `ALTER TABLE` shows what
+  the manual's "internal structure" concretely is.
+
+**Seven new citations, rendering as IEEE [8]-[14]**: `boncz2005`, `duckdbdocs`, `mysqlheatwave`,
+`mysqlwl11720`, `postgresql18`, `mysqlblogqc`, `oracleconcepts`. This is the one chapter with zero
+lecture-deck coverage, so every claim rests on a primary source or on this paper's own measurement,
+which is why its citation count is the highest in the paper. Every quoted page was fetched at write
+time (WORKFLOW.md rule 6); the `innodb_parallel_read_threads` prose paragraph that could not be
+fetched during the lesson is still not quoted, and the claim it would have carried is carried by the
+measurement instead.
+
+**The synthetic dataset needed no change** for the parallel-execution material: 5.000.000 rows at
+1394 MB against a 128 MB buffer pool made the effect both measurable and repeatable. That closes the
+map's oldest fog entry.
+
+**Budget: measured, partly fixed, and one decision left to the user.** The export after writing came
+to **26 pages** against the hard <= 25, with chapter 7 (0.75) still to come, so chapter 6 rendered at
+**4 pages against its 2.5 budget**. A redundancy-only trim of ~120 words moved the count by nothing,
+exactly the under-delivery ticket 20 recorded. What did work is the lever `../WRITING.md` names as
+the first one to reach for: figure widths 5.0in -> 4.3in (and 4.6in -> 4.1in) across all twelve
+figures, which took the export **26 -> 25 with nothing removed**. A further shrink to 3.9in was
+measured and buys **zero** further pages, so 4.3in is the floor worth having. The paper therefore
+sits **exactly at 25 with chapter 7 unwritten**, and the ceiling now needs a call that is not this
+ticket's to make: raise it by a page, or find ~1 page in chapters 1-4 under the suspended trim rule.
+Flagged on [ticket 18](18-zakljucak.md).

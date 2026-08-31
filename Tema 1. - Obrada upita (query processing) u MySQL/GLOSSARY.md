@@ -9,7 +9,7 @@ ban, the lecture-deck policy - are shared by every paper in the course and live 
 
 **How to read it cheaply:** §1 and §2 are the always-relevant term tables. Each `§2x` subsection
 belongs to one chapter — read only the one you are working on. §4 (skeleton and page budget) matters
-only when a chapter is being written; §3 only for chapter 8. The reasoning behind each locked
+only when a chapter is being written; §3 only for chapter 6. The reasoning behind each locked
 non-choice lives in `.scratch/obrada-upita/terminology-rationale.md`; the one-line rule here is the
 binding part.
 
@@ -76,9 +76,9 @@ that.**
 | Prepared statement | pripremljena naredba *(prepared statement)* | pripremljena naredba |
 | Cost-based optimizer | optimizator upita zasnovan na ceni *(cost-based optimizer)* | optimizator (or optimizator upita, per §1) |
 
-Note: *vectorized execution* and *parallel query execution* need no English gloss since they're
-already the exact chapter titles in `rad.md` (chapters 6 and 7) — introducing English there would be
-redundant, not clarifying.
+Note: *vectorized execution* and *parallel query execution* need no English gloss since they are the
+section titles of chapter 6 in `rad.md` (§6.1 and §6.2, after the 2026-08-31 merge of the old
+chapters 6-8) — introducing English there would be redundant, not clarifying.
 
 ### 2a. Architecture terms (locked 2026-08-24, chapter 2)
 
@@ -252,15 +252,57 @@ paper's vocabulary at all. **`izvršavanje na zahtev`**, never *povlačenje* or 
 font, exactly like `handler` in §2a. TREE node strings (`Nested loop inner join`, `Stream results`,
 `Group aggregate`, …) stay verbatim, exactly like the `Extra` values in §2c.
 
-## 3. Hard constraint — plan cache vs. parse-tree cache (chapter 8)
+### 2g. Vectorization, parallelism and caching vocabulary (locked 2026-08-31, chapter 6)
+
+§2 already has `vektorizovano izvršavanje`, `paralelno izvršavanje upita`, `keš plana` and
+`pripremljena naredba`; §1 has `klasterovani indeks`, `sken tabele`, `workload` and `torka`; §2a has
+`nit` and `motor`; §2d has `iteratorski izvršilac`; §2e has `sesijski`. Only what those miss is here.
+
+| Concept | Serbian term (first use) | After first use |
+|---|---|---|
+| Row-at-a-time execution | izvršavanje torku po torku | izvršavanje torku po torku |
+| Batch / vector of rows | paket torki *(batch)* | paket torki |
+| SIMD | SIMD *(jedna instrukcija, više podataka)* | SIMD |
+| Columnar storage | kolonarno skladištenje *(columnar storage)* | kolonarno skladištenje |
+| Interpretation overhead | režija interpretacije | režija interpretacije |
+| Analytical workload | analitički workload (OLAP) | analitički workload |
+| Transactional workload | transakcioni workload (OLTP) | transakcioni workload |
+| Parallel clustered index read | paralelno čitanje klasterovanog indeksa | paralelno čitanje klasterovanog indeksa |
+| Worker thread | radna nit | radna nit |
+| Intra-operation parallelism | paralelizam unutar operacije | paralelizam unutar operacije |
+| Query-level parallelism | paralelizam na nivou upita | paralelizam na nivou upita |
+| Shared (cross-session) plan cache | deljeni keš plana | deljeni keš plana |
+| Prepared-statement (parse-tree) cache | keš pripremljene naredbe | keš pripremljene naredbe |
+| Repreparation | ponovna priprema | ponovna priprema |
+| Query cache (removed in 8.0) | keš rezultata upita *(query cache)* | keš rezultata upita |
+| Generic plan | generički plan | generički plan |
+| Shared pool / library cache (Oracle) | deljeni pul *(shared pool)* | deljeni pul |
+
+**Locked non-choices** (reasoning: `.scratch/obrada-upita/terminology-rationale.md`):
+**`deljeni keš plana` (what MySQL does not have) and `keš pripremljene naredbe` (what it does have)
+are two different objects and must never be merged or abbreviated to a bare `keš`** — that
+distinction is this chapter's entire argument, see §3. **`izvršavanje torku po torku`**, never
+*red po red* or *row-at-a-time* — `torka` is §1's word for a row and stays. **`paket torki`**, never
+*grupa* or *serija*. **`radna nit`**, consistent with §2a's `nit`, never *worker*. **`ponovna
+priprema`**, never *reprepariranje* or *repriprema*. System-variable, status-counter and error names
+stay verbatim in code font exactly like §2c's `Extra` values: `innodb_parallel_read_threads`,
+`Com_stmt_reprepare`, `optimizer_trace`, `PREPARE`/`EXECUTE`/`DEALLOCATE PREPARE`,
+`ERROR 1243 (HY000)`. Product names (`DuckDB`, `ClickHouse`, `HeatWave`, `PostgreSQL`, `Oracle`) are
+never translated or transliterated.
+
+## 3. Hard constraint — plan cache vs. parse-tree cache (chapter 6, §6.3)
 
 Research ticket 06 confirms, does not contradict, the assumption in ticket 17: MySQL has **no shared
 execution plan cache** across sessions (Oracle-style), and the query cache was removed in 8.0. But
 prepared statements **do** cache something — the parsed statement structure (parse tree, column
-resolution, symbol table) — per session only, discarded when the session ends. Chapter 8 must state
-this as its central move, explicitly distinguishing *keš plana* (which MySQL does not have, shared)
-from the per-session parse-tree/statement cache (which it does have). Never write "MySQL doesn't
-cache anything" — that's false and the whole point of the chapter is the more precise claim.
+resolution, symbol table) — per session only, discarded when the session ends. §6.3 must state
+this as its central move, explicitly distinguishing *deljeni keš plana* (which MySQL does not have)
+from the per-session *keš pripremljene naredbe* (which it does have). Never write "MySQL doesn't
+cache anything" — that's false and the whole point of the section is the more precise claim.
+
+Lesson 08 measured the sharper version of the same claim: three `EXECUTE`s of one prepared statement
+produce **three separate optimizer traces with three different row estimates and costs**, so the plan
+is not merely un-shared, it is re-derived on every execution against the actual parameter value.
 
 ## 4. Chapter skeleton — top-level (locked)
 
@@ -290,9 +332,17 @@ what forced this revision.
 
 **Measured checkpoint (2026-08-31): 19 pages with chapters 1-4 complete, 22 pages with chapter 5
 complete**, so chapter 5 came in at exactly its 3. Re-measure after every chapter with
-`..\tools\make-docx.ps1`; the budget is only real if it is checked against the export. What remains
-is 2.5 + 0.75, which projects to **~25.25 against the hard ≤25**: there is no slack left, so chapter
-6 is the one that absorbs any overrun.
+`..\tools\make-docx.ps1`; the budget is only real if it is checked against the export.
+
+**Measured again the same day, with chapter 6 complete: 26 pages, brought back to 25 by figure
+sizing.** Chapter 6 did not absorb the overrun as planned; it *was* the overrun, rendering at **4
+pages against its 2.5** with nothing padded and with its single figure. A redundancy-only prose trim
+moved the count by zero, the second time that lever has under-delivered (ticket 20). Cutting every
+figure's width, **5.0in → 4.3in and 4.6in → 4.1in**, took the paper 26 → 25 with nothing removed;
+3.9in was measured too and buys no further page, so 4.3in is the floor worth having. The paper now
+sits **exactly at the hard ceiling with chapter 7 (0.75) unwritten**, and that gap is an open
+decision on ticket 18: raise the ceiling by about a page, or reclaim about a page from chapters 1-4
+under the suspension below.
 
 **Figure cap, firm** (was "soft guidance" under ticket 09): chapter 5 gets **2** figures, chapter 6
 gets **1**, chapter 7 gets **0**. Figures are ~25% of the page count, which is where the paper grew
