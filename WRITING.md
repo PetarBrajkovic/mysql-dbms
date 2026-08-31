@@ -102,5 +102,11 @@ Two quirks worth not "fixing":
 After opening in Word: set the body's proofing language to Serbian (Latin) once, so the spell-checker
 stops flagging every word. The English reference list is correct as it stands.
 
+**Do the Word hand-finish last, and only once.** The seals, the table of contents and the proofing
+language live in the `.docx`, not in `rad.md`, so from that point on the document is **no longer
+reproducible from the source**: re-running the export overwrites it and throws all of that away.
+Finish the prose first, export, then hand-finish. If a chapter has to change afterwards, expect to
+redo the hand-finish, and commit the hand-finished file so the work is not lost to one stray export.
+
 To change the Word styling itself, edit and re-run `tools/build-reference-doc.py`, which rebuilds the
 shared `assets/reference-paper.docx`. That file is shared, so a change there affects all three papers.

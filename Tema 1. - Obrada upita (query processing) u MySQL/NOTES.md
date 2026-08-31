@@ -41,6 +41,10 @@ unaffordable to read (archived at `.scratch/obrada-upita/notes-archive-2026-08-2
 - **`SELECT COUNT(*)` never reads the clustered index** (every index is covering for it), so any
   parallel-read example in this topic needs `FORCE INDEX(PRIMARY)` or it measures the wrong plan.
   This bit once and is worth keeping in front of mind; the measured detail is in LR-0008.
+- **`rad.docx` is hand-finished in Word and is no longer reproducible from `rad.md`.** The faculty
+  seals and the table of contents were added there by the user (2026-08-31), which is why the
+  committed file is ~115 KB and two zip entries larger than what the pipeline emits. **Do not run
+  `../tools/make-docx.ps1` again without asking**: it overwrites the file and discards both.
 - **Edit `rad.md` with Python or the editor tools, never PowerShell `Set-Content -Encoding utf8`** —
   it writes a UTF-8 BOM into the file. Pandoc tolerates it; a stricter tool would read the YAML
   block as body text. Bit once on 2026-08-31 and was stripped.
