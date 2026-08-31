@@ -69,7 +69,16 @@ anyone counted. Export with `..\tools\make-docx.ps1` and read the page count in 
 **Size figures explicitly.** An image with no `{width=...}` renders at its intrinsic pixel size, so a
 low-resolution PNG can eat half a page for no reason (Tema 1's 500 px architecture diagram rendered
 5.2 x 5.6 in). Capping the tall figures and tightening paragraph spacing reclaimed two full pages
-there with nothing removed, which is always the first lever to reach for.
+there with nothing removed, which is the first lever to reach for.
+
+**But size them by aspect ratio, not by one number.** Tema 1 capped every figure at one width to buy
+a page and made them all unreadable; the fix was to choose width per figure by how much page height
+its ratio makes it cost. A wide, short figure (a flame graph, `FORMAT=TREE` output) can go to nearly
+the full text width for almost no height, and that is exactly where the unreadably small type is; a
+figure taller than it is wide converts width straight into pages. Tema 1's table is in its
+`GLOSSARY.md` §4. Enlarging a low-resolution source blurs rather than clarifies, so leave those
+small. **A page reclaimed by shrinking a figure the reader then cannot read is not a page
+reclaimed.**
 
 ## Export
 

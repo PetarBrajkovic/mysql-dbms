@@ -330,6 +330,14 @@ point: the old table's numbers were never measured against an export, so chapter
 nominal, a few over is fine" — the projection at the end of chapter 4 was 31-35 pages, which is
 what forced this revision.
 
+**Retired 2026-08-31, once the paper was finished.** The user raised the ceiling ("we can do even
+26") and then made the call that settles it: **figure legibility outranks the page count.** The
+5.0in -> 4.3in shrink that ticket 20 used to reclaim a page had left the figures unreadable, so
+every figure was resized by how much height it actually costs, and the paper stands at **27 pages**.
+The ≤25 number was the map's instrument for stopping drift, not a faculty rule (`MISSION.md` asks
+for ~20), and it did its job: the trajectory it caught was 31-35. It is not a live constraint any
+more, and figure width is **not** a lever to reach for again.
+
 **Measured checkpoint (2026-08-31): 19 pages with chapters 1-4 complete, 22 pages with chapter 5
 complete**, so chapter 5 came in at exactly its 3. Re-measure after every chapter with
 `..\tools\make-docx.ps1`; the budget is only real if it is checked against the export.
@@ -359,13 +367,33 @@ worth keeping, both measured this session:
 Reaching 25 needs ~660 pt in one contiguous saving. Layout was taken in ticket 20, figure widths
 bottomed out at 4.3in there, and the redundancy-only prose trim has now under-delivered three times,
 so 25 costs either a figure (~0.4 pages, and every SQL statement in this paper *is* a figure) or
-~600 words of taught prose. Neither is licensed by the suspension below. **The ceiling is therefore
-an open decision on ticket 18**, whose recommendation is to raise it to 26; the alternative, if 25
-is wanted exactly, is dropping Slika 2.3.
+~600 words of taught prose. Neither is licensed by the suspension below.
+
+**Resolved the same day, and the answer went the other way.** The user raised the ceiling and then
+said the figures had become unreadable, which they had: 4.3in was the width the page count wanted,
+not the width the reader needs. Resized per the policy above, the paper is **27 pages**, and the
+ceiling is retired. Final composition: title page 1, chapters 24, reference list ~0.85.
 
 **Figure cap, firm** (was "soft guidance" under ticket 09): chapter 5 gets **2** figures, chapter 6
-gets **1**, chapter 7 gets **0**. Figures are ~25% of the page count, which is where the paper grew
-without anyone noticing.
+gets **1**, chapter 7 gets **0**. The cap is on the **number** of figures, and it held. Their
+**size** is a separate question and was got wrong in the other direction: see the sizing policy
+below.
+
+### Figure sizing policy (set 2026-08-31, replaces the 4.3in floor)
+
+Width is chosen per figure, by how much page height its aspect ratio makes it cost, not by one
+number for all of them. Total image height went 35.8in -> 45.3in and the paper grew by **one page**,
+because most of the gain is in figures that are wide and short.
+
+| Aspect ratio (h/w) | Width | Why |
+|---|---|---|
+| < 0.45 | **6.2in** | flame graphs, `FORMAT=TREE` output, the iterator tree. Nearly full text width costs almost no height and is where the small type was. |
+| 0.45 - 0.70 | **5.5in** | the plotted comparisons. |
+| ≥ 0.70 | **5.0in** | the tall ones, where width converts straight into page height. |
+| any, low-resolution source | **4.0in** | only Slika 2.1, the reused official diagram: its source is 500 px, so enlarging it blurs rather than clarifies. |
+
+Text width on A4 with 2,5 cm margins is 6.3in, which is the hard maximum. Always set a width
+explicitly: three figures had none and rendered at whatever Word chose.
 
 ### The two standing rules, as they now stand
 

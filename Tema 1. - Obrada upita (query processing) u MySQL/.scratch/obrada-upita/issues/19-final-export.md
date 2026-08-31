@@ -1,7 +1,7 @@
 # Final export, bibliography, and consistency pass
 
 Type: task
-Status: in progress - five of six checks pass; only the page-count decision is open
+Status: closed
 Blocked by: 02, 18
 
 ## Question
@@ -50,16 +50,31 @@ and all 15 now referenced from the body text. Eight were **not** referenced befo
 (4.1, 4.3, 4.4, 4.5, 4.6, 5.1, 5.2, 6.1) and three had **no explicit width** (1.1, 2.2, 2.3); both
 fixed under ticket 18. Every figure now carries a `{width=...}`.
 
-**4. Page count. OPEN, and it is the only thing left.** 26 rendered pages against the hard ≤25.
-See ticket 18's answer for what was measured and why 25 now costs either a figure or ~600 words of
-taught prose. Recommendation there: raise the ceiling to 26.
+**4. Page count. Answered, and the answer reframed the question.** The measurement was 26 against
+the hard ≤25, and the recommendation was to raise the ceiling to 26. The user did raise it, and then
+said the thing that actually settled it: *"the pictures are way too small now, not readable."* They
+were right, and it exposes what ticket 20's win cost. The 5.0in -> 4.3in cap reclaimed a page by
+making every figure the width the **page count** wanted, and this paper's figures are its evidence:
+`rad.md` has zero code fences, so every SQL statement, every `EXPLAIN` output and every flame graph
+is a figure. A page bought by making the evidence unreadable is not a page bought.
+
+Refixed by sizing each figure by **how much page height its aspect ratio makes it cost**, rather
+than by one number for all fifteen (table in `GLOSSARY.md` §4): under 0.45 goes to 6.2in, near the
+6.3in text width, since a wide short figure gains the most legibility for almost no height and is
+where the small type was; 0.45-0.70 goes to 5.5in; 0.70 and above to 5.0in; and Slika 2.1 stays at
+4.0in because its source is 500 px and enlarging it blurs. **Total image height 35.8in -> 45.3in
+for one page**, and the paper stands at **27**. The ≤25 ceiling is retired in `GLOSSARY.md` §4; it
+did its job, catching a 31-35 page trajectory, and is not a live constraint any more.
+
+Final composition: title page 1, chapters 24, reference list ~0.85. Chapter starts: 1 -> p2,
+2 -> p3, 3 -> p6, 4 -> p10, 5 -> p19, 6 -> p22, 7 -> p26, Reference -> p26.
 
 **5. Export.** `../tools/make-docx.ps1` runs clean, and `rad.docx` opens in Word with the title
 page on page 1, chapters starting on page 2, IEEE citations resolved [1]-[14], the reference list in
 English, and Serbian diacritics intact. Page setup is A4 with 2,5 cm margins, pinned in ticket 20,
-so pagination is the same on any machine. Chapter starts: 1 -> p2, 2 -> p3, 3 -> p6, 4 -> p10,
-5 -> p18, 6 -> p21, 7 -> p25, Reference -> p26.
+so pagination is the same on any machine.
 
-**6. Final commit.** Chapter 7 and these fixes are committed and pushed. What is left for this
-ticket is the page-count answer and, if the ceiling is raised, a one-line edit to `GLOSSARY.md` §4.
-
+**6. Final commit.** Committed and pushed in two commits: chapter 7 with these checks, then the
+figure resize with the ceiling retired. **The paper is finished.** What remains is the user's own
+read-through, and in Word: set the body's proofing language to Serbian (Latin), and paste the
+faculty seals into the band at the top of the title page.

@@ -35,7 +35,7 @@ SUBP-a jeste da među tim ekvivalentnim planovima pronađe i izabere najefikasni
 [@mysql84refman].
 
 ![Slika 1.1: Dva ekvivalentna plana izvršenja istog SQL upita, različite cene: sken preko indeksa (A)
-naspram skena cele tabele (B).](figures/01-uvod-01-jedan-upit-dva-plana.png){width=4.3in}
+naspram skena cele tabele (B).](figures/01-uvod-01-jedan-upit-dva-plana.png){width=6.2in}
 
 Slika 1.1 prikazuje ovu pojavu na konkretnom upitu nad sintetičkom tabelom `wide_events`. Isti upit
 `SELECT notes FROM wide_events WHERE country_code = 'US'` MySQL izvršava skenom preko indeksa
@@ -84,7 +84,7 @@ klasterovanog indeksa, varira od motora do motora i stoga ne može pripadati zaj
 [@mysql84refman].
 
 ![Slika 2.1: Arhitektura MySQL-a: serverski sloj i mehanizmi skladištenja. Preuzeto iz priručnika
-[@mysql84refman], Figure 18.3.](figures/02-arhitektura-00-mysql-architecture-official.png){width=3.6in}
+[@mysql84refman], Figure 18.3.](figures/02-arhitektura-00-mysql-architecture-official.png){width=4.0in}
 
 Slika 2.1 prikazuje tu podelu onako kako je crta sam priručnik. Sve što serverski sloj radi smešteno
 je u jedinstven proces, dok su motori zasebni i zamenljivi moduli ispod njega, povezani sa sistemom
@@ -123,10 +123,10 @@ taj uslov proverava nad torkom indeksa i tek ako je zadovoljen dohvata punu tork
 
 ![Slika 2.2: Plan upita sa uključenim spuštanjem uslova u indeks (ICP). Plameni grafikon iz `EXPLAIN
 ANALYZE FORMAT=JSON`, izmereno na živom serveru (MySQL
-8.4.11).](figures/02-arhitektura-01-icp-ukljucen.png){width=4.3in}
+8.4.11).](figures/02-arhitektura-01-icp-ukljucen.png){width=6.2in}
 
 ![Slika 2.3: Isti upit sa isključenim spuštanjem uslova, sa zasebnim čvorom `Filter` u
-planu.](figures/02-arhitektura-02-icp-iskljucen.png){width=4.3in}
+planu.](figures/02-arhitektura-02-icp-iskljucen.png){width=6.2in}
 
 Slike 2.2 i 2.3 prikazuju isti upit nad tabelom `wide_events`, sa uključenim i sa isključenim
 spuštanjem uslova. Pristupni put je u oba slučaja isti sken opsega preko istog indeksa, pa se menja
@@ -186,7 +186,7 @@ isključena, i predstavlja glavni prozor u odluke optimizatora do kraja rada; nj
 tema je poglavlja 4 [@mysql84refman].
 
 ![Slika 3.1: Pet faza obrade upita i granica cene, sa preslikavanjem na tri koraka u tragu
-optimizatora.](figures/03-od-sql-a-do-plana-04-pet-faza-pregled.png){width=4.3in}
+optimizatora.](figures/03-od-sql-a-do-plana-04-pet-faza-pregled.png){width=5.0in}
 
 Slika 3.1 prikazuje tih pet faza poređanih odozgo naniže, sa jednom linijom povučenom preko sredine.
 Sve iznad te linije menja oblik naredbe i radi se jednom, a sve ispod nje bira se po ceni i ponavlja
@@ -255,7 +255,7 @@ indeks postoji; on zapravo bira jeftiniji od dva izračunata puta, a koji je jef
 torki koje filter obuhvata [@mysql84refman].
 
 ![Slika 3.2: Ukrštanje cene skena tabele i cene skena opsega preko indeksa za isti upit, pri
-rastućem opsegu.](figures/03-od-sql-a-do-plana-01-ukrstanje-cena.png){width=4.1in}
+rastućem opsegu.](figures/03-od-sql-a-do-plana-01-ukrstanje-cena.png){width=5.5in}
 
 Slika 3.2 prikazuje obe cene za upit `SELECT notes FROM wide_events WHERE customer_id BETWEEN 1 AND N`,
 pri rastućem N. Cena skena tabele je konstantna, jer sken čita celu tabelu bez obzira na uslov, dok
@@ -327,7 +327,7 @@ torki čvora `Filter` u stablu; `FORMAT=JSON` verzije 1 isti broj daje gotov, u 
 stablo prikazuje kao zaseban čvor (Slika 4.1).
 
 ![Slika 4.1: Isti upit i isti plan u tri formata ispisa naredbe
-`EXPLAIN`.](figures/04-explain-01-tri-formata-jedan-plan.png){width=4.3in}
+`EXPLAIN`.](figures/04-explain-01-tri-formata-jedan-plan.png){width=5.5in}
 
 Podela na dva oblika nije, međutim, podela na tekstualni i mašinski čitljiv ispis. Počev od verzije
 8.3 postoji i druga verzija JSON formata, koja umesto oblika po tabeli daje isto stablo iteratora koje
@@ -372,7 +372,7 @@ najgorem [@mysql84refman]. Slika 4.2 prikazuje svih dvanaest, svaku izmerenu na 
 bazom `sakila`, uz boju koja ih grupiše po tome koliko torki jedan pristup može da vrati.
 
 ![Slika 4.2: Dvanaest vrednosti kolone `type`, poređanih redosledom iz priručnika i obojenih po broju
-torki koje jedan pristup može da vrati.](figures/04-explain-02-lestvica-tipova-pristupa.png){width=4.1in}
+torki koje jedan pristup može da vrati.](figures/04-explain-02-lestvica-tipova-pristupa.png){width=5.0in}
 
 Iz slike se vidi ono što se iz samog spiska ne vidi: te grupe se ne poklapaju sa redosledom iz
 priručnika. Tip `unique_subquery`, osmi po redu, vraća najviše jednu torku, isto što i treći po redu
@@ -468,7 +468,7 @@ dakle, znači da je odluka doneta na osnovu pogrešnog broja, ali ne i da je sam
 li jeste, vidi se tek kada se izabrani plan uporedi sa nekim drugim (Slika 4.3).
 
 ![Slika 4.3: Procena naspram stvarnog broja torki po čvorovima plana, i dejstvo histograma na koloni
-bez indeksa i na koloni sa indeksom.](figures/04-explain-03-procena-naspram-stvarnog.png){width=4.3in}
+bez indeksa i na koloni sa indeksom.](figures/04-explain-03-procena-naspram-stvarnog.png){width=5.5in}
 
 ## 4.6. Prosek po ponavljanju
 
@@ -481,7 +481,7 @@ dobija se, dakle, tek množenjem sa `loops`, zbog čega čvor sa najmanjim prija
 bude najskuplji deo plana. Vreme se čita na isti način, jer i `actual time` meri jedno ponavljanje (Slika 4.4).
 
 ![Slika 4.4: Vrednosti `rows` i `actual time` kao proseci po ponavljanju: prijavljeno vreme jednog
-ponavljanja naspram ukupnog vremena čvora.](figures/04-explain-04-loops-i-prosek.png){width=4.3in}
+ponavljanja naspram ukupnog vremena čvora.](figures/04-explain-04-loops-i-prosek.png){width=5.5in}
 
 ## 4.7. Plan koji ispis prikazuje kao savršen
 
@@ -513,7 +513,7 @@ ispravljena selektivnost stigne da taj broj podigne. Bolja statistika popravila 
 a nije promenila odluku (Slika 4.5).
 
 ![Slika 4.5: Isti upit u tri prikaza: procena koju ispisuje `EXPLAIN`, merenje koje dodaje `EXPLAIN
-ANALYZE` i alternativni plan dobijen naredbom `IGNORE INDEX`.](figures/04-explain-05-los-plan.png){width=4.3in}
+ANALYZE` i alternativni plan dobijen naredbom `IGNORE INDEX`.](figures/04-explain-05-los-plan.png){width=5.5in}
 
 Ono što `EXPLAIN ANALYZE` ni ovde nije pokazalo jeste zašto je lošiji plan uopšte izabran. Ispis
 meri jedan plan, onaj koji je pobedio, i ne pominje ni koje je alternative optimizator razmatrao ni
@@ -553,7 +553,7 @@ histogram nad kolonom `amount` popravlja procenu a ne menja plan: odluka nije ni
 procene (Slika 4.6).
 
 ![Slika 4.6: Trag optimizatora za upit iz odeljka 4.7, sa procenjenim pristupnim putevima i korakom
-koji je plan zamenio.](figures/04-explain-08-zasto-bas-ovaj-plan.png){width=4.3in}
+koji je plan zamenio.](figures/04-explain-08-zasto-bas-ovaj-plan.png){width=5.0in}
 
 Trag ipak nije potpun zapis pretrage. Vrednost `"chosen": true` znači „najbolji do sada”, a ne
 pobednika, pa se pobednik prepoznaje po manjoj vrednosti `cost_for_plan`, dok delimični planovi koji
@@ -635,7 +635,7 @@ procenila ni iterator čije bi se vreme merilo (Slika 5.1).
 
 ![Slika 5.1: Osam redova ispisa naredbe `EXPLAIN ANALYZE` i osam iteratora koji im odgovaraju:
 kontrola ide nadole kroz pozive metode `Read()`, a torke se vraćaju nagore, jedna po
-jedna.](figures/05-model-iteratora-01-stablo-iteratora.png){width=4.3in}
+jedna.](figures/05-model-iteratora-01-stablo-iteratora.png){width=6.2in}
 
 ## 5.3. Vrednost `loops` je broj poziva metode `Init()`
 
@@ -683,7 +683,7 @@ postoji: on je suprotnost materijalizaciji, jer se rezultat šalje klijentu kako
 njegovo prisustvo u stablu znak da na tom mestu barijere nema (Slika 5.2).
 
 ![Slika 5.2: Isti sken tabele sa istim uslovom i istim ograničenjem `LIMIT 10`, bez klauzule
-`ORDER BY` i sa njom.](figures/05-model-iteratora-02-pipeline-i-blokada.png){width=4.3in}
+`ORDER BY` i sa njom.](figures/05-model-iteratora-02-pipeline-i-blokada.png){width=6.2in}
 
 ## 5.5. Struktura `AccessPath` je plan, iterator je izvršavanje
 
@@ -779,7 +779,7 @@ Drugi uslov je odsustvo predikata, i on je granica koju ovo poglavlje traži (Sl
 
 ![Slika 6.1: Isti klasterovani sken tabele `wide_events`, bez klauzule `WHERE` i sa jednom takvom
 klauzulom, kroz pet vrednosti promenljive `innodb_parallel_read_threads` (medijana od tri merenja,
-MySQL 8.4.11).](figures/06-gde-mysql-ne-prati-obrazac-01-paralelni-sken-granica.png){width=4.3in}
+MySQL 8.4.11).](figures/06-gde-mysql-ne-prati-obrazac-01-paralelni-sken-granica.png){width=5.5in}
 
 Bez predikata, prelazak sa jedne na šesnaest niti daje ubrzanje od 2,9 puta; sa jednom jedinom
 dodatom klauzulom `WHERE`, isto to ubrzanje iznosi 1,01 puta, dakle ništa. Objašnjenje nije

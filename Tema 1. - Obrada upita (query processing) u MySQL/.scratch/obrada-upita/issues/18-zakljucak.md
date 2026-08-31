@@ -101,3 +101,12 @@ of chapters, and a bibliography. Trading a figure or a taught paragraph for one 
 paper. The alternative, if the user wants 25 exactly, is to drop one figure, and the cheapest one
 is **Slika 2.3** (the ICP-off half of a pair whose point survives in 2.2 plus the prose).
 
+
+### Resolved the same day, and not the way this ticket recommended
+
+The user raised the ceiling, and then said the thing that actually settled it: *"the pictures are
+way too small now, not readable."* Correct, and it is what ticket 20's page cost. The 5.0in -> 4.3in
+cap sized every figure to what the **page count** wanted, in a paper whose figures are its evidence.
+Refixed by sizing each figure by how much page height its aspect ratio makes it cost (table in
+`GLOSSARY.md` section 4), which took total image height 35.8in -> 45.3in for **one page**. The paper
+is finished at **27 pages** and the ceiling is retired. Slika 2.3 was not dropped; nothing was.

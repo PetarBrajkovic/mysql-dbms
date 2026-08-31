@@ -34,9 +34,10 @@ unaffordable to read (archived at `.scratch/obrada-upita/notes-archive-2026-08-2
 - **Chapter 5 (iterator model) is taught and written**, §5.1-5.5, with its 2 figures.
 - **Chapter 6 is taught and written**, §6.1-6.3, with its one figure. It has zero lecture-deck
   coverage, so every claim in it rests on a primary source or on this session's own measurements.
-- **All seven chapters are written.** Chapter 7 (Zaključak) needed no lesson, per `../WORKFLOW.md`,
-  and carries no figure. The paper renders at **26 pages** against the hard ≤25, which is the one
-  decision still open (ticket 18).
+- **All seven chapters are written and the paper is finished**, at **27 rendered pages**. Chapter 7
+  (Zaključak) needed no lesson, per `../WORKFLOW.md`, and carries no figure. The ≤25 ceiling is
+  **retired** (`GLOSSARY.md` §4): the user raised it and then found the figures unreadable, so
+  figure width is now chosen per figure by aspect ratio and is not a lever to shrink again.
 - **`SELECT COUNT(*)` never reads the clustered index** (every index is covering for it), so any
   parallel-read example in this topic needs `FORCE INDEX(PRIMARY)` or it measures the wrong plan.
   This bit once and is worth keeping in front of mind; the measured detail is in LR-0008.

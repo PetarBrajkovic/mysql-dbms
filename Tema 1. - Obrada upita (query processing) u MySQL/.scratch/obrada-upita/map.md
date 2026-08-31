@@ -317,18 +317,29 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   conclusion puts it there. Reaching 25 now costs a figure or ~600 words of taught prose, which the
   suspension does not license, so the ticket recommends raising the ceiling to 26.
 
+- [Final export, bibliography, and consistency pass](issues/19-final-export.md): the last ticket,
+  closed, and **the paper is finished at 27 rendered pages**. Bibliography verified (14 entries, 14
+  cited, no unknown keys, no dead links: the `dev.mysql.com` 403s are bot-blocking, checked through
+  a browser-shaped fetch). Terminology swept across all seven chapters, clean but for one accepted
+  divergence (`plan izvršenja` in `GLOSSARY.md` §2 against chapter 3's locked title *plana
+  izvršavanja*, both standard Serbian, renaming would ripple into six files for a wobble no reader
+  notices). All 15 figures numbered without gaps, captioned, cross-referenced and explicitly sized.
+  **The page ceiling is retired**, and the way it went is the finding: the user raised ≤25 to 26,
+  then said the figures were unreadable, which they were. Ticket 20's 5.0in -> 4.3in cap had bought
+  a page by sizing every figure to what the *page count* wanted, and in a paper with **zero code
+  fences** the figures *are* the evidence. Refixed by sizing each figure by how much page height its
+  aspect ratio costs (table in `GLOSSARY.md` §4): **35.8in -> 45.3in of image height for one page**,
+  because the wide, short figures that needed it most are nearly free. `../../WRITING.md` carries
+  the general lesson: a page reclaimed by shrinking a figure the reader cannot read is not a page
+  reclaimed.
+
 ## Not yet specified
 
-- **The page ceiling itself.** ≤25 or 26, the user's call; everything else about the paper is done.
-  See [Chapter 7. Zaključak](issues/18-zakljucak.md) for what was measured and
-  [Final export, bibliography, and consistency pass](issues/19-final-export.md) for what closes
-  behind it.
-- **The user's own read-through of the finished paper.** The *consistency* half of the proofreading
-  pass this section used to carry is done: every chapter was written with `serbian-grammar`, and
-  ticket 19 swept the locked terms across all seven chapters and found one accepted divergence
-  (`plan izvršenja` in `GLOSSARY.md` §2 against `plana izvršavanja` in chapter 3's locked title).
-  What no agent pass replaces is the author reading it end to end once, which also serves the
-  defense.
+- **The user's own read-through of the finished paper**, plus two things only Word does: setting the
+  body's proofing language to Serbian (Latin), and pasting the faculty seals into the title page.
+  The *consistency* half of the proofreading pass this section used to carry is done: every chapter
+  was written with `serbian-grammar`, and ticket 19 swept the locked terms. What no agent pass
+  replaces is the author reading it end to end once, which also serves the defense.
 
 ## Out of scope
 
