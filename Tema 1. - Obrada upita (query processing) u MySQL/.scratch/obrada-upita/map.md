@@ -36,6 +36,11 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
 - Paper in Serbian, written Serbian-first per chapter. Everything else (lessons, notes, commits,
   these files) in English.
 - All artifacts stay inside the `Tema 1. ...` folder. Tema 2 and Tema 3 will get their own.
+- **GitHub remote exists and is in use** (confirmed 2026-08-31): `origin` is
+  `github.com/PetarBrajkovic/mysql-dbms.git`, `master` tracks `origin/master`, and the repo root is
+  the **course** folder, so a push carries the shared layer and every topic together. This was listed
+  as unspecified/low-priority fog for most of the effort; it is settled, so push as part of finishing
+  a chapter rather than treating it as optional.
 - Subagents run on **haiku** with narrow, specific briefs.
 - Every substantive chapter needs runnable SQL plus at least one captioned figure.
 - Nominal timebox five weeks; no hard deadline.
@@ -237,7 +242,6 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   does at what row counts.
 - **A final Serbian proofreading / consistency pass** over the whole paper. Almost certainly needed,
   but its shape depends on how consistent the terminology glossary keeps things.
-- **GitHub remote.** The user wants it eventually; explicitly low priority. Local git only for now.
 - **Reference documents / cheat sheets** in the teach workspace (`reference/*.html`) — which ones
   earn their place is unknown until several lessons exist.
 
