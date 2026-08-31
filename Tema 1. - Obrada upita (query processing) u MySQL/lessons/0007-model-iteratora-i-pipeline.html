@@ -152,6 +152,24 @@ stabla se ne menja.</pre>
     (<code>examples/05-model-iteratora/01-stablo-iteratora.sql</code>, izmereno na MySQL 8.4.11).</figcaption>
 </figure>
 
+<p>Isti taj ispis, nacrtan kao stablo, pokazuje ono što uvlačenje samo nagoveštava:
+<strong>grananje postoji tačno tamo gde postoji spoj</strong>, a tabele dodiruju samo listovi.</p>
+
+<figure class="fig">
+  <img src="../figures/05-model-iteratora-03-stablo-nacrtano.png"
+       alt="Isti plan kao na prethodnoj slici, ali nacrtan kao stablo. Osam pravougaonika, u svakom
+            red ispisa, ispod njega klasa iteratora, pa izmerene vrednosti rows i loops: Limit,
+            Sort, Stream results, Group aggregate, Nested loop inner join, pa dva ulaza spoja --
+            Filter iznad Index scan-a i Covering index lookup. Svaka grana nosi dve strelice:
+            crvenu nadole, oznacenu poziv Read(), i zelenu nagore, oznacenu jedna torka. Uz granu
+            ka unutrasnjem ulazu spoja stoji natpis Init() plus Read(), 584 puta. Ispod dva lista
+            isprekidane linije vode do tabela customer i rental, uz natpis handler API.">
+  <figcaption><b>Slika 5.2</b> — Isto stablo kao na slici 5.1, samo nacrtano: uvlačenje u
+    ispisu je odnos roditelj-dete, grananje postoji jedino tamo gde postoji spoj, a tabele dodiruju
+    samo listovi, preko <code>handler</code> API-ja iz poglavlja 2
+    (<code>examples/05-model-iteratora/01-stablo-iteratora.sql</code>, izmereno na MySQL 8.4.11).</figcaption>
+</figure>
+
 <p>Preslikavanje nije analogija nego mehanika. Tekst koji <code>FORMAT=TREE</code> ispisuje generiše
 se u <code>sql/join_optimizer/explain_access_path.cc</code>, a iterator se pravi u
 <code>sql/join_optimizer/access_path.cc</code> — obe datoteke se granaju po istom polju
@@ -273,12 +291,12 @@ Apsolutne vrednosti zavise od stanja bafer-pula; odnos ne zavisi.</pre>
             tacka na kraju ose, oznacena natpisom blokira: prva torka jednaka poslednjoj torki,
             dok Filter i Table scan ispod njega imaju duge trake koje se prostiru preko vecine
             ose. Na skenu u panelu B stoji rows=5000000.">
-  <figcaption><b>Slika 5.2</b> — Isti sken, deset pročitanih torki naspram pet miliona. Trajanje
+  <figcaption><b>Slika 5.3</b> — Isti sken, deset pročitanih torki naspram pet miliona. Trajanje
     trake je vreme od prve do poslednje torke; kod blokirajućeg čvora traka se skuplja u tačku
     (<code>examples/05-model-iteratora/02-pipeline-i-blokada.sql</code>, izmereno na MySQL 8.4.11).</figcaption>
 </figure>
 
-<p>Slika 5.2 pokazuje i kako se blokada prepoznaje bez ikakvog poznavanja operatora. Priručnik kaže
+<p>Slika 5.3 pokazuje i kako se blokada prepoznaje bez ikakvog poznavanja operatora. Priručnik kaže
 da <code>EXPLAIN ANALYZE</code> po iteratoru prijavljuje „Time to return first row" i „Time spent
 executing this iterator", što je ono što se u ispisu vidi kao <code>actual time=prvo..poslednje</code>.
 Odatle sledi pravilo koje vredi zapamtiti:</p>

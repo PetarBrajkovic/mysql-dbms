@@ -1,0 +1,77 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' width='1580' height='1188' viewBox='0 0 1580 1188'>
+<rect width='1580' height='1188' fill='#ffffff'/>
+<text x='790' y='46' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='25' font-weight='bold' fill='#1a1a1a'>Isto stablo, nacrtano: kontrola ide nadole, torke se vra&#263;aju nagore</text>
+<text x='790' y='76' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>Svaki pravougaonik je jedan objekat koji za vreme izvr&#353;avanja postoji u memoriji; svaka grana je jedan poziv metoda &#183; MySQL 8.4.11, baza sakila</text>
+<text x='790' y='150' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='12.5' fill='#8a8578'>U svakom pravougaoniku: red ispisa, ispod njega klasa iteratora, pa izmerene vrednosti rows i loops</text>
+<text x='790' y='106' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c'>SELECT c.last_name, COUNT(*) AS n FROM customer c JOIN rental r ON r.customer_id = c.customer_id</text>
+<text x='790' y='124' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c'>WHERE c.active = 1 GROUP BY c.customer_id ORDER BY n DESC LIMIT 5</text>
+<defs>
+<marker id='m3down' markerWidth='10' markerHeight='10' refX='5' refY='9' orient='auto'><path d='M0,0 L5,9 L10,0 Z' fill='#7a1f1f'/></marker>
+<marker id='m3up' markerWidth='10' markerHeight='10' refX='5' refY='1' orient='auto'><path d='M0,10 L5,1 L10,10 Z' fill='#2e6b2e'/></marker>
+</defs>
+<line x1='677.8' y1='271' x2='677.8' y2='301' stroke='#7a1f1f' stroke-width='2' marker-end='url(#m3down)'/>
+<line x1='699.8' y1='301' x2='699.8' y2='271' stroke='#2e6b2e' stroke-width='2' marker-end='url(#m3up)'/>
+<line x1='677.8' y1='383' x2='677.8' y2='413' stroke='#7a1f1f' stroke-width='2' marker-end='url(#m3down)'/>
+<line x1='699.8' y1='413' x2='699.8' y2='383' stroke='#2e6b2e' stroke-width='2' marker-end='url(#m3up)'/>
+<line x1='677.8' y1='495' x2='677.8' y2='525' stroke='#7a1f1f' stroke-width='2' marker-end='url(#m3down)'/>
+<line x1='699.8' y1='525' x2='699.8' y2='495' stroke='#2e6b2e' stroke-width='2' marker-end='url(#m3up)'/>
+<line x1='677.8' y1='607' x2='677.8' y2='637' stroke='#7a1f1f' stroke-width='2' marker-end='url(#m3down)'/>
+<line x1='699.8' y1='637' x2='699.8' y2='607' stroke='#2e6b2e' stroke-width='2' marker-end='url(#m3up)'/>
+<line x1='680.1' y1='702.3' x2='426.2' y2='744' stroke='#7a1f1f' stroke-width='2' marker-end='url(#m3down)'/>
+<line x1='429.7' y1='765.7' x2='683.6' y2='724' stroke='#2e6b2e' stroke-width='2' marker-end='url(#m3up)'/>
+<line x1='693.9' y1='724' x2='947.8' y2='765.7' stroke='#7a1f1f' stroke-width='2' marker-end='url(#m3down)'/>
+<line x1='951.3' y1='744' x2='697.4' y2='702.3' stroke='#2e6b2e' stroke-width='2' marker-end='url(#m3up)'/>
+<line x1='410' y1='831' x2='410' y2='861' stroke='#7a1f1f' stroke-width='2' marker-end='url(#m3down)'/>
+<line x1='432' y1='861' x2='432' y2='831' stroke='#2e6b2e' stroke-width='2' marker-end='url(#m3up)'/>
+<text x='662.8' y='286' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='14' font-weight='bold' fill='#7a1f1f'>poziv Read() &#8595;</text>
+<text x='714.8' y='286' font-family="Georgia, 'Times New Roman', serif" font-size='14' font-weight='bold' fill='#2e6b2e'>&#8593; jedna torka</text>
+<text x='1046.4' y='714' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13' font-weight='bold' fill='#7a1f1f'>Init() + Read(), 584&#215;</text>
+<text x='1046.4' y='732' font-family="Georgia, 'Times New Roman', serif" font-size='12.5' fill='#5a564c'>jednom po torki spolja&#353;njeg ulaza</text>
+<rect x='600.4' y='196' width='176.8' height='68' rx='8' fill='#ffffff' stroke='#c9c3b6' stroke-width='1.3'/>
+<text x='688.8' y='222' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#1a1a1a'>Limit: 5 row(s)</text>
+<text x='688.8' y='241' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#2e6b2e'>LimitOffsetIterator</text>
+<text x='688.8' y='257' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#5a564c'>rows=5   loops=1</text>
+<rect x='478.4' y='308' width='420.7' height='68' rx='8' fill='#ffffff' stroke='#c9c3b6' stroke-width='1.3'/>
+<text x='688.8' y='334' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#1a1a1a'>Sort: n DESC, limit input to 5 row(s) per chunk</text>
+<text x='688.8' y='353' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#2e6b2e'>SortingIterator</text>
+<text x='688.8' y='369' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#5a564c'>rows=5   loops=1</text>
+<rect x='606.6' y='420' width='164.2' height='68' rx='8' fill='#ffffff' stroke='#c9c3b6' stroke-width='1.3'/>
+<text x='688.8' y='446' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#1a1a1a'>Stream results</text>
+<text x='688.8' y='465' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#2e6b2e'>StreamingIterator</text>
+<text x='688.8' y='481' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#5a564c'>rows=584   loops=1</text>
+<rect x='567.5' y='532' width='242.5' height='68' rx='8' fill='#ffffff' stroke='#c9c3b6' stroke-width='1.3'/>
+<text x='688.8' y='558' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#1a1a1a'>Group aggregate: count(0)</text>
+<text x='688.8' y='577' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#2e6b2e'>AggregateIterator</text>
+<text x='688.8' y='593' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#5a564c'>rows=584   loops=1</text>
+<rect x='579.6' y='644' width='218.2' height='68' rx='8' fill='#ffffff' stroke='#7a1f1f' stroke-width='2.2'/>
+<text x='688.8' y='670' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#1a1a1a'>Nested loop inner join</text>
+<text x='688.8' y='689' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#2e6b2e'>NestedLoopIterator</text>
+<text x='688.8' y='705' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#5a564c'>rows=15640   loops=1</text>
+<rect x='303.8' y='756' width='234.4' height='68' rx='8' fill='#ffffff' stroke='#c9c3b6' stroke-width='1.3'/>
+<text x='421' y='782' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#1a1a1a'>Filter: (c.`active` = 1)</text>
+<text x='421' y='801' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#2e6b2e'>FilterIterator</text>
+<text x='421' y='817' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#5a564c'>rows=584   loops=1</text>
+<rect x='283.6' y='868' width='274.9' height='68' rx='8' fill='#f5f2ec' stroke='#c9c3b6' stroke-width='1.3'/>
+<text x='421' y='894' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#1a1a1a'>Index scan on c using PRIMARY</text>
+<text x='421' y='913' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#2e6b2e'>IndexScanIterator&lt;false&gt;</text>
+<text x='421' y='929' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#5a564c'>rows=599   loops=1</text>
+<rect x='616.5' y='756' width='679.9' height='68' rx='8' fill='#f5f2ec' stroke='#c9c3b6' stroke-width='1.3'/>
+<text x='956.4' y='782' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='13.5' fill='#1a1a1a'>Covering index lookup on r using idx_fk_customer_id (customer_id=c.customer_id)</text>
+<text x='956.4' y='801' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#2e6b2e'>RefIterator&lt;false&gt;</text>
+<text x='956.4' y='817' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#5a564c'>rows=26.8   loops=584</text>
+<line x1='421' y1='936' x2='421' y2='996' stroke='#8a8578' stroke-width='1.4' stroke-dasharray='4 5'/>
+<text x='433' y='970' font-family="Georgia, 'Times New Roman', serif" font-size='12.5' fill='#8a8578'>handler API (poglavlje 2)</text>
+<rect x='316' y='996' width='210' height='54' rx='27' fill='#f0ece3' stroke='#d8d3c8' stroke-width='1.2'/>
+<text x='421' y='1019' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='15' font-weight='bold' fill='#5a564c'>tabela customer</text>
+<text x='421' y='1038' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#8a8578'>PRIMARY</text>
+<line x1='956.4' y1='824' x2='956.4' y2='884' stroke='#8a8578' stroke-width='1.4' stroke-dasharray='4 5'/>
+<text x='968.4' y='858' font-family="Georgia, 'Times New Roman', serif" font-size='12.5' fill='#8a8578'>handler API (poglavlje 2)</text>
+<rect x='851.4' y='884' width='210' height='54' rx='27' fill='#f0ece3' stroke='#d8d3c8' stroke-width='1.2'/>
+<text x='956.4' y='907' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='15' font-weight='bold' fill='#5a564c'>tabela rental</text>
+<text x='956.4' y='926' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#8a8578'>idx_fk_customer_id</text>
+<rect x='40' y='1084' width='1500' height='78' fill='#7a1f1f' opacity='0.06'/>
+<text x='790' y='1108' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16' font-weight='bold' fill='#7a1f1f'>8 objekata &#183; 7 grana &#183; 2 lista dodiruju tabele</text>
+<text x='790' y='1130' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>Nijedan &#269;vor ne zna ceo plan: zna samo svoju decu, koju pita za slede&#263;u torku. Grananje postoji ta&#269;no tamo gde postoji spoj.</text>
+<text x='790' y='1152' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>Isti ispis i ista merenja kao na prethodnoj slici &#183; ovde je samo nacrtano ono &#353;to uvla&#269;enje u ispisu ionako zna&#269;i.</text>
+</svg>
+

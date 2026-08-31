@@ -69,7 +69,11 @@ defense — it is not a textbook Volcano executor.
 
 Chapter 5 is taught. Ticket 14 remains open on steps 2-4 of its definition of done: run the two
 scripts in `examples/05-model-iteratora/` (WORKFLOW step 2), then write §5 with
-`academic-research-writer` (step 3) using the two figures already built, then close the record.
+`academic-research-writer` (step 3) using the two figures the cap allows (01 and 02), then close the
+record. A third figure, `05-model-iteratora-03-stablo-nacrtano.png`, was added to the lesson on
+2026-08-31 - the same plan drawn as nodes and edges, because both paper figures show indented text,
+which is the shape the chapter argues against. It is **lesson-only** and shifts the lesson's numbering
+(pipeline figure is now Slika 5.3 in the lesson, Slika 5.2 in the paper).
 
 Budget is **3 rendered pages** and the figure cap of **2** is fully spent. The export stood at 19
 pages with chapters 1-4 written, so re-measure with `..\tools\make-docx.ps1` right after §5 lands —

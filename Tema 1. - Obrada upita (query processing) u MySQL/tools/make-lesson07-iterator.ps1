@@ -1,8 +1,9 @@
 <#
 .SYNOPSIS
-  Builds chapter 5's two figures - the iterator tree, and pipeline vs. blocking:
+  Builds chapter 5's three figures - the iterator tree, pipeline vs. blocking, and the tree drawn:
     figures/05-model-iteratora-01-stablo-iteratora.png   (+ .svg twin)
     figures/05-model-iteratora-02-pipeline-i-blokada.png (+ .svg twin)
+    figures/05-model-iteratora-03-stablo-nacrtano.png    (+ .svg twin)  lesson only
 
 .DESCRIPTION
   myflames does not apply to either. Figure 1's point is the MAPPING from each printed node to a
@@ -33,17 +34,26 @@
           signature, in the same plan as (h);
       (j) B is at least 50x slower than A end to end.
 
+    Figure 3 - the same tree, drawn (sakila)
+      Same run and same assertions as figure 1 - it draws the identical eight iterators - plus:
+      (k) NEGATIVE assertion: the plan must actually branch. If no node has two children the plan
+          is a chain, and a figure captioned "stablo, ne spisak" would be a lie;
+      (l) every leaf names a table the query itself declares, so the storage row underneath the
+          leaves is labelled from the query, not from memory.
+      Chapter 5's figure cap in GLOSSARY.md is 2 and both are spent, so this one is for the lesson;
+      rad.md keeps figures 1 and 2 as its Slika 5.1 and 5.2.
+
   Query source of truth:
     examples/05-model-iteratora/01-stablo-iteratora.sql
     examples/05-model-iteratora/02-pipeline-i-blokada.sql
 
 .EXAMPLE
   .\tools\make-lesson07-iterator.ps1
-  .\tools\make-lesson07-iterator.ps1 -Only 2      # while iterating on one figure's layout
+  .\tools\make-lesson07-iterator.ps1 -Only 3      # while iterating on one figure's layout
 #>
 param(
-    [ValidateSet('both','1','2')]
-    [string]$Only = 'both'
+    [ValidateSet('all','both','1','2','3')]
+    [string]$Only = 'all'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -166,44 +176,57 @@ function Save-Svg([string]$svg, [string]$outBase, [int]$W, [int]$H) {
     Write-Host "Done: $pngPath"
 }
 
-# =============================================================== FIGURE 1 =====
-if ($Only -in @('both','1')) {
-
-$q1 = @'
+# ============================================================ SHARED DATA =====
+# One live run of chapter 5's Sakila query, plus the assertions figures 1 and 3 both rest on. The
+# two figures draw the same iterators - figure 1 as the server prints them, figure 3 as the tree
+# that printout describes - so they must never be drawn off two different runs, or off a run that
+# has stopped backing the claim.
+function Get-TreeData {
+    $q = @'
 SELECT c.last_name, COUNT(*) AS n FROM customer c JOIN rental r ON r.customer_id = c.customer_id
 WHERE c.active = 1 GROUP BY c.customer_id ORDER BY n DESC LIMIT 5
 '@
-$q1flat = ($q1 -split "`n" | ForEach-Object { $_.Trim() }) -join ' '
+    $flat = ($q -split "`n" | ForEach-Object { $_.Trim() }) -join ' '
+    $nodes = Parse-Nodes (Run-Explain 'sakila' "EXPLAIN ANALYZE $flat;")
 
-$nodes1 = Parse-Nodes (Run-Explain 'sakila' "EXPLAIN ANALYZE $q1flat;")
+    # --- (a) the plan really is a chain of iterators
+    if ($nodes.Count -lt 6) { throw "Chapter 5 needs at least 6 iterator nodes, got $($nodes.Count)." }
 
-# --- (a) the plan really is a chain of iterators
-if ($nodes1.Count -lt 6) { throw "Figure 1 needs at least 6 iterator nodes, got $($nodes1.Count)." }
+    $nl = $nodes | Where-Object { $_.Desc -like 'Nested loop*' } | Select-Object -First 1
+    if (-not $nl) { throw "Chapter 5 expects a nested-loop join; the optimizer chose something else." }
+    $outer = $nodes | Where-Object { $_.Depth -eq $nl.Depth + 1 } | Select-Object -First 1
+    $inner = $nodes | Where-Object { $_.Depth -eq $nl.Depth + 1 } | Select-Object -Last 1
+    if ($outer.Desc -eq $inner.Desc) { throw "Chapter 5 could not tell the join's two inputs apart." }
 
-$nl    = $nodes1 | Where-Object { $_.Desc -like 'Nested loop*' } | Select-Object -First 1
-if (-not $nl) { throw "Figure 1 expects a nested-loop join; the optimizer chose something else." }
-$outer = $nodes1 | Where-Object { $_.Depth -eq $nl.Depth + 1 } | Select-Object -First 1
-$inner = $nodes1 | Where-Object { $_.Depth -eq $nl.Depth + 1 } | Select-Object -Last 1
-if ($outer.Desc -eq $inner.Desc) { throw "Figure 1 could not tell the join's two inputs apart." }
+    # --- (c) loops on the inner input == rows out of the outer input
+    $activeRaw = & mysql --defaults-extra-file="$creds" -D sakila -N -B --raw -e "SELECT COUNT(*) FROM customer WHERE active = 1;"
+    $active = [int]($activeRaw | Select-Object -First 1)
+    if ($inner.Loops -ne [int]$outer.Rows) {
+        throw "Chapter 5: inner loops ($($inner.Loops)) != outer rows ($($outer.Rows)); the Init()-per-outer-row claim fails."
+    }
+    if ($inner.Loops -ne $active) {
+        throw "Chapter 5: inner loops ($($inner.Loops)) != active customers ($active)."
+    }
 
-# --- (c) loops on the inner input == rows out of the outer input
-$activeRaw = & mysql --defaults-extra-file="$creds" -D sakila -N -B --raw -e "SELECT COUNT(*) FROM customer WHERE active = 1;"
-$active = [int]($activeRaw | Select-Object -First 1)
-if ($inner.Loops -ne [int]$outer.Rows) {
-    throw "Figure 1: inner loops ($($inner.Loops)) != outer rows ($($outer.Rows)); the Init()-per-outer-row claim fails."
+    # --- (d) rows x loops on the inner node reconstructs the join's row count
+    $recon = $inner.Rows * $inner.Loops
+    $dev = [math]::Abs($recon - $nl.Rows) / $nl.Rows
+    if ($dev -gt 0.02) {
+        throw ("Chapter 5: rows x loops = {0} but the join reports {1} ({2:P1} off); the per-loop-average claim fails." -f $recon, $nl.Rows, $dev)
+    }
+    Write-Host ("Plan: {0} nodes; inner loops={1} = outer rows; {2} x {3} = {4} ~ join {5}" -f `
+        $nodes.Count, $inner.Loops, (D $inner.Rows), $inner.Loops, (D $recon 0), (D $nl.Rows 0))
+
+    return @{ Nodes = $nodes; NL = $nl; Outer = $outer; Inner = $inner; Active = $active; Recon = $recon; Query = $q }
 }
-if ($inner.Loops -ne $active) {
-    throw "Figure 1: inner loops ($($inner.Loops)) != active customers ($active)."
-}
 
-# --- (d) rows x loops on the inner node reconstructs the join's row count
-$recon = $inner.Rows * $inner.Loops
-$dev = [math]::Abs($recon - $nl.Rows) / $nl.Rows
-if ($dev -gt 0.02) {
-    throw ("Figure 1: rows x loops = {0} but the join reports {1} ({2:P1} off); the per-loop-average claim fails." -f $recon, $nl.Rows, $dev)
-}
-Write-Host ("Fig 1: {0} nodes; inner loops={1} = outer rows; {2} x {3} = {4} ~ join {5}" -f `
-    $nodes1.Count, $inner.Loops, (D $inner.Rows), $inner.Loops, (D $recon 0), (D $nl.Rows 0))
+# =============================================================== FIGURE 1 =====
+if ($Only -in @('all','both','1')) {
+
+$t1 = Get-TreeData
+$nodes1 = @($t1.Nodes)
+$q1 = $t1.Query
+$nl = $t1.NL; $inner = $t1.Inner; $active = $t1.Active; $recon = $t1.Recon
 
 # --- layout
 $W1 = 1580
@@ -266,7 +289,7 @@ Save-Svg $svg1.ToString() 'figures\05-model-iteratora-01-stablo-iteratora' $W1 $
 }
 
 # =============================================================== FIGURE 2 =====
-if ($Only -in @('both','2')) {
+if ($Only -in @('all','both','2')) {
 
 $qA = 'SELECT id, amount FROM wide_events WHERE amount > 100 LIMIT 10'
 $qB = 'SELECT id, amount FROM wide_events WHERE amount > 100 ORDER BY amount LIMIT 10'
@@ -377,4 +400,194 @@ $svg2 = [System.Text.StringBuilder]::new()
 [void]$svg2.AppendLine('</svg>')
 
 Save-Svg $svg2.ToString() 'figures\05-model-iteratora-02-pipeline-i-blokada' $W2 $H2
+}
+
+# =============================================================== FIGURE 3 =====
+# Lesson-only. Figures 1 and 2 both show indented TEXT, which is the shape chapter 5 argues against;
+# this one draws the very same eight iterators as boxes and edges, so "plan nije spisak koraka nego
+# stablo objekata" finally has a picture behind it. Same live run, same assertions, plus a
+# structural one: the plan has to branch, or the caption is a lie.
+if ($Only -in @('all','both','3')) {
+
+$t3 = Get-TreeData
+$nodes3 = @($t3.Nodes)
+$nl3 = $t3.NL; $inner3 = $t3.Inner; $active3 = $t3.Active; $recon3 = $t3.Recon
+
+# --- parent/child, read straight out of the printed indentation
+$kids = @{}
+for ($i = 0; $i -lt $nodes3.Count; $i++) { $kids[$i] = @() }
+for ($i = 0; $i -lt $nodes3.Count; $i++) {
+    for ($j = $i + 1; $j -lt $nodes3.Count; $j++) {
+        if ($nodes3[$j].Depth -le $nodes3[$i].Depth) { break }
+        if ($nodes3[$j].Depth -eq $nodes3[$i].Depth + 1) { $kids[$i] += $j }
+    }
+}
+$leafIdx   = @(0..($nodes3.Count - 1) | Where-Object { $kids[$_].Count -eq 0 })
+$branchIdx = @(0..($nodes3.Count - 1) | Where-Object { $kids[$_].Count -ge 2 })
+
+# --- (k) NEGATIVE assertion: the plan must actually branch, or this figure has nothing to say
+if ($branchIdx.Count -lt 1) { throw "Figure 3: no node has two children - this plan is a chain, and a figure captioned 'stablo, ne spisak' would be a lie." }
+if ($leafIdx.Count -lt 2)   { throw "Figure 3: $($leafIdx.Count) leaf iterator(s); a tree needs at least two." }
+
+# --- (l) the storage row is labelled from the query own FROM/JOIN list, never from memory
+$alias = @{}
+foreach ($m in [regex]::Matches($t3.Query, '(?i)\b(?:FROM|JOIN)\s+([A-Za-z_][A-Za-z0-9_]*)\s+(?:AS\s+)?([A-Za-z_][A-Za-z0-9_]*)\b')) {
+    $alias[$m.Groups[2].Value] = $m.Groups[1].Value
+}
+function Leaf-Meta([string]$desc) {
+    if ($desc -match '\bon\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+using\s+([^\s(]+))?') {
+        $a = $Matches[1]; $ix = $Matches[2]
+        if (-not $alias.ContainsKey($a)) { throw "Figure 3: leaf '$desc' reads '$a', which the query never declares." }
+        return @{ Alias = $a; Table = $alias[$a]; Index = $ix }
+    }
+    throw "Figure 3: leaf '$desc' names no table, so the handler row under it cannot be labelled."
+}
+$leafMeta = @{}
+foreach ($i in $leafIdx) { $leafMeta[$i] = Leaf-Meta $nodes3[$i].Desc }
+
+$nlIdx = @(0..($nodes3.Count - 1) | Where-Object { $nodes3[$_].Desc -eq $nl3.Desc })[0]
+$innerIdx = $kids[$nlIdx][-1]
+Write-Host ("Fig 3: {0} nodes, {1} edges, {2} leaves; branch at '{3}'" -f $nodes3.Count, ($nodes3.Count - 1), $leafIdx.Count, $nodes3[$branchIdx[0]].Desc)
+
+# --- box metrics. Font sizes stay strings: a comma decimal separator would break the SVG.
+function Vis([string]$s) { return ($s -replace '&lt;','<' -replace '&gt;','>' -replace '&amp;','&').Length }
+$fsD = '13.5'; $fsC = '12'; $fsM = '11.5'
+$padX = 20; $bh = 68
+$boxW = @{}; $boxMeas = @{}
+for ($i = 0; $i -lt $nodes3.Count; $i++) {
+    $n = $nodes3[$i]
+    $meas = ''
+    if ($null -ne $n.Rows) { $meas = "rows=$(D $n.Rows 1)   loops=$($n.Loops)" }
+    $boxMeas[$i] = $meas
+    # The comma binds tighter than * in PowerShell, so every element is parenthesised.
+    $wide = (@( ((Vis (Esc $n.Desc)) * 0.60 * 13.5), ((Vis $n.Class) * 0.60 * 12.0), ($meas.Length * 0.60 * 11.5) ) |
+             Measure-Object -Maximum).Maximum
+    $boxW[$i] = [math]::Round($wide + 2 * $padX, 1)
+}
+
+# --- x from a post-order walk of the leaves, y from the printed depth
+$leafGap = 58
+$script:cur3 = 0.0
+$xc = @{}
+function Place3([int]$i) {
+    if ($kids[$i].Count -eq 0) {
+        $xc[$i] = $script:cur3 + $boxW[$i] / 2
+        $script:cur3 += $boxW[$i] + $leafGap
+        return
+    }
+    $cs = @()
+    foreach ($c in $kids[$i]) { Place3 $c; $cs += $xc[$c] }
+    $xc[$i] = ((($cs | Measure-Object -Minimum).Minimum) + (($cs | Measure-Object -Maximum).Maximum)) / 2
+}
+Place3 0
+
+$lefts  = @(0..($nodes3.Count - 1) | ForEach-Object { $xc[$_] - $boxW[$_] / 2 })
+$rights = @(0..($nodes3.Count - 1) | ForEach-Object { $xc[$_] + $boxW[$_] / 2 })
+$minL = ($lefts | Measure-Object -Minimum).Minimum
+$span = (($rights | Measure-Object -Maximum).Maximum) - $minL
+$M3 = 40
+$W3 = [int][math]::Max(1580, $span + 2 * $M3 + 60)
+$shift = ($W3 - $span) / 2 - $minL
+for ($i = 0; $i -lt $nodes3.Count; $i++) { $xc[$i] = $xc[$i] + $shift }
+
+$top3 = 196
+$vgap = 112
+$yTop = @{}
+for ($i = 0; $i -lt $nodes3.Count; $i++) { $yTop[$i] = $top3 + $nodes3[$i].Depth * $vgap }
+
+$b3 = [System.Text.StringBuilder]::new()
+[void]$b3.AppendLine("<defs>
+<marker id='m3down' markerWidth='10' markerHeight='10' refX='5' refY='9' orient='auto'><path d='M0,0 L5,9 L10,0 Z' fill='$accent'/></marker>
+<marker id='m3up' markerWidth='10' markerHeight='10' refX='5' refY='1' orient='auto'><path d='M0,10 L5,1 L10,10 Z' fill='$itrCol'/></marker>
+</defs>")
+
+# --- every edge carries both directions: a red Read() going down, a green row coming back up
+for ($i = 0; $i -lt $nodes3.Count; $i++) {
+    foreach ($c in $kids[$i]) {
+        $x1 = $xc[$i]; $y1 = $yTop[$i] + $bh
+        $x2 = $xc[$c]; $y2 = $yTop[$c]
+        $dx = $x2 - $x1; $dy = $y2 - $y1
+        $len = [math]::Sqrt($dx * $dx + $dy * $dy)
+        $ux = $dx / $len; $uy = $dy / $len
+        $ox = -$uy * 11; $oy = $ux * 11        # 11 px to each side of the edge
+        $trim = 7
+        $ax1 = $x1 + $ux * $trim + $ox; $ay1 = $y1 + $uy * $trim + $oy
+        $ax2 = $x2 - $ux * $trim + $ox; $ay2 = $y2 - $uy * $trim + $oy
+        $bx1 = $x1 + $ux * $trim - $ox; $by1 = $y1 + $uy * $trim - $oy
+        $bx2 = $x2 - $ux * $trim - $ox; $by2 = $y2 - $uy * $trim - $oy
+        [void]$b3.AppendLine("<line x1='$(D $ax1 1)' y1='$(D $ay1 1)' x2='$(D $ax2 1)' y2='$(D $ay2 1)' stroke='$accent' stroke-width='2' marker-end='url(#m3down)'/>")
+        [void]$b3.AppendLine("<line x1='$(D $bx2 1)' y1='$(D $by2 1)' x2='$(D $bx1 1)' y2='$(D $by1 1)' stroke='$itrCol' stroke-width='2' marker-end='url(#m3up)'/>")
+    }
+}
+
+# --- the two directions are named once, on the topmost edge
+$c0 = $kids[0][0]
+$lx = ($xc[0] + $xc[$c0]) / 2; $ly = ($yTop[0] + $bh + $yTop[$c0]) / 2
+[void]$b3.AppendLine("<text x='$(D ($lx-26) 1)' y='$(D $ly 1)' text-anchor='end' font-family=`"$serif`" font-size='14' font-weight='bold' fill='$accent'>poziv Read() $arrD</text>")
+[void]$b3.AppendLine("<text x='$(D ($lx+26) 1)' y='$(D $ly 1)' font-family=`"$serif`" font-size='14' font-weight='bold' fill='$itrCol'>$arrU jedna torka</text>")
+
+# --- and the join inner edge says how many times it is walked
+$jx = $xc[$innerIdx] + 90; $jy = $yTop[$innerIdx] - 24
+[void]$b3.AppendLine("<text x='$(D $jx 1)' y='$(D ($jy-18) 1)' font-family=`"$mono`" font-size='13' font-weight='bold' fill='$accent'>Init() + Read(), $active3$tim</text>")
+[void]$b3.AppendLine("<text x='$(D $jx 1)' y='$(D $jy 1)' font-family=`"$serif`" font-size='12.5' fill='$soft'>jednom po torki spolja${dsh}njeg ulaza</text>")
+
+# --- the nodes themselves
+for ($i = 0; $i -lt $nodes3.Count; $i++) {
+    $n = $nodes3[$i]
+    $bx = $xc[$i] - $boxW[$i] / 2
+    $by = $yTop[$i]
+    $isBranch = $kids[$i].Count -ge 2
+    $stroke = if ($isBranch) { $accent } else { '#c9c3b6' }
+    $sw     = if ($isBranch) { '2.2' } else { '1.3' }
+    $fill   = if ($kids[$i].Count -eq 0) { '#f5f2ec' } else { '#ffffff' }
+    [void]$b3.AppendLine("<rect x='$(D $bx 1)' y='$by' width='$(D $boxW[$i] 1)' height='$bh' rx='8' fill='$fill' stroke='$stroke' stroke-width='$sw'/>")
+    [void]$b3.AppendLine("<text x='$(D $xc[$i] 1)' y='$($by+26)' text-anchor='middle' font-family=`"$mono`" font-size='$fsD' fill='$ink'>$(Esc $n.Desc)</text>")
+    [void]$b3.AppendLine("<text x='$(D $xc[$i] 1)' y='$($by+45)' text-anchor='middle' font-family=`"$mono`" font-size='$fsC' fill='$itrCol'>$($n.Class)</text>")
+    if ($boxMeas[$i] -ne '') {
+        [void]$b3.AppendLine("<text x='$(D $xc[$i] 1)' y='$($by+61)' text-anchor='middle' font-family=`"$mono`" font-size='$fsM' fill='$soft'>$($boxMeas[$i])</text>")
+    }
+}
+
+# --- only the leaves touch a table, and they do it through the handler API of chapter 2
+$deepest = 0
+foreach ($i in $leafIdx) {
+    $lm = $leafMeta[$i]
+    $sy = $yTop[$i] + $bh + 60
+    [void]$b3.AppendLine("<line x1='$(D $xc[$i] 1)' y1='$($yTop[$i]+$bh)' x2='$(D $xc[$i] 1)' y2='$sy' stroke='$dim' stroke-width='1.4' stroke-dasharray='4 5'/>")
+    [void]$b3.AppendLine("<text x='$(D ($xc[$i]+12) 1)' y='$($sy-26)' font-family=`"$serif`" font-size='12.5' fill='$dim'>handler API (poglavlje 2)</text>")
+    $tw = [int][math]::Max(210, ($lm.Table.Length + 8) * 10)
+    [void]$b3.AppendLine("<rect x='$(D ($xc[$i]-$tw/2) 1)' y='$sy' width='$tw' height='54' rx='27' fill='#f0ece3' stroke='$rule' stroke-width='1.2'/>")
+    [void]$b3.AppendLine("<text x='$(D $xc[$i] 1)' y='$($sy+23)' text-anchor='middle' font-family=`"$serif`" font-size='15' font-weight='bold' fill='$soft'>tabela $($lm.Table)</text>")
+    if ($lm.Index) {
+        [void]$b3.AppendLine("<text x='$(D $xc[$i] 1)' y='$($sy+42)' text-anchor='middle' font-family=`"$mono`" font-size='11.5' fill='$dim'>$($lm.Index)</text>")
+    }
+    if (($sy + 54) -gt $deepest) { $deepest = $sy + 54 }
+}
+
+# --- the closing band
+$leafWord = if ($leafIdx.Count -le 4) { 'lista' } else { 'listova' }
+$leafVerb = if ($leafIdx.Count -le 4) { 'dodiruju' } else { 'dodiruje' }
+$y = $deepest + 64
+[void]$b3.AppendLine("<rect x='$M3' y='$($y-30)' width='$($W3-2*$M3)' height='78' fill='$accent' opacity='0.06'/>")
+[void]$b3.AppendLine("<text x='$($W3/2)' y='$($y-6)' text-anchor='middle' font-family=`"$mono`" font-size='16' font-weight='bold' fill='$accent'>$($nodes3.Count) objekata $mid $($nodes3.Count - 1) grana $mid $($leafIdx.Count) $leafWord $leafVerb tabele</text>")
+[void]$b3.AppendLine("<text x='$($W3/2)' y='$($y+16)' text-anchor='middle' font-family=`"$serif`" font-size='13.5' fill='$soft'>Nijedan ${dcc}vor ne zna ceo plan: zna samo svoju decu, koju pita za slede${dca}u torku. Grananje postoji ta${dcc}no tamo gde postoji spoj.</text>")
+[void]$b3.AppendLine("<text x='$($W3/2)' y='$($y+38)' text-anchor='middle' font-family=`"$serif`" font-size='13.5' fill='$soft'>Isti ispis i ista merenja kao na prethodnoj slici $mid ovde je samo nacrtano ono ${dsh}to uvla${dcc}enje u ispisu ionako zna${dcc}i.</text>")
+$H3 = $y + 74
+
+$svg3 = [System.Text.StringBuilder]::new()
+[void]$svg3.AppendLine("<svg xmlns='http://www.w3.org/2000/svg' width='$W3' height='$H3' viewBox='0 0 $W3 $H3'>")
+[void]$svg3.AppendLine("<rect width='$W3' height='$H3' fill='#ffffff'/>")
+[void]$svg3.AppendLine("<text x='$($W3/2)' y='46' text-anchor='middle' font-family=`"$serif`" font-size='25' font-weight='bold' fill='$ink'>Isto stablo, nacrtano: kontrola ide nadole, torke se vra${dca}aju nagore</text>")
+[void]$svg3.AppendLine("<text x='$($W3/2)' y='76' text-anchor='middle' font-family=`"$serif`" font-size='13.5' fill='$soft'>Svaki pravougaonik je jedan objekat koji za vreme izvr${dsh}avanja postoji u memoriji; svaka grana je jedan poziv metoda $mid MySQL 8.4.11, baza sakila</text>")
+$qy = 106
+[void]$svg3.AppendLine("<text x='$($W3/2)' y='150' text-anchor='middle' font-family=`"$serif`" font-size='12.5' fill='$dim'>U svakom pravougaoniku: red ispisa, ispod njega klasa iteratora, pa izmerene vrednosti rows i loops</text>")
+foreach ($ln in ($t3.Query -split "`n")) {
+    if ($ln.Trim() -eq '') { continue }
+    [void]$svg3.AppendLine("<text x='$($W3/2)' y='$qy' text-anchor='middle' font-family=`"$mono`" font-size='12.5' fill='$soft'>$(Esc $ln.Trim())</text>")
+    $qy += 18
+}
+[void]$svg3.Append($b3.ToString())
+[void]$svg3.AppendLine('</svg>')
+
+Save-Svg $svg3.ToString() 'figures\05-model-iteratora-03-stablo-nacrtano' $W3 $H3
 }

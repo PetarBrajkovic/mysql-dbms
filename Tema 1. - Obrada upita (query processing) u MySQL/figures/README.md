@@ -25,7 +25,7 @@ switched to an automated, agent-run one).
 | 2 Arhitektura | 3 | official reused architecture diagram, plus an ICP-on/ICP-off flame graph pair |
 | 3 Od SQL-a do plana | 2 | parse/resolve stage, then optimized plan |
 | 4 EXPLAIN i EXPLAIN ANALYZE | 4 (lekcije su napravile 9) | access-type ladder, estimated-vs-actual divergence, JSON/TREE formats, trace excerpt |
-| 5 Iterator model | 2 | iterator/pipeline diagram, one EXPLAIN ANALYZE tree read as an iterator chain |
+| 5 Iterator model | 2 (lekcija je napravila 3) | iterator/pipeline diagram, one EXPLAIN ANALYZE tree read as an iterator chain |
 | 6 Vektorizovano | 1 | row-at-a-time evidence |
 | 7 Paralelno | 1 | `innodb_parallel_read_threads` non-effect on ordinary SELECT |
 | 8 Plan cache | 2 | prepared-statement parse-tree reuse vs. "no shared plan cache" |
@@ -49,7 +49,7 @@ All live in this topic's own `tools/`. The two generic entry points (`make-figur
 | `make-lesson04-three-formats.ps1` | same query in all three formats | two formats are table-shaped, one is iterator-shaped |
 | `make-lesson05-explain-analyze.ps1` | chapter 4b's three figures | divergence holds, histogram closes the gap on the non-indexed column but not the indexed one, per-loop count stays fractional, the alternative plan still wins. `-SkipBadPlan` while iterating on layout |
 | `make-lesson06-optimizer-trace.ps1` | chapter 4c's four figures | the load-bearing **negative** assertion: `idx_created_at` must **not** appear in `considered_execution_plans`. Figure 09 starts two real background clients. `-SkipForConnection` while iterating |
-| `make-lesson07-iterator.ps1` | chapter 5's two figures | every printed TREE node must resolve to a known iterator class (an unmapped node throws); inner `loops` == outer `rows`; `rows × loops` reconstructs the join's row count. The **negative** assertion: the `LIMIT`-only plan must contain **no** `Sort` node, or the whole pipeline/blocking contrast is a lie. `-Only 1` / `-Only 2` while iterating |
+| `make-lesson07-iterator.ps1` | chapter 5's three figures (the third is lesson-only) | every printed TREE node must resolve to a known iterator class (an unmapped node throws); inner `loops` == outer `rows`; `rows × loops` reconstructs the join's row count. The **negative** assertion: the `LIMIT`-only plan must contain **no** `Sort` node, or the whole pipeline/blocking contrast is a lie. Figure 3 redraws figure 1's run as a real node-and-edge tree off the same `Get-TreeData` call, and adds its own negative assertion: the plan must actually branch, or a figure captioned "stablo, ne spisak" would be a lie. `-Only 1` / `-Only 2` / `-Only 3` while iterating |
 
 ## Non-SQL figures in this paper
 

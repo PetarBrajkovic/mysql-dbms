@@ -11,12 +11,13 @@ never when planning a lesson. All numbers measured on MySQL 8.4.11, 2026-08-31.
 | `reference/06-model-iteratora.html` | reference card 06 |
 | `examples/05-model-iteratora/01-stablo-iteratora.sql` | Sakila query, `FORMAT=TREE` + `EXPLAIN ANALYZE` + the active-customer count that the `loops` claim is checked against |
 | `examples/05-model-iteratora/02-pipeline-i-blokada.sql` | the `LIMIT` pair on `wide_events` |
-| `tools/make-lesson07-iterator.ps1` | builds both figures; `-Only 1` / `-Only 2` while iterating |
-| `figures/05-model-iteratora-01-stablo-iteratora.png` (+ `.svg`) | Slika 5.1 |
-| `figures/05-model-iteratora-02-pipeline-i-blokada.png` (+ `.svg`) | Slika 5.2 |
+| `tools/make-lesson07-iterator.ps1` | builds all three figures; `-Only 1` / `-Only 2` / `-Only 3` while iterating |
+| `figures/05-model-iteratora-01-stablo-iteratora.png` (+ `.svg`) | paper Slika 5.1, lesson Slika 5.1 |
+| `figures/05-model-iteratora-02-pipeline-i-blokada.png` (+ `.svg`) | paper Slika 5.2, **lesson Slika 5.3** |
+| `figures/05-model-iteratora-03-stablo-nacrtano.png` (+ `.svg`) | **lesson only**, lesson Slika 5.2 - the tree drawn as nodes and edges (added 2026-08-31) |
 | `GLOSSARY.md` §2f | chapter 5 terminology |
 
-Chapter 5's figure cap is **2** (GLOSSARY §4, firm). Both are used; no room for a third.
+Chapter 5's figure cap is **2** (GLOSSARY §4, firm) and both are spent, so `rad.md` takes figures 01 and 02 as its Slika 5.1 and 5.2. Figure 03 is a **lesson-only** figure, which is why the lesson numbers its three figures 5.1 / 5.2 / 5.3 while the paper will number two of them 5.1 / 5.2. Do not add figure 03 to `rad.md` without giving a page back somewhere.
 
 ## Measurement 1 — the iterator tree (sakila)
 
