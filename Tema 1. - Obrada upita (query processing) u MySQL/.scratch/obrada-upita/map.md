@@ -43,6 +43,11 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   a chapter rather than treating it as optional.
 - Subagents run on **haiku** with narrow, specific briefs.
 - Every substantive chapter needs runnable SQL plus at least one captioned figure.
+- **Reference cards: one per lesson, no deliberation** (settled 2026-08-31). This was charted as fog
+  ("which ones earn their place is unknown until several lessons exist"); six lessons produced six
+  cards, `reference/00-`..`05-`, so the question answered itself. Write one with each lesson rather
+  than curating a set afterwards. They are user-facing learning artifacts, so they are in Serbian and
+  are **not** read by default when teaching (`../TEACHING.md`).
 - Nominal timebox five weeks; no hard deadline.
 - **Citation sourcing (set 2026-08-22):** the user's own university material — the lecture decks and
   PDFs in `../../Predavanja/` (Stoimenov SUBP slides) — is for *learning* only and is **never cited**
@@ -242,8 +247,6 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   does at what row counts.
 - **A final Serbian proofreading / consistency pass** over the whole paper. Almost certainly needed,
   but its shape depends on how consistent the terminology glossary keeps things.
-- **Reference documents / cheat sheets** in the teach workspace (`reference/*.html`) — which ones
-  earn their place is unknown until several lessons exist.
 
 ## Out of scope
 
