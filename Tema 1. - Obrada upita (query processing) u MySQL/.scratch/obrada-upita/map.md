@@ -48,7 +48,13 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   cards, `reference/00-`..`05-`, so the question answered itself. Write one with each lesson rather
   than curating a set afterwards. They are user-facing learning artifacts, so they are in Serbian and
   are **not** read by default when teaching (`../TEACHING.md`).
-- Nominal timebox five weeks; no hard deadline.
+- Nominal timebox five weeks; no hard deadline. **Pacing settled 2026-08-31**, from the actual
+  history rather than a guess: charting to a finished chapter 4 took **11 days** (2026-08-20 to
+  08-31), sessions landing roughly **every two days**, one lesson *or* one chapter per session. The
+  established rhythm is that **a lesson and its chapter are written in different sessions** (4a
+  taught 08-24 / written 08-26; 4b 08-26 / 08-28; 4c 08-28 / 08-31), which is also why the map's
+  one-ticket-per-session norm has held. Three chapters remain, so ~6 sessions, comfortably inside
+  the five weeks. Do not plan a session that teaches *and* writes the same chapter.
 - **Citation sourcing (set 2026-08-22):** the user's own university material — the lecture decks and
   PDFs in `../../Predavanja/` (Stoimenov SUBP slides) — is for *learning* only and is **never cited**
   in the paper. Deck-backed claims are cited to their published origin instead: Ramakrishnan & Gehrke
@@ -241,7 +247,6 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
 
 ## Not yet specified
 
-- **Session pacing across the five weeks.** Depends on how heavy the first chapter turns out.
 - **Whether the synthetic dataset needs to grow or change** for the parallel-execution chapter
   specifically — unknown until the MySQL install and the first EXPLAIN runs reveal what the optimizer
   does at what row counts.
