@@ -4,7 +4,7 @@
 **Chapter:** 4 (EXPLAIN i EXPLAIN ANALYZE), lesson 4c of three
 **Lesson:** `lessons/0006-optimizer-trace-i-explain-for-connection.html`
 **Reference card:** `reference/05-optimizer-trace.html`
-**Status:** taught; ticket 13c's write-up still to run
+**Status:** taught and written (`rad.md` §4.8-4.9, 2026-08-31); ticket 13c closed
 
 ## What was taught
 
@@ -91,9 +91,14 @@ starts, and optimization and planning are one block in it.
 
 ## Next
 
-Chapter 4 is now taught end to end (4a, 4b, 4c). What remains is ticket 13c's write-up: `rad.md`
-§4.8 or thereabouts, at ~1 page. The budget question this raised is settled — the user raised
-chapter 4 from 6 to 6.6 pages rather than squeeze 4c (`GLOSSARY.md` §4).
+Chapter 4 is **written** end to end (4a, 4b, 4c): §4.1-4.9, with insight (a) as §4.8's spine, exactly
+as this record recommended. Chapter 4 kept its 6.6 pages and 4c kept its full page.
+
+**The paper is now seven chapters, not nine** (old 6/7/8 merged into chapter 6), under a hard ≤25
+rendered-page target set on 2026-08-31 when the export hit 20 pages with four chapters written. The
+figure budget is now a firm cap. See `GLOSSARY.md` §4 and
+`.scratch/obrada-upita/issues/20-page-budget-and-chapter-merge.md` before planning lesson 07's
+figures.
 
 Lesson 07 belongs to **chapter 5 (iterator model)**, and it inherits a ready-made hook: this lesson
 established that the trace stops at `join_optimization` and that `join_execution` is empty, so

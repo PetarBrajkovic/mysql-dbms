@@ -58,6 +58,19 @@ rules, both the user's own decisions:
 - **Do not trim pre-emptively.** A chapter's real length is only known once it is written; a few
   pages over the nominal total is not a problem.
 
+Both are defaults, and a topic may **suspend the first one** if it hits a real page ceiling. Record
+the suspension in that topic's `GLOSSARY.md` §4, with the date and what it does and does not
+license; do not silently override the rule here. Tema 1 suspended it on 2026-08-31.
+
+**State the budget in rendered DOCX pages, and re-measure after every chapter.** A budget in any
+other unit drifts unnoticed: Tema 1's chapters 1-4 were budgeted at 13.6 and rendered at ~17 before
+anyone counted. Export with `..\tools\make-docx.ps1` and read the page count in Word.
+
+**Size figures explicitly.** An image with no `{width=...}` renders at its intrinsic pixel size, so a
+low-resolution PNG can eat half a page for no reason (Tema 1's 500 px architecture diagram rendered
+5.2 x 5.6 in). Capping the tall figures and tightening paragraph spacing reclaimed two full pages
+there with nothing removed, which is always the first lever to reach for.
+
 ## Export
 
 ```powershell

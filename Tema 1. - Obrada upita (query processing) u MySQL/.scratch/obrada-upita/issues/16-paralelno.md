@@ -1,8 +1,12 @@
 # Chapter 7. Paralelno izvrsavanje upita
 
 Type: task
-Status: open
+Status: closed - superseded
 Blocked by: 15
+
+**Merged into [chapter 6](21-gde-mysql-ne-prati-obrazac.md) as §6.2 on 2026-08-31**, with tickets 15
+and 17, under the ≤25-page target. Scope is unchanged and carried over verbatim; only the chapter
+boundary moved. Nothing here was cut.
 
 ## Question
 

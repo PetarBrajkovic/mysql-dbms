@@ -4,11 +4,14 @@ Label: `wayfinder:map`
 
 ## Destination
 
-A finished ~20-page seminar paper in Serbian on query processing in MySQL — IEEE-cited, illustrated
-with captioned figures of real query execution, exported to Word/PDF — built up chapter by chapter,
-where each chapter is *first taught* to the user as a lesson and *then* written. Reached when
-`rad.md` contains all nine chapters, the bibliography is complete, and the DOCX/PDF export is
+A finished seminar paper in Serbian on query processing in MySQL, **≤25 rendered pages** — IEEE-cited,
+illustrated with captioned figures of real query execution, exported to Word/PDF — built up chapter by
+chapter, where each chapter is *first taught* to the user as a lesson and *then* written. Reached when
+`rad.md` contains all **seven** chapters, the bibliography is complete, and the DOCX/PDF export is
 verified.
+
+**Revised 2026-08-31**: nine chapters became seven (old 6/7/8 merged), and the nominal "~20 pages"
+became a hard ≤25 measured in the export. See [Fit the paper to a page ceiling](issues/20-page-budget-and-chapter-merge.md).
 
 ## Notes
 
@@ -192,6 +195,39 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   per-chapter loop, and it also corrected research memo `05-explain-semantics.md` §2.6.
   **Budget flag left open for 13c**: chapter 4 stands at ~5,6 of its 6 pages, so 13c either takes
   ~0,5 pages or the chapter goes slightly over. The user's call, and nothing gets trimmed for it.
+
+- [Chapter 4c. Trag optimizatora](issues/13c-optimizer-trace.md): chapter 4 finished, §4.8-4.9,
+  ~590 words plus one figure, and it did **not** fold into 4b. The spine is stronger than the ticket
+  asked for: `EXPLAIN` printing the winner and not the losers is delivered (§4.2's
+  `idx_fk_original_language_id` is now *shown* losing on `"cause": "cost"`, measured rather than
+  inferred), but the centre of gravity is §4.7's bad plan. `considered_execution_plans` costs
+  **exactly one** access path for `wide_events`, the table scan, and `idx_created_at` never appears
+  there at all; the later `reconsidering_access_paths_for_index_ordering` step flips the plan with an
+  **empty `"steps"` array**. So the plan `EXPLAIN` prices at 0,846 was **installed by a rule, not won
+  in a comparison**, and that price is computed *after* the swap. `LIMIT` is the trigger, verified by
+  removing it and by `LIMIT 10000`; this retroactively explains why §4.7's histogram corrected the
+  estimate and changed nothing. Written honestly about the trace's limits (`"chosen": true` means
+  "best so far"; pruned plans survive only as `"pruned_by_cost"`; session-scoped; truncates). §4.9
+  gives `EXPLAIN FOR CONNECTION` the other half of the two-window framing, its error outcomes written
+  as measured on 8.4.11 rather than as the manual's wording. No new citations. Sixth clean pass of the
+  per-chapter loop.
+
+- [Fit the paper to a page ceiling](issues/20-page-budget-and-chapter-merge.md): the user flagged the
+  DOCX at 20 pages with chapters still to go. **Measuring first reframed it**: only ~1,5 pages are
+  front/back matter (not the 4-5 assumed), figures are ~4,5, and since `rad.md` has **zero code
+  fences** every SQL statement in the paper *is* a figure, so "remove a couple of pictures" deletes
+  evidence and saves ~0,4 pages each against a projected 31-35. Decisions: ~20 is soft but **≤25
+  rendered pages is hard**; the standing *"never trim written prose"* rule is **suspended** for this
+  paper (scoped to redundancy, not to taught material); **old chapters 6/7/8 merge into chapter 6**
+  with the conclusion becoming 7; the figure budget becomes a **firm cap** (ch5: 2, ch6: 1, ch7: 0);
+  chapter 4 keeps its 6.6 and 4c keeps its full page. **Layout alone took 20 -> 18 with nothing
+  removed** (explicit figure widths — Slika 2.1 was rendering 5,21 x 5,55 in off a 500 px PNG — plus
+  10pt -> 6pt paragraph spacing). Also fixed a latent bug found on the way: neither the export nor the
+  shared reference doc set `pgSz`/`pgMar`, so pagination depended on whose Word opened the file; now
+  pinned to A4/2,5 cm. **The prose trim under-delivered** (~90 words, not ~2 pages — the prose is
+  already dense), which is recorded so it is not budgeted as a lever again. The budget is now stated
+  in **rendered DOCX pages** and re-measured every chapter; the old unit is why 13.6 budgeted pages
+  rendered as ~17 unnoticed.
 
 ## Not yet specified
 

@@ -1,8 +1,12 @@
 # Chapter 6. Vektorizovano izvrsavanje
 
 Type: task
-Status: open
+Status: closed - superseded
 Blocked by: 14
+
+**Merged into [chapter 6](21-gde-mysql-ne-prati-obrazac.md) as §6.1 on 2026-08-31**, with tickets 16
+and 17, under the ≤25-page target. Scope is unchanged and carried over verbatim; only the chapter
+boundary moved. Nothing here was cut.
 
 ## Question
 

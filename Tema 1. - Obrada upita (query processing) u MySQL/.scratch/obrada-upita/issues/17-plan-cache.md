@@ -1,8 +1,12 @@
 # Chapter 8. Kesiranje i ponovna upotreba planova
 
 Type: task
-Status: open
+Status: closed - superseded
 Blocked by: 16
+
+**Merged into [chapter 6](21-gde-mysql-ne-prati-obrazac.md) as §6.3 on 2026-08-31**, with tickets 15
+and 16, under the ≤25-page target. Scope is unchanged and carried over verbatim, including the
+`GLOSSARY.md` §3 hard constraint on plan cache vs parse-tree cache; only the chapter boundary moved.
 
 ## Question
 

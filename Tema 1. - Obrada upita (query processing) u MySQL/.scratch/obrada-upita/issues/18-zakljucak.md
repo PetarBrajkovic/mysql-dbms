@@ -1,8 +1,12 @@
-# Chapter 9. Zakljucak
+# Chapter 7. Zakljucak
 
 Type: task
 Status: open
-Blocked by: 17
+Blocked by: 21
+
+**Renumbered 9 -> 7 on 2026-08-31** when old chapters 6/7/8 merged into chapter 6; blocker moved from
+ticket 17 to [ticket 21](21-gde-mysql-ne-prati-obrazac.md). **Target length cut to ~0.75 rendered
+pages** under the ≤25-page target (`GLOSSARY.md` §4), and it gets **no figure**.
 
 ## Question
 

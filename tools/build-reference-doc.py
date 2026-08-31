@@ -17,6 +17,11 @@ bibliography, the Consolas inline-code font in VerbatimChar) untouched:
                          front page is unaffected - exactly as asked.
   * Figure / CaptionedFigure -> centered (the paragraph that holds the image).
   * ImageCaption      -> centered (the "Slika N: ..." caption under the image).
+  * docDefaults spacing-after -> 200 twips (10pt) down to 120 (6pt). Pandoc's
+    default puts 10pt under EVERY paragraph, which on a body of ~70 paragraphs
+    costs most of a page in whitespace alone. 6pt still separates paragraphs
+    clearly in a justified body. Decided 2026-08-31 when Tema 1 hit its page
+    ceiling; see that topic's GLOSSARY.md section 4.
 
 SQL/code needs no style patch here: inline code already uses the default
 Consolas VerbatimChar, and code BLOCKS are colored by --highlight-style, which
@@ -33,6 +38,15 @@ import sys
 import zipfile
 
 STYLES_PATH = "word/styles.xml"
+DOCUMENT_PATH = "word/document.xml"
+
+# A4 with 2.5 cm margins, in twips (1440 per inch, 567 per cm). Pandoc's default
+# reference.docx specifies NO page size or margins at all, which means every
+# reader's Word supplies its own defaults and the same .docx paginates
+# differently on different machines. Pinning it makes the export deterministic,
+# and A4/2.5cm is the standard the faculty expects anyway.
+PAGE_W, PAGE_H = 11906, 16838
+MARGIN = 1417
 
 
 def default_reference_docx() -> bytes:
@@ -72,19 +86,55 @@ def set_style_jc(xml: str, style_id: str, val: str) -> str:
     return xml[: m.start()] + head + body + tail + xml[m.end():]
 
 
+def set_default_spacing_after(xml: str, twips: int) -> str:
+    """Patch w:after on the document-wide paragraph default, which every body
+    style inherits. Twips: 20 per point, so 120 == 6pt."""
+    def repl(m: re.Match) -> str:
+        return re.sub(r'w:after="\d+"', f'w:after="{twips}"', m.group(0))
+
+    patched, n = re.subn(r"<w:pPrDefault>.*?</w:pPrDefault>", repl, xml, count=1, flags=re.S)
+    if n:
+        print(f"  docDefaults -> spacing after={twips} twips ({twips / 20:g}pt)")
+    else:
+        print("  WARN: pPrDefault not found, spacing left alone")
+    return patched
+
+
+def set_page_setup(xml: str) -> str:
+    """Give the body section an explicit A4 page size and margins. Both elements
+    are inserted at the START of w:sectPr, which is where the schema requires
+    them (pgSz and pgMar precede footnotePr)."""
+    pg = (
+        f'<w:pgSz w:w="{PAGE_W}" w:h="{PAGE_H}"/>'
+        f'<w:pgMar w:top="{MARGIN}" w:right="{MARGIN}" w:bottom="{MARGIN}" '
+        f'w:left="{MARGIN}" w:header="708" w:footer="708" w:gutter="0"/>'
+    )
+    xml = re.sub(r"\s*<w:pgSz\b[^>]*/>|\s*<w:pgMar\b[^>]*/>", "", xml)
+    patched, n = re.subn(r"(<w:sectPr\b[^>]*>)", r"\1" + pg, xml, count=1)
+    if n:
+        print(f"  page setup -> A4, {MARGIN / 567:.1f}cm margins")
+    else:
+        print("  WARN: sectPr not found, page setup left alone")
+    return patched
+
+
 def main() -> None:
     src = default_reference_docx()
     zin = zipfile.ZipFile(io.BytesIO(src))
     styles = zin.read(STYLES_PATH).decode("utf-8")
+    document = set_page_setup(zin.read(DOCUMENT_PATH).decode("utf-8"))
 
     styles = set_style_jc(styles, "Normal", "both")
     for sid in ("Figure", "CaptionedFigure", "ImageCaption"):
         styles = set_style_jc(styles, sid, "center")
+    styles = set_default_spacing_after(styles, 120)
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
+        replacements = {STYLES_PATH: styles, DOCUMENT_PATH: document}
         for item in zin.infolist():
-            data = styles.encode("utf-8") if item.filename == STYLES_PATH else zin.read(item.filename)
+            new = replacements.get(item.filename)
+            data = new.encode("utf-8") if new is not None else zin.read(item.filename)
             zout.writestr(item, data)
 
     out = pathlib.Path(__file__).resolve().parent.parent / "assets" / "reference-paper.docx"

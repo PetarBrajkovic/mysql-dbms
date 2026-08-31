@@ -238,25 +238,46 @@ locked here — they're a guess for chapters not yet researched-and-taught (espe
 ticket exists precisely so nothing gets fixed before it's known. Each chapter ticket's own
 `academic-research-writer` pass produces subheadings naturally from the material at write time.
 
-| # | Chapter | Page budget |
+**Revised 2026-08-31** (page-ceiling session). Chapters 6, 7 and 8 are **merged into one chapter**,
+and the budget is now stated in **rendered DOCX pages**, not in a private unit. That switch is the
+point: the old table's numbers were never measured against an export, so chapters 1-4 budgeted at
+13.6 rendered as ~17 pages of body and nobody noticed until the document hit 20.
+
+| # | Chapter | Budget (rendered pages) |
 |---|---|---|
 | 1 | Uvod | 1.5 |
 | 2 | Arhitektura obrade upita u MySQL-u | 2 |
 | 3 | Od SQL-a do plana izvršavanja | 3.5 |
-| 4 | EXPLAIN i EXPLAIN ANALYZE | 6.6 |
+| 4 | EXPLAIN i EXPLAIN ANALYZE (4a + 4b + 4c) | 6.6 |
 | 5 | Iterator model i pipeline operatora | 3 |
-| 6 | Vektorizovano izvršavanje | 2 |
-| 7 | Paralelno izvršavanje upita | 2 |
-| 8 | Keširanje i ponovna upotreba planova | 2 |
-| 9 | Zaključak | 1 |
+| 6 | Gde MySQL ne prati obrazac (6.1 vektorizacija, 6.2 paralelizam, 6.3 keširanje planova) | 2.5 |
+| 7 | Zaključak | 0.75 |
 
-Total ≈ 23.6 pages against the map's nominal "~20 pages" — accepted; a few pages over is not a problem.
-Do not trim pre-emptively; a chapter's real length is only known once it's written.
+**Hard target: ≤ 25 rendered pages**, title page and reference list included. Not the old "~20
+nominal, a few over is fine" — the projection at the end of chapter 4 was 31-35 pages, which is
+what forced this revision.
+
+**Measured checkpoint (2026-08-31): 19 pages with chapters 1-4 complete.** Re-measure after every
+chapter with `..\tools\make-docx.ps1`; the budget is only real if it is checked against the export.
+That leaves ~6 pages for chapters 5-7, so if chapter 5 comes in over 3, chapter 6 gives the page back.
+
+**Figure cap, firm** (was "soft guidance" under ticket 09): chapter 5 gets **2** figures, chapter 6
+gets **1**, chapter 7 gets **0**. Figures are ~25% of the page count, which is where the paper grew
+without anyone noticing.
+
+### The two standing rules, as they now stand
+
+- **"Never trim written prose to make room"** is **suspended for this paper** (user's decision,
+  2026-08-31, reversing their own earlier calls of 2026-08-26 and 2026-08-28). Chapters 1-4 are
+  re-openable. The suspension is scoped to the page-ceiling problem: it licenses tightening
+  redundancy and over-explanation, **not** dropping taught material, figures, or citations.
+  `../WRITING.md` still carries the rule as the course-wide default.
+- **"Do not trim pre-emptively"** stands. A chapter is still written to its natural length first and
+  measured second.
 
 Chapter 4's budget was raised twice by the user (4 -> 6 on 2026-08-26, 6 -> 6.6 on 2026-08-28) as
-its three lessons turned out denser than planned. The standing rule from both decisions:
-**never trim written prose to make room** — raise the budget instead. Reasoning:
-`.scratch/obrada-upita/terminology-rationale.md`.
+its three lessons turned out denser than planned; it keeps that 6.6 and was **not** cut in this
+revision. Reasoning: `.scratch/obrada-upita/terminology-rationale.md`.
 
 ## 5. Voice and citation density
 

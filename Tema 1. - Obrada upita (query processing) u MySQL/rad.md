@@ -55,13 +55,12 @@ MySQL-u:
   kojima se procenjena cena poredi sa onim što se pri izvršavanju zaista dogodilo.
 - Poglavlje 5 objašnjava kako se izabrani plan izvršava kroz **model iteratora (iterator model) i
   pipeline operatora**: operatori povlače torke jedan od drugog, torku po torku.
-- Poglavlje 6 razmatra **vektorizovano izvršavanje**, grupnu i kolonski orijentisanu alternativu
-  izvršavanju torku po torku, kao i položaj MySQL-a u odnosu na nju.
-- Poglavlje 7 ispituje **paralelno izvršavanje upita**, korišćenje više procesorskih jezgara za
-  jedan upit i stvarne granice paralelnosti u MySQL-u.
-- Poglavlje 8 obrađuje **keširanje i ponovnu upotrebu planova**: pitanje može li se izabrani plan
-  ponovo iskoristiti umesto da se računa iznova i šta MySQL zapravo kešira (keš plana, plan cache).
-- Poglavlje 9 donosi **zaključak**, provlačeći nit do kraja, od deklarativnog SQL-a nazad do
+- Poglavlje 6 skuplja na jedno mesto tri tačke u kojima **MySQL ne prati obrazac** drugih sistema:
+  **vektorizovano izvršavanje**, grupnu i kolonski orijentisanu alternativu izvršavanju torku po
+  torku; **paralelno izvršavanje upita**, korišćenje više procesorskih jezgara za jedan upit i
+  stvarne granice paralelnosti u MySQL-u; i **keširanje i ponovnu upotrebu planova**, pitanje može
+  li se izabrani plan ponovo iskoristiti umesto da se računa iznova i šta MySQL zapravo kešira.
+- Poglavlje 7 donosi **zaključak**, provlačeći nit do kraja, od deklarativnog SQL-a nazad do
   fizičkog izvršenja.
 
 # 2. Arhitektura obrade upita u MySQL-u
@@ -89,7 +88,7 @@ klasterovanog indeksa, varira od motora do motora i stoga ne može pripadati zaj
 [@mysql84refman].
 
 ![Slika 2.1: Arhitektura MySQL-a: serverski sloj i mehanizmi skladištenja. Preuzeto iz priručnika
-[@mysql84refman], Figure 18.3.](figures/02-arhitektura-00-mysql-architecture-official.png)
+[@mysql84refman], Figure 18.3.](figures/02-arhitektura-00-mysql-architecture-official.png){width=3.6in}
 
 Slika 2.1 prikazuje tu podelu onako kako je crta sam priručnik. Sve što serverski sloj radi smešteno
 je u jedinstven proces, dok su motori zasebni i zamenljivi moduli ispod njega, povezani sa sistemom
@@ -104,7 +103,7 @@ bira redosled spoja i pristupni put po ceni, a izvršilac izabrani plan pretvara
 [@mysqlsource84]. Kroz sve korake putuje jedan isti objekat, `THD`, u kodu opisan kao deskriptor
 niti i konekcije. Sistemska promenljiva `thread_handling` podrazumevano ima vrednost
 `one-thread-per-connection`, dakle jedna nit po konekciji [@mysql84refman; @mysqlsource84]. Ta
-činjenica biće bitna u poglavlju 7, jer je paralelnost u MySQL-u pre svega između konekcija, a ne
+činjenica biće bitna u odeljku 6.2, jer je paralelnost u MySQL-u pre svega između konekcija, a ne
 unutar jednog upita.
 
 Interfejs između dva sloja nije apstrakcija na papiru, nego konkretna C++ klasa `handler`, koju
@@ -191,7 +190,7 @@ isključena, i predstavlja glavni prozor u odluke optimizatora do kraja rada; nj
 tema je poglavlja 4 [@mysql84refman].
 
 ![Slika 3.1: Pet faza obrade upita i granica cene, sa preslikavanjem na tri koraka u tragu
-optimizatora.](figures/03-od-sql-a-do-plana-04-pet-faza-pregled.png)
+optimizatora.](figures/03-od-sql-a-do-plana-04-pet-faza-pregled.png){width=5.0in}
 
 Slika 3.1 prikazuje tih pet faza poređanih odozgo naniže, sa jednom linijom povučenom preko sredine.
 Sve iznad te linije menja oblik naredbe i radi se jednom, a sve ispod nje bira se po ceni i ponavlja
@@ -260,7 +259,7 @@ indeks postoji; on zapravo bira jeftiniji od dva izračunata puta, a koji je jef
 torki koje filter obuhvata [@mysql84refman].
 
 ![Slika 3.2: Ukrštanje cene skena tabele i cene skena opsega preko indeksa za isti upit, pri
-rastućem opsegu.](figures/03-od-sql-a-do-plana-01-ukrstanje-cena.png)
+rastućem opsegu.](figures/03-od-sql-a-do-plana-01-ukrstanje-cena.png){width=4.6in}
 
 Slika 3.2 prikazuje obe cene za upit `SELECT notes FROM wide_events WHERE customer_id BETWEEN 1 AND N`,
 pri rastućem N. Cena skena tabele je konstantna, jer sken čita celu tabelu bez obzira na uslov, dok
@@ -318,9 +317,8 @@ su odbačeni planovi.
 ## 4.1. Tri formata ispisa, dva oblika plana
 
 `EXPLAIN` ima tri formata ispisa: podrazumevani tabelarni format, `FORMAT=JSON` i `FORMAT=TREE`
-[@mysql84refman]. Lako je pretpostaviti da su to tri pogleda na istu stvar, pa da je izbor između njih
-stvar ukusa. Nije: dva od tri formata prikazuju plan po tabeli, a treći po iteratoru, i ta razlika
-određuje šta se u ispisu uopšte može videti.
+[@mysql84refman]. To nisu tri pogleda na istu stvar: dva od tri formata prikazuju plan po tabeli, a
+treći po iteratoru, i ta razlika određuje šta se u ispisu uopšte može videti.
 
 Razlika se meri prebrojavanjem. Isti spoj tabela `customer` i `payment` nad bazom `sakila` u
 tabelarnom formatu daje dva reda, po jedan za svaku tabelu, a u obliku stabla četiri čvora, jer su i
@@ -333,7 +331,7 @@ torki čvora `Filter` u stablu; `FORMAT=JSON` verzije 1 isti broj daje gotov, u 
 stablo prikazuje kao zaseban čvor.
 
 ![Slika 4.1: Isti upit i isti plan u tri formata ispisa naredbe
-`EXPLAIN`.](figures/04-explain-01-tri-formata-jedan-plan.png)
+`EXPLAIN`.](figures/04-explain-01-tri-formata-jedan-plan.png){width=5.0in}
 
 Podela na dva oblika nije, međutim, podela na tekstualni i mašinski čitljiv ispis. Počev od verzije
 8.3 postoji i druga verzija JSON formata, koja umesto oblika po tabeli daje isto stablo iteratora koje
@@ -358,11 +356,10 @@ sve što se ni u jednu od ostalih nije uklopilo.
 Tri česta pogrešna čitanja tog ispisa mogu se proveriti u svega nekoliko naredbi. Prvo, kolone `key` i
 `key_len` odgovaraju na različita pitanja i tek zajedno određuju šta pristup radi: `key` imenuje
 indeks, a dužina ključa (`key_len`) kaže koliko je njegovih bajtova stvarno iskorišćeno
-[@mysql84refman]. Primarni ključ tabele `film_actor` složen je od kolona `actor_id` i `film_id`, dakle
-2 + 2 bajta. Upit sa uslovom samo nad prvom kolonom prijavljuje `key: PRIMARY` i `key_len: 2`, koristi
-levi prefiks ključa i vraća devetnaest torki po pretrazi, dok upit sa uslovom nad obe kolone
-prijavljuje `key_len: 4` i najviše jednu torku. U oba slučaja kolona `key` ispisuje isto ime, pa bi bez
-dužine ključa izgledalo da se dešava isto.
+[@mysql84refman]. Primarni ključ tabele `film_actor` složen je od kolona `actor_id` i `film_id`, po
+2 bajta. Uslov samo nad prvom kolonom daje `key_len: 2`, dakle levi prefiks ključa, i devetnaest
+torki po pretrazi, a uslov nad obe kolone `key_len: 4` i najviše jednu torku. Kolona `key` u oba
+slučaja ispisuje isto ime, pa bi bez dužine ključa izgledalo da se dešava isto.
 
 Drugo, indeks naveden u koloni `possible_keys` uz `key: NULL` ne znači da je indeks neupotrebljiv. Da
 jeste, među kandidate ne bi ni ušao. Reč je o odluci po ceni iz poglavlja 3, viđenoj sa strane ispisa:
@@ -379,12 +376,12 @@ najgorem [@mysql84refman]. Slika 4.2 prikazuje svih dvanaest, svaku izmerenu na 
 bazom `sakila`, uz boju koja ih grupiše po tome koliko torki jedan pristup može da vrati.
 
 ![Slika 4.2: Dvanaest vrednosti kolone `type`, poređanih redosledom iz priručnika i obojenih po broju
-torki koje jedan pristup može da vrati.](figures/04-explain-02-lestvica-tipova-pristupa.png)
+torki koje jedan pristup može da vrati.](figures/04-explain-02-lestvica-tipova-pristupa.png){width=4.6in}
 
 Iz slike se vidi ono što se iz samog spiska ne vidi: te grupe se ne poklapaju sa redosledom iz
 priručnika. Tip `unique_subquery`, osmi po redu, vraća najviše jednu torku, isto što i treći po redu
-`eq_ref`, a stoji pet mesta niže. Redosled je, dakle, praktično uputstvo, a ne merna skala, i lestvica
-nije redosled cena. Tip `range` nad pedeset torki jeftiniji je od tipa `ref` nad pet miliona torki, a
+`eq_ref`, a stoji pet mesta niže. Redosled je, dakle, praktično uputstvo, a ne redosled cena. Tip
+`range` nad pedeset torki jeftiniji je od tipa `ref` nad pet miliona torki, a
 `ALL` nad tabelom od tri reda najjeftinije je što postoji. Tip pristupa govori o obliku pristupa, to
 jest o tome koliko torki jedna pretraga može da vrati, dok cenu računa model cene iz poglavlja 3.
 
@@ -409,9 +406,8 @@ naglasiti, sredstvo posmatranja, a ne savet za podešavanje, jer proizvodi loši
 
 ## 4.4. Kolona `Extra` i granica procene
 
-U koloni `Extra` završava sve što se nije uklopilo u ostale kolone, pa u njoj završe i najkorisnije
-reči celog ispisa. Tri vrednosti koje liče, a znače različite stvari, opisuju istu radnju na tri
-različita mesta. `Using index` znači da su sve tražene kolone u indeksu, pa se tabela ne čita uopšte,
+U koloni `Extra` završavaju i najkorisnije reči celog ispisa. Tri vrednosti koje liče, a znače
+različite stvari, opisuju istu radnju na tri različita mesta. `Using index` znači da su sve tražene kolone u indeksu, pa se tabela ne čita uopšte,
 što je pokrivajući indeks *(covering index)*; `Using index condition` znači da je uslov spušten u motor
 i proveren nad zapisom indeksa, dakle spuštanje uslova u indeks iz poglavlja 2; `Using where` znači da
 serverski sloj filtrira torke koje mu je motor već predao [@mysql84refman]. Šav iz poglavlja 2 time
@@ -476,7 +472,7 @@ dakle, znači da je odluka doneta na osnovu pogrešnog broja, ali ne i da je sam
 li jeste, vidi se tek kada se izabrani plan uporedi sa nekim drugim.
 
 ![Slika 4.3: Procena naspram stvarnog broja torki po čvorovima plana, i dejstvo histograma na koloni
-bez indeksa i na koloni sa indeksom.](figures/04-explain-03-procena-naspram-stvarnog.png)
+bez indeksa i na koloni sa indeksom.](figures/04-explain-03-procena-naspram-stvarnog.png){width=5.0in}
 
 ## 4.6. Prosek po ponavljanju
 
@@ -489,7 +485,7 @@ dobija se, dakle, tek množenjem sa `loops`, zbog čega čvor sa najmanjim prija
 bude najskuplji deo plana. Vreme se čita na isti način, jer i `actual time` meri jedno ponavljanje.
 
 ![Slika 4.4: Vrednosti `rows` i `actual time` kao proseci po ponavljanju: prijavljeno vreme jednog
-ponavljanja naspram ukupnog vremena čvora.](figures/04-explain-04-loops-i-prosek.png)
+ponavljanja naspram ukupnog vremena čvora.](figures/04-explain-04-loops-i-prosek.png){width=5.0in}
 
 ## 4.7. Plan koji ispis prikazuje kao savršen
 
@@ -521,21 +517,76 @@ ispravljena selektivnost stigne da taj broj podigne. Bolja statistika popravila 
 a nije promenila odluku.
 
 ![Slika 4.5: Isti upit u tri prikaza: procena koju ispisuje `EXPLAIN`, merenje koje dodaje `EXPLAIN
-ANALYZE` i alternativni plan dobijen naredbom `IGNORE INDEX`.](figures/04-explain-05-los-plan.png)
+ANALYZE` i alternativni plan dobijen naredbom `IGNORE INDEX`.](figures/04-explain-05-los-plan.png){width=5.0in}
 
 Ono što `EXPLAIN ANALYZE` ni ovde nije pokazalo jeste zašto je lošiji plan uopšte izabran. Ispis
 meri jedan plan, onaj koji je pobedio, i ne pominje ni koje je alternative optimizator razmatrao ni
 kolikom ih je cenom procenio. Taj podatak postoji, ali samo u tragu optimizatora, čime se bavi
 naredni odeljak.
 
+## 4.8. Trag optimizatora: odbačeni planovi i njihova cena
+
+Trag optimizatora uključuje se sesijskim promenljivama `optimizer_trace_xxx`, a čita se iz tabele
+`INFORMATION_SCHEMA.OPTIMIZER_TRACE` [@mysql84refman]. Ima tri faze traga, `join_preparation`,
+`join_optimization` i `join_execution`, koje ne treba mešati sa pet faza obrade iz trećeg poglavlja:
+parsiranje je gotovo pre nego što trag počne, a optimizacija i planiranje u njemu čine jedan blok.
+Za razliku od naredbe `EXPLAIN ANALYZE`, koja mora da izvrši upit do kraja, trag se dobija i
+praćenjem same naredbe `EXPLAIN`, pri čemu `join_optimization` ostaje istovetan, sa svim cenama.
+
+Ono što trag dodaje jesu razmatrani planovi zajedno sa cenama. Time se zatvara pitanje otvoreno u
+odeljku 4.2: za tabelu `film` indeks `idx_fk_original_language_id` stoji u koloni `possible_keys`,
+dok je `key` jednak `NULL`, a trag pokazuje da je taj indeks ušao u korak `range_scan_alternatives`,
+dobio cenu i bio odbačen sa `"chosen": false` i `"cause": "cost"`, u poređenju sa skenom cele
+tabele. Odbačen plan tu više nije pretpostavka nego izmeren podatak.
+
+Najviše, međutim, trag govori o lošem planu iz odeljka 4.7. U koraku `considered_execution_plans`
+nad tabelom `wide_events` procenjen je tačno jedan pristupni put, sken cele tabele, cenom oko
+578.000, dakle upravo onaj plan koji je u odeljku 4.7 dobijen naredbom `IGNORE INDEX`. Indeks
+`idx_created_at` u tom koraku se ne pominje, jer nad kolonom `amount` indeksa nema. Tek kasniji
+korak, `reconsidering_access_paths_for_index_ordering`, prijavljuje `"index_provides_order": true`,
+`"index": "idx_created_at"` i `"plan_changed": true`, a njegov niz `"steps"` je prazan, što znači da
+u tom koraku nijedna cena nije izračunata. Plan koji `EXPLAIN` prikazuje sa cenom 0,846 nije, dakle,
+pobedio u poređenju: uvela ga je naknadna zamena plana zbog redosleda, a prikazana cena je posledica
+izračunata posle zamene, a ne razlog za nju.
+
+Okidač zamene je klauzula `LIMIT`, što se proverava njenim uklanjanjem. Bez nje trag prijavljuje
+`"plan_changed": false`, a `EXPLAIN` daje `type: ALL` sa `Using filesort`, dakle plan koji je
+pretraga po ceni zaista izabrala; sa `LIMIT 10000` zamena se ponovo dešava, pa nije presudna
+veličina ograničenja nego njegovo postojanje. Time se objašnjava i nalaz iz odeljka 4.7, gde
+histogram nad kolonom `amount` popravlja procenu a ne menja plan: odluka nije ni doneta na osnovu
+procene.
+
+![Slika 4.6: Trag optimizatora za upit iz odeljka 4.7, sa procenjenim pristupnim putevima i korakom
+koji je plan zamenio.](figures/04-explain-08-zasto-bas-ovaj-plan.png){width=5.0in}
+
+Trag ipak nije potpun zapis pretrage. Vrednost `"chosen": true` znači „najbolji do sada”, a ne
+pobednika, pa se pobednik prepoznaje po manjoj vrednosti `cost_for_plan`, dok delimični planovi koji
+otpadaju odsecanjem čim premaše najbolji nađeni ostaju zabeleženi samo kao `"pruned_by_cost": true`.
+Uz to, trag je sesijski i iz druge sesije se ne vidi, a kada premaši vrednost promenljive
+`optimizer_trace_max_mem_size`, postaje krnj, što se prijavljuje kolonom `MISSING_BYTES`
+[@mysql84refman].
+
+## 4.9. Plan tuđe sesije: EXPLAIN FOR CONNECTION
+
+Trag ide dublje od naredbe `EXPLAIN`, ali ostaje u granicama sopstvene sesije. Suprotan smer pokriva
+`EXPLAIN FOR CONNECTION`, koja preko broja veze (`connection_id`) ispisuje plan naredbe koja se u
+tom trenutku izvršava u drugoj sesiji, i to bez njenog prekidanja [@mysql84refman]. Ispis je plitak,
+jer daje isti sadržaj kao obična naredba `EXPLAIN`, a merenja nema: spoj sa `EXPLAIN ANALYZE` nije
+dozvoljen i na serveru 8.4.11 vraća grešku 1235. Ako je ciljna veza besposlena, rezultat je prazan i
+bez greške, a ako izvršava naredbu koja se ne može objasniti, vraća se greška 3012. Dve naredbe se,
+dakle, ne preklapaju: trag do kraja objašnjava sopstvenu odluku, a `EXPLAIN FOR CONNECTION` daje
+površan pogled na tuđu.
+
 # 5. Iterator model i pipeline operatora
 
-# 6. Vektorizovano izvršavanje
+# 6. Gde MySQL ne prati obrazac
 
-# 7. Paralelno izvršavanje upita
+## 6.1. Vektorizovano izvršavanje
 
-# 8. Keširanje i ponovna upotreba planova
+## 6.2. Paralelno izvršavanje upita
 
-# 9. Zaključak
+## 6.3. Keširanje i ponovna upotreba planova
+
+# 7. Zaključak
 
 # Reference
