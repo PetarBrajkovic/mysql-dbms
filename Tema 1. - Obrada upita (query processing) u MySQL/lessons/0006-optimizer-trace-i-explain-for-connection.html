@@ -621,9 +621,9 @@ COUNT(*)
       tome što se <span class="hi">ne mora čekati da se upit završi</span>: za upit koji radi već
       pola sata to je jedini način da se vidi šta radi, a da se ne prekine.</p>
     <p class="interpret"><code>ERROR 1235</code> nije propust u implementaciji nego posledica
-      definicije. <code>EXPLAIN ANALYZE</code> meri tako što instrumentira iteratore
-      <strong>pre</strong> nego što se upit pokrene; upit koji je već krenuo ne može se naknadno
-      instrumentirati. Isto važi za trag: on se piše dok optimizator radi, a tuđi optimizator je
+      definicije. <code>EXPLAIN ANALYZE</code> meri tako što u iteratore ugrađuje merenje
+      <strong>pre</strong> nego što se upit pokrene; kad upit već krene, merenje se u njih više ne
+      može ugraditi. Isto važi za trag: on se piše dok optimizator radi, a tuđi optimizator je
       odavno završio.</p>
     <p class="interpret">Poslednji red je najkraći način da se zapamti odnos dva alata iz ove
       lekcije. Sesija B vidi <strong>plan</strong> sesije A, ali nijedan njen

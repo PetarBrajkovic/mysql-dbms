@@ -275,7 +275,7 @@ foreach ($band in $bands) {
 
 [void]$b.AppendLine("<rect x='40' y='$($y-16)' width='$($W-80)' height='72' fill='$good' opacity='0.08' rx='4'/>")
 $y += 8
-[void]$b.AppendLine("<text x='$($W/2)' y='$y' text-anchor='middle' font-family=`"$serif`" font-size='15' font-weight='bold' fill='$ink'>Trag se dobija i bez izvr${ss}avanja upita: dovoljno je tragirati EXPLAIN.</text>")
+[void]$b.AppendLine("<text x='$($W/2)' y='$y' text-anchor='middle' font-family=`"$serif`" font-size='15' font-weight='bold' fill='$ink'>Trag se dobija i bez izvr${ss}avanja upita: dovoljno je pratiti EXPLAIN.</text>")
 $y += 24
 [void]$b.AppendLine("<text x='$($W/2)' y='$y' text-anchor='middle' font-family=`"$mono`" font-size='13' fill='$soft'>SET optimizer_trace='enabled=on'; EXPLAIN SELECT ... $arr faze: $(Esc ($phasesE -join ', '))</text>")
 $y += 34

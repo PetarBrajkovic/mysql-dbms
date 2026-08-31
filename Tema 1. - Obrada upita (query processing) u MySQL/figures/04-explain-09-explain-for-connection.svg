@@ -8,11 +8,11 @@
 <text x='40' y='204' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a' xml:space='preserve'>         AND LOWER(notes) LIKE '%qzq%';</text>
 <text x='40' y='225' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a' xml:space='preserve'></text>
 <text x='40' y='246' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a' xml:space='preserve'>-- viđeno iz sesije B, u isto vreme:</text>
-<text x='40' y='267' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='bold' fill='#1a1a1a' xml:space='preserve'>PROCESSLIST: ID=538  COMMAND=Query</text>
+<text x='40' y='267' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='bold' fill='#1a1a1a' xml:space='preserve'>PROCESSLIST: ID=18  COMMAND=Query</text>
 <text x='40' y='288' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='bold' fill='#1a1a1a' xml:space='preserve'>             STATE=executing  TIME=0 s</text>
 <text x='610' y='112' font-family="Georgia, 'Times New Roman', serif" font-size='13' font-weight='bold' fill='#7a1f1f' letter-spacing='0.06em'>SESIJA B · PITA</text>
 <line x1='610' y1='120' x2='1140' y2='120' stroke='#d8d3c8' stroke-width='1'/>
-<text x='610' y='141' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='bold' fill='#7a1f1f' xml:space='preserve'>mysql&gt; EXPLAIN FOR CONNECTION 538;</text>
+<text x='610' y='141' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='bold' fill='#7a1f1f' xml:space='preserve'>mysql&gt; EXPLAIN FOR CONNECTION 18;</text>
 <text x='610' y='162' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a' xml:space='preserve'></text>
 <text x='610' y='183' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a' xml:space='preserve'></text>
 <text x='610' y='204' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a' xml:space='preserve'></text>
@@ -21,23 +21,23 @@
 <text x='610' y='267' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a' xml:space='preserve'>key=NULL  rows=4909177</text>
 <text x='610' y='288' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' font-weight='normal' fill='#1a1a1a' xml:space='preserve'>filtered=100.00  Extra=Using where</text>
 <text x='305' y='308' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>upit se ne prekida i ne usporava</text>
-<text x='875' y='308' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>Com_explain_other: 16 → 18</text>
+<text x='875' y='308' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>Com_explain_other: 0 → 2</text>
 <text x='40' y='363' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>-&gt; Aggregate: count(0)  (cost=1.07e+6 rows=1)</text>
-<text x='40' y='384' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>    -&gt; Filter: ((wide_events.notes like '%zzqzq%') and (lower(wide_events.notes) like '%qzq%'))  (cost=574821 rows=4.91e+6)</text>
-<text x='40' y='405' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>        -&gt; Table scan on wide_events  (cost=574821 rows=4.91e+6)</text>
+<text x='40' y='384' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>    -&gt; Filter: ((wide_events.notes like '%zzqzq%') and (lower(wide_events.notes) like '%qzq%'))  (cost=578755 rows=4.91e+6)</text>
+<text x='40' y='405' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#1a1a1a' xml:space='preserve'>        -&gt; Table scan on wide_events  (cost=578755 rows=4.91e+6)</text>
 <text x='40' y='433' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#8a8578' xml:space='preserve'>Isti poziv prihvata i FORMAT=TREE i FORMAT=JSON, pa se plan tuđe sesije čita istim rečnikom kao i svoj.</text>
 <text x='40' y='477' font-family="Georgia, 'Times New Roman', serif" font-size='13' font-weight='bold' fill='#a32020' letter-spacing='0.06em'>ČETIRI ODBIJANJA, SVA ČETIRI IZMERENA</text>
 <line x1='40' y1='485' x2='1140' y2='485' stroke='#d8d3c8' stroke-width='1'/>
-<text x='40' y='511' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#1a1a1a' xml:space='preserve'>EXPLAIN ANALYZE FOR CONNECTION 538</text>
+<text x='40' y='511' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#1a1a1a' xml:space='preserve'>EXPLAIN ANALYZE FOR CONNECTION 18</text>
 <text x='560' y='511' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' font-weight='bold' fill='#a32020'>ERROR 1235</text>
 <text x='660' y='511' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#5a564c'>merenje traži da upit pokreneš ti, u svojoj sesiji</text>
-<text x='40' y='537' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#1a1a1a' xml:space='preserve'>EXPLAIN FOR CONNECTION 539</text>
+<text x='40' y='537' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#1a1a1a' xml:space='preserve'>EXPLAIN FOR CONNECTION 19</text>
 <text x='560' y='537' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' font-weight='bold' fill='#a32020'>ERROR 3012</text>
 <text x='660' y='537' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#5a564c'>ta sesija ne izvršava naredbu koja uopšte ima plan</text>
 <text x='40' y='563' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#1a1a1a' xml:space='preserve'>EXPLAIN FOR CONNECTION 999999</text>
 <text x='560' y='563' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' font-weight='bold' fill='#a32020'>ERROR 1094</text>
 <text x='660' y='563' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#5a564c'>veza ne postoji, ili je upit već završen</text>
-<text x='40' y='589' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#1a1a1a' xml:space='preserve'>PREPARE s FROM 'EXPLAIN FOR CONNECTION 538'; EXECUTE s</text>
+<text x='40' y='589' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#1a1a1a' xml:space='preserve'>PREPARE s FROM 'EXPLAIN FOR CONNECTION 18'; EXECUTE s</text>
 <text x='560' y='589' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' font-weight='bold' fill='#a32020'>ERROR 1295</text>
 <text x='660' y='589' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#5a564c'>broj veze mora da se otkuca, ne može kroz pripremljenu naredbu</text>
 <rect x='40' y='615' width='1100' height='62' fill='#2e6b2e' opacity='0.08' rx='4'/>
