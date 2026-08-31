@@ -1,0 +1,43 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' width='1580' height='646' viewBox='0 0 1580 646'>
+<rect width='1580' height='646' fill='#ffffff'/>
+<text x='790' y='44' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='25' font-weight='bold' fill='#1a1a1a'>Torke se povla&#269;e na zahtev &#183; dok ih neko ne blokira</text>
+<text x='790' y='70' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>wide_events, 5,000,000 torki, MySQL 8.4.11 &#183; brojevi su prepisani iz EXPLAIN ANALYZE: procena je izostavljena, a rows=5e+6 je razvijen u pun oblik</text>
+<line x1='930' y1='128' x2='1534' y2='128' stroke='#d8d3c8' stroke-width='1'/>
+<line x1='930' y1='123' x2='930' y2='128' stroke='#8a8578' stroke-width='1'/>
+<text x='930' y='117' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' fill='#8a8578'>0</text>
+<line x1='1081' y1='123' x2='1081' y2='128' stroke='#8a8578' stroke-width='1'/>
+<text x='1081' y='117' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' fill='#8a8578'>550</text>
+<line x1='1232' y1='123' x2='1232' y2='128' stroke='#8a8578' stroke-width='1'/>
+<text x='1232' y='117' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' fill='#8a8578'>1100</text>
+<line x1='1383' y1='123' x2='1383' y2='128' stroke='#8a8578' stroke-width='1'/>
+<text x='1383' y='117' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' fill='#8a8578'>1650</text>
+<line x1='1534' y1='123' x2='1534' y2='128' stroke='#8a8578' stroke-width='1'/>
+<text x='1534' y='117' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='11.5' fill='#8a8578'>2200</text>
+<text x='930' y='98' font-family="Georgia, 'Times New Roman', serif" font-size='12.5' font-weight='bold' fill='#8a8578' letter-spacing='0.06em'>VREME (ms) &#183; od prve do poslednje torke, zajedni&#269;ka osa za oba upita</text>
+<text x='52' y='190' font-family="Georgia, 'Times New Roman', serif" font-size='16' font-weight='bold' fill='#1f5c7a'>A &#183; ceo plan je pipeline</text>
+<text x='52' y='212' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>SELECT id, amount FROM wide_events WHERE amount &gt; 100 LIMIT 10</text>
+<line x1='52' y1='222' x2='1546' y2='222' stroke='#d8d3c8' stroke-width='1'/>
+<text x='52' y='252' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#8594; </tspan><tspan>Limit: 10 row(s)</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=3.69..3.69 </tspan><tspan fill='#7a1f1f' font-weight='bold'>rows=10</tspan><tspan fill='#5a564c'> loops=1)</tspan></text>
+<rect x='931' y='242' width='4' height='13' rx='2' fill='#1f5c7a' opacity='0.85'/>
+<text x='52' y='282' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#160;&#160;&#160;&#160;&#8594; </tspan><tspan>Filter: (wide_events.amount &gt; 100.00)</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=3.69..3.69 </tspan><tspan fill='#7a1f1f' font-weight='bold'>rows=10</tspan><tspan fill='#5a564c'> loops=1)</tspan></text>
+<rect x='931' y='272' width='4' height='13' rx='2' fill='#1f5c7a' opacity='0.85'/>
+<text x='52' y='312' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#8594; </tspan><tspan>Table scan on wide_events</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=3.68..3.68 </tspan><tspan fill='#7a1f1f' font-weight='bold'>rows=10</tspan><tspan fill='#5a564c'> loops=1)</tspan></text>
+<rect x='931' y='302' width='4' height='13' rx='2' fill='#1f5c7a' opacity='0.85'/>
+<text x='52' y='374' font-family="Georgia, 'Times New Roman', serif" font-size='16' font-weight='bold' fill='#8a4a12'>B &#183; isti upit plus ORDER BY</text>
+<text x='52' y='396' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12' fill='#5a564c'>SELECT id, amount FROM wide_events WHERE amount &gt; 100 ORDER BY amount LIMIT 10</text>
+<line x1='52' y1='406' x2='1546' y2='406' stroke='#d8d3c8' stroke-width='1'/>
+<text x='52' y='436' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#8594; </tspan><tspan>Limit: 10 row(s)</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=2173..2173 </tspan><tspan fill='#7a1f1f' font-weight='bold'>rows=10</tspan><tspan fill='#5a564c'> loops=1)</tspan></text>
+<rect x='1526.6' y='426' width='4' height='13' rx='2' fill='#1f5c7a' opacity='0.85'/>
+<text x='52' y='466' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#160;&#160;&#160;&#160;&#8594; </tspan><tspan>Sort: wide_events.amount, limit input to 10 row(s) per chunk</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=2173..2173 </tspan><tspan fill='#7a1f1f' font-weight='bold'>rows=10</tspan><tspan fill='#5a564c'> loops=1)</tspan></text>
+<rect x='1526.6' y='456' width='4' height='13' rx='2' fill='#8a4a12' opacity='0.85'/>
+<text x='1517.6' y='465.5' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='12.5' font-weight='bold' fill='#8a4a12'>blokira: prva torka = poslednja torka &#8594;</text>
+<text x='52' y='496' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#8594; </tspan><tspan>Filter: (wide_events.amount &gt; 100.00)</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=0.127..1845 rows=4050000 loops=1)</tspan></text>
+<rect x='930' y='486' width='506.5' height='13' rx='2' fill='#1f5c7a' opacity='0.85'/>
+<text x='52' y='526' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#8594; </tspan><tspan>Table scan on wide_events</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=0.126..1566 </tspan><tspan fill='#7a1f1f' font-weight='bold'>rows=5000000</tspan><tspan fill='#5a564c'> loops=1)</tspan></text>
+<rect x='930' y='516' width='429.9' height='13' rx='2' fill='#1f5c7a' opacity='0.85'/>
+<rect x='34' y='542' width='1512' height='78' fill='#7a1f1f' opacity='0.06'/>
+<text x='790' y='566' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16.5' font-weight='bold' fill='#7a1f1f'>isti sken tabele: 10 torki naspram 5,000,000 &#183; 589&#215; sporije</text>
+<text x='790' y='588' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>Ista tabela, isti uslov, isti LIMIT. Jedina razlika je ORDER BY, koji izme&#273;u Limit-a i Filter-a ubacuje jedan blokiraju&#263;i iterator.</text>
+<text x='790' y='610' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>Sken ne zna ni&#353;ta o LIMIT-u: on samo prestaje da bude pozivan &#269;im Limit dobije svojih 10 torki.</text>
+</svg>
+

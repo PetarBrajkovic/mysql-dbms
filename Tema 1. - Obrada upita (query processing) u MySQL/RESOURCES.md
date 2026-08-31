@@ -16,6 +16,10 @@ protocol in `NOTES.md`.
   The textbook the course decks are drawn from, in its citable English original. Most relevant to
   chapter 1: [Ch. 12 — Overview of Query Evaluation](https://pages.cs.wisc.edu/~dbbook/openAccess/thirdEdition/slides/slides3ed-english/Ch12_Overview_Query_Evaluation.pdf).
   Use for: an external cross-check of anything the Serbian decks compress, chapters 1-5.
+- G. Graefe, „Volcano — An Extensible and Parallel Query Evaluation System", *IEEE Trans. Knowl.
+  Data Eng.*, vol. 6, no. 1, pp. 120–135, 1994, doi: 10.1109/69.273032.
+  The citable origin of the iterator model. Use for: chapter 5's one theory citation — the decks do
+  not cover the iterator model at all, so R&G cannot carry it.
 - Lecture decks in `../../Predavanja/` (Stoimenov, SUBP).
   Use for: chapters 1-5's theoretical grounding and the Serbian terminology in `GLOSSARY.md` §1.
   Give **zero** coverage of chapters 6-8. **Never cited in the paper** (`WORKFLOW.md` rule 7) — cite

@@ -31,9 +31,8 @@ unaffordable to read (archived at `.scratch/obrada-upita/notes-archive-2026-08-2
   (*Gde MySQL ne prati obrazac*), with the three as subsections 6.1-6.3; the conclusion is now
   chapter 7. Decided 2026-08-31 under a hard ≤25 rendered-page target. See `GLOSSARY.md` §4, which
   now also carries a **firm** figure cap and a measured page checkpoint.
-- **Chapter 5 (iterator model) is next**, and it inherits a ready-made hook: lesson 0006 established
-  that the trace stops at `join_optimization` and that `join_execution` is empty, so "what actually
-  runs" has now been deferred twice. Chapter 5 is where the iterators get named.
-- **Chapters 1-5 are backed by the course lecture decks; chapter 6 has zero deck coverage** and
-  rests entirely on external primary sources. Its lesson has to work harder to ground the
-  material — see the one open gap in `RESOURCES.md`.
+- **Chapter 5 (iterator model) is taught** (lesson 07, both figures built, terminology in
+  `GLOSSARY.md` §2f) but **not yet written**. Ticket 14 is open on WORKFLOW steps 2-4.
+- **Chapter 6 is next, and it has zero lecture-deck coverage** — chapters 1-5 are backed by the
+  decks, chapter 6 is not. Its lesson rests entirely on external primary sources and has to work
+  harder to ground the material; see the one open gap in `RESOURCES.md`.

@@ -221,6 +221,37 @@ lesson, and the false analogy with `tip pristupa` will be tempting again in chap
 statement); **razmatran plan**, not *kandidat-plan*; **faza traga (three) is not a pipeline phase
 (five)** and the two must never be merged; all trace keys stay verbatim in code font.
 
+### 2f. Iterator-model vocabulary (locked 2026-08-31, chapter 5)
+
+§1 already has `pipeline / pipelined evaluacija`, `materijalizacija`, `operator`, `torka` and
+`pristupni put`; §2 has `model iteratora`; §2c has `iterator` as one node of the tree; §2d has
+`iteratorski izvršilac`. Only what those miss is here.
+
+| Concept | Serbian term (first use) | After first use |
+|---|---|---|
+| Volcano model (the design) | Volcano model | Volcano model |
+| Pull-based / demand-driven execution | izvršavanje na zahtev *(demand-driven)* | izvršavanje na zahtev |
+| Iterator tree | stablo iteratora | stablo iteratora |
+| Parent / child iterator | roditeljski iterator / iterator-dete | roditelj / dete |
+| Root / leaf of the tree | koren stabla / list | koren / list |
+| Blocking operator | blokirajući operator *(blocking operator)* | blokirajući operator |
+| Pipelined operator | pipeline operator | pipeline operator |
+| Record buffer | bafer torke *(record buffer)* | bafer torke |
+| Time to first row | vreme do prve torke | vreme do prve torke |
+| Early termination (of a scan) | rano zaustavljanje | rano zaustavljanje |
+| Build phase (of a hash join) | faza gradnje | faza gradnje |
+| Initialization call (`Init()`) | inicijalizacija | inicijalizacija |
+
+**Locked non-choices** (reasoning: `.scratch/obrada-upita/terminology-rationale.md`):
+**`AccessPath` is the C++ structure and stays verbatim in code font; `pristupni put` (§1) is the
+concept.** They are not synonyms and must never be swapped — this is the trap §2e predicted for this
+chapter. **`bafer torke`**, consistent with §1's `torka`, never `bafer sloga` — `slog` is not in this
+paper's vocabulary at all. **`izvršavanje na zahtev`**, never *povlačenje* or *pull model*.
+**`blokirajući operator`**, never *zaustavljajući* or *barijera*. Class and method names
+(`RowIterator`, `Init()`, `Read()`, `UnlockRow()`, `TableScanIterator`, …) stay verbatim in code
+font, exactly like `handler` in §2a. TREE node strings (`Nested loop inner join`, `Stream results`,
+`Group aggregate`, …) stay verbatim, exactly like the `Extra` values in §2c.
+
 ## 3. Hard constraint — plan cache vs. parse-tree cache (chapter 8)
 
 Research ticket 06 confirms, does not contradict, the assumption in ticket 17: MySQL has **no shared

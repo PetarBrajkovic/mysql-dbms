@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kartica 06 — Model iteratora i pipeline operatora</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica 06 · Poglavlje 5 · uz <a href="../lessons/0007-model-iteratora-i-pipeline.html">lekciju 07</a></p>
+<h1>Model iteratora i pipeline operatora</h1>
+<p class="subtitle">Sve što treba za čitanje jednog <code>FORMAT=TREE</code> stabla: interfejs,
+preslikavanje ispisa u klase, šta se meri i ko blokira pipeline.</p>
+
+<h2>1 · Interfejs</h2>
+
+<table class="exp">
+  <tr><td><code>RowIterator</code></td><td>Osnovna klasa, <code>sql/iterators/row_iterator.h</code>. Iterator sme da čita iz drugog iteratora, pa se od njih gradi stablo.</td></tr>
+  <tr><td><code>Init()</code></td><td>Inicijalizacija ili ponovna inicijalizacija. Uvek se poziva pre prvog <code>Read()</code>. Ponovni poziv premotava iterator.</td></tr>
+  <tr><td><code>Read()</code></td><td>Čita <strong>jednu</strong> torku. Vraća <code>0</code> (u redu), <code>-1</code> (nema više), <code>1</code> (greška).</td></tr>
+  <tr><td><code>UnlockRow()</code></td><td>Otpušta zaključavanje nad torkom koja je pročitana pa odbačena.</td></tr>
+  <tr><td>bafer torke</td><td>Torka se <strong>ne vraća</strong> kao rezultat funkcije nego se upisuje u <code>table-&gt;records[0]</code>.</td></tr>
+</table>
+
+<pre class="out">unique_ptr&lt;RowIterator&gt; iterator(new ...);
+if (iterator-&gt;Init())
+  return true;
+while (iterator-&gt;Read() == 0) {
+  ...
+}</pre>
+
+<h2>2 · Ispis u klasu</h2>
+
+<p>Tekst se generiše u <code>explain_access_path.cc</code>, iterator se pravi u
+<code>access_path.cc</code>; obe datoteke granaju po istom <code>path-&gt;type</code>.</p>
+
+<table class="exp">
+  <tr><td><code>Table scan on …</code></td><td><code>TableScanIterator</code></td></tr>
+  <tr><td><code>Index scan on …</code>, <code>Covering index scan on …</code></td><td><code>IndexScanIterator&lt;false&gt;</code>; <code>&lt;true&gt;</code> pri čitanju unatrag</td></tr>
+  <tr><td><code>Index lookup on …</code>, <code>Covering index lookup on …</code></td><td><code>RefIterator&lt;false&gt;</code></td></tr>
+  <tr><td><code>Single-row index lookup on …</code></td><td><code>EQRefIterator</code></td></tr>
+  <tr><td><code>Index range scan on …</code></td><td><code>IndexRangeScanIterator</code></td></tr>
+  <tr><td><code>Filter: …</code></td><td><code>FilterIterator</code></td></tr>
+  <tr><td><code>Sort: …</code></td><td><code>SortingIterator</code></td></tr>
+  <tr><td><code>Limit: N row(s)</code></td><td><code>LimitOffsetIterator</code></td></tr>
+  <tr><td><code>Group aggregate: …</code>, <code>Aggregate: …</code></td><td><code>AggregateIterator</code></td></tr>
+  <tr><td><code>Nested loop &lt;tip&gt; join</code></td><td><code>NestedLoopIterator</code></td></tr>
+  <tr><td><code>Inner hash join …</code></td><td><code>HashJoinIterator</code></td></tr>
+  <tr><td><code>Stream results</code></td><td><code>StreamingIterator</code></td></tr>
+  <tr><td><code>Materialize</code>, <code>Materialize CTE …</code></td><td>gradnja privremene tabele, slučaj <code>MATERIALIZE</code></td></tr>
+  <tr><td><code>Hash</code></td><td><span class="hi">nije iterator</span> — natpis na grani ka ulazu koji se hešira. Jedini red bez brojeva uz sebe.</td></tr>
+</table>
+
+<h2>3 · Čitanje brojeva</h2>
+
+<pre class="out">-&gt; Covering index lookup on r using idx_fk_customer_id (customer_id=c.customer_id)
+     (cost=1.07 rows=27.4) (actual time=0.0058..0.00727 rows=26.8 loops=584)
+        procena  ^^^^^^^^^            prvo^^  ^^poslednje   stvarno^^  ^^Init()</pre>
+
+<table class="exp">
+  <tr><td><code>loops</code></td><td>Broj poziva <code>Init()</code>. Kod ugnježdene petlje: jednom po torki spoljašnjeg ulaza.</td></tr>
+  <tr><td><code>rows</code> (u drugoj zagradi)</td><td>Stvarni broj torki, <strong>prosek po ponavljanju</strong> — zato sme da bude decimalan. Ukupno = <code>rows</code> puta <code>loops</code>.</td></tr>
+  <tr><td><code>actual time=a..b</code></td><td><code>a</code> je vreme do prve torke, <code>b</code> do poslednje, u milisekundama, prosečno po ponavljanju.</td></tr>
+  <tr><td>uvlačenje</td><td>Dublje uvučen red je <strong>dete</strong>. Kontrola ide nadole (<code>Read()</code>), torke nagore, po jedna.</td></tr>
+</table>
+
+<h2>4 · Ko blokira pipeline</h2>
+
+<table class="exp">
+  <tr><td><b>prvo &lt;&lt; poslednje</b></td><td>pipeline operator — torke izlaze kako pristižu</td></tr>
+  <tr><td><b>prvo = poslednje</b></td><td>blokirajući operator — ništa nije izašlo dok sve nije ušlo</td></tr>
+</table>
+
+<table class="exp">
+  <tr><td>pipeline</td><td><code>Table scan</code>, <code>Index scan</code>, <code>Index lookup</code>, <code>Filter</code>, <code>Limit</code>, <code>Nested loop join</code>, <code>Stream results</code></td></tr>
+  <tr><td>blokira</td><td><code>Sort</code>, <code>Materialize</code>, <code>Aggregate using temporary table</code>, faza gradnje hash spoja (ulaz pod natpisom <code>Hash</code>)</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Posledica koju vredi pamtiti</span>
+  Sken ne zna ništa o <code>LIMIT</code>-u; on prosto prestaje da bude pozivan. Zato isti sken uz
+  <code>LIMIT 10</code> pročita deset torki, a čim se iznad njega nađe <code>Sort</code>, pročita
+  celu tabelu.
+</div>
+
+<h2>5 · Odakle iteratori dolaze</h2>
+
+<table class="exp">
+  <tr><td><code>AccessPath</code></td><td>C++ struktura, plan. „Correspond 1:1 to iterators… plus some information that is only needed during planning, such as costs."</td></tr>
+  <tr><td><code>CreateIteratorFromAccessPath()</code></td><td>Prevodi stablo <code>AccessPath</code> struktura u stablo iteratora, granajući se po <code>path-&gt;type</code>.</td></tr>
+  <tr><td>pristupni put</td><td><span class="hi">Pojam</span> iz poglavlja 1 i 3, način dolaska do torki jedne tabele. <strong>Nije</strong> isto što i <code>AccessPath</code>.</td></tr>
+  <tr><td><code>join_execution</code></td><td>Prazna faza traga optimizatora, jer se u izvršavanju ne donosi nijedna odluka vredna beleženja.</td></tr>
+</table>
+
+<p class="meta">
+  <strong>Izvori:</strong>
+  <a href="https://github.com/mysql/mysql-server/blob/mysql-8.4.6/sql/iterators/row_iterator.h">row_iterator.h</a>,
+  <a href="https://github.com/mysql/mysql-server/blob/mysql-8.4.6/sql/join_optimizer/access_path.h">access_path.h</a>,
+  <a href="https://github.com/mysql/mysql-server/blob/mysql-8.4.6/sql/join_optimizer/access_path.cc">access_path.cc</a>
+  (oznaka <code>mysql-8.4.6</code>),
+  <a href="https://dev.mysql.com/worklog/task/?id=11785">WL#11785</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/explain.html">MySQL 8.4 Reference Manual, EXPLAIN Statement</a>. ·
+  <strong>Vidi još:</strong> <a href="../lessons/0007-model-iteratora-i-pipeline.html">lekcija 07</a>,
+  <a href="04-explain-analyze.html">kartica 04</a>, <a href="../GLOSSARY.md">GLOSSARY.md</a> §2f.
+</p>
+
+</body>
+</html>

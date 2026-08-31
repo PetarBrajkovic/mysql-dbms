@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 07 — Model iteratora i pipeline operatora</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 07 · Poglavlje 5 (Model iteratora i pipeline operatora)</p>
+<h1>Plan nije spisak koraka nego stablo objekata, i svaka torka se povlači odozgo</h1>
+<p class="subtitle">Lekcija 4b je merila iteratore ne objasnivši šta su. Lekcija 4c je pokazala da se
+trag optimizatora završava na <code>join_optimization</code>, a da je <code>join_execution</code>
+prazan. Pitanje „šta se zapravo izvršava" odloženo je dva puta. Ovde se zatvara.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Poglavlje 5 je mesto gde plan prestaje da bude tabela brojeva i postaje kod koji radi. Kad završiš,
+  treba da umeš, bez podsetnika: <strong>(1)</strong> da za bilo koji red <code>FORMAT=TREE</code>
+  ispisa kažeš koja se C++ klasa iteratora iza njega instancira i ko koga poziva;
+  <strong>(2)</strong> da objasniš šta <code>loops</code> broji i zašto je <code>rows</code> na
+  unutrašnjem čvoru decimalan broj; <strong>(3)</strong> da na osnovu vremena do prve torke prepoznaš
+  koji operator blokira pipeline, i da izvedeš zašto isti sken uz isti <code>LIMIT</code> jednom
+  pročita deset torki a drugi put pet miliona.
+</div>
+
+<h2>1 · Iterator je objekat sa tri metoda</h2>
+
+<p>Model iteratora (iterator model) nije MySQL-ov izum. Potiče iz sistema Volcano, opisanog u radu
+koji je Goetz Graefe objavio 1994. godine, i danas je podrazumevani oblik izvršioca u većini
+relacionih baza. MySQL ga je uveo radnim zadatkom <strong>WL#11785</strong>, u čijem obrazloženju
+doslovno stoji:</p>
+
+<div class="slide">
+  „This worklog aims to build a single abstraction that has a small API, but is generic enough to
+  unify the first four abstractions plus joins (possibly all five); basically a unified, composable
+  iterator abstraction <strong>borrowed from the classic Volcano database system</strong>."
+  <span class="src">MySQL WL#11785, „Volcano iterator design"</span>
+</div>
+
+<p>Pre toga je MySQL imao <strong>šest</strong> različitih, međusobno nespojivih apstrakcija za
+čitanje torki (<code>QUICK_SELECT_I</code>, <code>READ_RECORD</code>, <code>QEP_TAB</code>,
+<code>QEP_operation</code>, <code>QEP_TAB::next_select</code>, <code>Query_result</code>). Zamenila
+ih je jedna klasa. U izvornom kodu verzije 8.4 ona izgleda ovako:</p>
+
+<div class="slide">
+  „A RowIterator is a simple iterator; <strong>you initialize it, and then read one record at a time
+  until Read() returns EOF</strong>. A RowIterator can read from other Iterators if you want to,
+  e.g., SortingIterator, which takes in records from another RowIterator and sorts them."
+  <span class="src">sql/iterators/row_iterator.h, oznaka mysql-8.4.6</span>
+</div>
+
+<table class="exp">
+  <tr><td><code>Init()</code></td><td>„Initialize or reinitialize the iterator. You must always call
+    <code>Init()</code> before trying a <code>Read()</code>." Ponovni poziv premotava iterator na
+    početak.</td></tr>
+  <tr><td><code>Read()</code></td><td>Vraća <strong>jednu</strong> torku. Povratna vrednost je
+    <code>0</code> (u redu), <code>-1</code> (nema više torki) ili <code>1</code> (greška).</td></tr>
+  <tr><td><code>UnlockRow()</code></td><td>„If <code>Read()</code> returned a row that you did not
+    actually use, you should call <code>UnlockRow()</code> afterwards." Otpušta zaključavanje nad
+    torkom koja je pročitana pa odbačena.</td></tr>
+</table>
+
+<p>Dve stvari koje se lako promaše. Prva: <span class="hi">torka se ne vraća kao rezultat
+funkcije</span>. Zaglavlje kaže „The row data is not actually returned from the function; it is put
+in the table's (or tables', in case of a join) record buffer, ie., <code>table-&gt;records[0]</code>."
+Volcano daje MySQL-u <strong>oblik toka upravljanja</strong> (otvori, čitaj, zatvori), ali torke i dalje
+putuju kroz postojeći <strong>bafer torke</strong> (record buffer), a ne kroz povratne
+vrednosti. Druga: iterator sme da čita iz drugog iteratora. Zbog toga se od njih pravi
+<strong>stablo</strong>, a ne lanac.</p>
+
+<div class="gloss">
+  Zaglavlje samo priznaje granicu apstrakcije: „The abstraction is not completely tight. In
+  particular, it still leaves some specifics to <code>TABLE</code>, such as which columns to read
+  (the <code>read_set</code>)." Vredi zapamtiti za odbranu — nije reč o čistom udžbeničkom Volcano
+  modelu, nego o Volcano obliku koji je postavljen preko starijih MySQL konvencija.
+</div>
+
+<h2>2 · Svaki red <code>FORMAT=TREE</code> ispisa je jedan iterator</h2>
+
+<p>U poglavlju 4 je <code>FORMAT=TREE</code> predstavljen kao „drugi oblik ispisa". To je bilo tačno
+ali nedovoljno. Priručnik kaže šta su ti čvorovi:</p>
+
+<div class="slide">
+  „The query execution information is displayed using the <code>TREE</code> output format,
+  <strong>in which nodes represent iterators</strong>."
+  <span class="src">MySQL 8.4 Reference Manual, EXPLAIN Statement</span>
+</div>
+
+<p>Uvlačenje je odnos roditelj-dete: <span class="hi">dublje uvučen čvor je dete</span>. Roditelj
+poziva <code>Read()</code> deteta, dete vraća jednu torku roditelju. Zato se stablo čita
+<strong>od najdubljeg reda naviše</strong> kad te zanima odakle podaci dolaze, a
+<strong>odozgo nadole</strong> kad te zanima ko koga poziva.</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>sakila</code>, sa podrazumevanim indeksima. Ništa
+      se ne menja, pa nema šta da se čisti posle.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> sakila;
+
+<span class="c">-- Prvo oblik stabla, bez izvrsavanja.</span>
+<span class="k">EXPLAIN</span> <span class="k">FORMAT</span>=TREE
+<span class="k">SELECT</span> c.last_name, <span class="fn">COUNT</span>(*) <span class="k">AS</span> n
+<span class="k">FROM</span> customer c
+<span class="k">JOIN</span> rental r <span class="k">ON</span> r.customer_id = c.customer_id
+<span class="k">WHERE</span> c.active = 1
+<span class="k">GROUP BY</span> c.customer_id
+<span class="k">ORDER BY</span> n <span class="k">DESC</span>
+<span class="k">LIMIT</span> 5;
+
+<span class="c">-- Zatim isto stablo, ali sa merenjem po iteratoru.</span>
+<span class="k">EXPLAIN</span> <span class="k">ANALYZE</span>
+<span class="k">SELECT</span> c.last_name, <span class="fn">COUNT</span>(*) <span class="k">AS</span> n
+<span class="k">FROM</span> customer c
+<span class="k">JOIN</span> rental r <span class="k">ON</span> r.customer_id = c.customer_id
+<span class="k">WHERE</span> c.active = 1
+<span class="k">GROUP BY</span> c.customer_id
+<span class="k">ORDER BY</span> n <span class="k">DESC</span>
+<span class="k">LIMIT</span> 5;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Osam uvucenih redova. Odozgo nadole: Limit, Sort, Stream results,
+Group aggregate, Nested loop inner join, pa dva ulaza spoja -- Filter
+nad Index scan-om po tabeli customer, i Covering index lookup po tabeli
+rental.
+
+Vremena i broj torki se menjaju od pokretanja do pokretanja; oblik
+stabla se ne menja.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> to nije osam koraka koje server izvodi jedan za
+      drugim. To je osam objekata koji istovremeno postoje u memoriji, spojenih tako da najgornji
+      (<code>Limit</code>) poziva sledeći, i tako do najdubljeg, koji jedini stvarno dodiruje
+      tabelu preko <code>handler</code> API-ja iz poglavlja 2.</p>
+  </div>
+</div>
+
+<figure class="fig">
+  <img src="../figures/05-model-iteratora-01-stablo-iteratora.png"
+       alt="Ispis EXPLAIN ANALYZE za upit nad tabelama customer i rental, osam uvucenih redova.
+            Uz svaki red, u desnoj koloni, stoji ime C++ klase iteratora koja se za njega
+            instancira: LimitOffsetIterator, SortingIterator, StreamingIterator, AggregateIterator,
+            NestedLoopIterator, FilterIterator, IndexScanIterator<false> i RefIterator<false>. Levo
+            od stabla dve strelice: crvena nadole, oznacena poziv Read(), i zelena nagore, oznacena
+            jedna torka. Ispod stabla racun rows=26.8 puta loops=584 priblizno 15651, sto je broj
+            torki koje vraca cvor Nested loop inner join.">
+  <figcaption><b>Slika 5.1</b> — Osam redova ispisa, osam objekata u izvršiocu. Kontrola ide nadole
+    (roditelj poziva <code>Read()</code>), torke idu nagore, po jedna
+    (<code>examples/05-model-iteratora/01-stablo-iteratora.sql</code>, izmereno na MySQL 8.4.11).</figcaption>
+</figure>
+
+<p>Preslikavanje nije analogija nego mehanika. Tekst koji <code>FORMAT=TREE</code> ispisuje generiše
+se u <code>sql/join_optimizer/explain_access_path.cc</code>, a iterator se pravi u
+<code>sql/join_optimizer/access_path.cc</code> — obe datoteke se granaju po istom polju
+<code>path-&gt;type</code>. Zato svakom ispisu odgovara tačno jedna klasa:</p>
+
+<table class="exp">
+  <tr><td><code>Table scan on …</code></td><td><code>TableScanIterator</code></td></tr>
+  <tr><td><code>Index scan on …</code> / <code>Covering index scan on …</code></td><td><code>IndexScanIterator&lt;false&gt;</code>, a <code>&lt;true&gt;</code> kad se indeks čita unatrag</td></tr>
+  <tr><td><code>Index lookup on …</code> / <code>Covering index lookup on …</code></td><td><code>RefIterator&lt;false&gt;</code></td></tr>
+  <tr><td><code>Single-row index lookup on …</code></td><td><code>EQRefIterator</code></td></tr>
+  <tr><td><code>Filter: …</code></td><td><code>FilterIterator</code></td></tr>
+  <tr><td><code>Sort: …</code></td><td><code>SortingIterator</code></td></tr>
+  <tr><td><code>Limit: N row(s)</code></td><td><code>LimitOffsetIterator</code></td></tr>
+  <tr><td><code>Group aggregate: …</code> / <code>Aggregate: …</code></td><td><code>AggregateIterator</code></td></tr>
+  <tr><td><code>Nested loop &lt;tip&gt; join</code></td><td><code>NestedLoopIterator</code></td></tr>
+  <tr><td><code>Inner hash join …</code></td><td><code>HashJoinIterator</code></td></tr>
+  <tr><td><code>Stream results</code></td><td><code>StreamingIterator</code></td></tr>
+  <tr><td><code>Materialize</code></td><td>gradnja privremene tabele, slučaj <code>MATERIALIZE</code></td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Jedan izuzetak</span>
+  Red <code>-&gt; Hash</code>, koji se pojavljuje iznad ulaza hash spoja, <strong>nije
+  iterator</strong>. U izvornom kodu to je natpis na grani ka ulazu koji se hešira:
+  <code>children-&gt;push_back({path-&gt;hash_join().inner, "Hash"});</code>. Prepoznaje se i bez
+  koda — <span class="hi">jedini je red u stablu bez ijednog broja uz sebe</span>, jer iza njega ne
+  stoji ni <code>AccessPath</code> struktura čija bi se cena procenila, ni iterator čije bi se vreme
+  merilo.
+</div>
+
+<h2>3 · <code>loops</code> je broj poziva <code>Init()</code></h2>
+
+<p>Lekcija 4b je uvela <code>loops</code> kao „broj ponavljanja" i zaustavila se tu. Izvorni kod
+kaže tačno šta se broji, u klasi koja postoji isključivo da bi <code>EXPLAIN ANALYZE</code> imao
+odakle da čita:</p>
+
+<div class="slide">
+  „Profiling data for an iterator, needed by 'EXPLAIN ANALYZE'. … <code>GetNumInitCalls()</code>:
+  <strong>The number of loops (i.e number of iterator-&gt;Init() calls.</strong>"
+  <span class="src">sql/iterators/row_iterator.h, klasa IteratorProfiler, oznaka mysql-8.4.6</span>
+</div>
+
+<p>Time se dve stvari koje su do sada bile pravila pretvaraju u posledice. Prvo:
+<code>NestedLoopIterator</code> za svaku torku spoljašnjeg ulaza pozove <code>Init()</code> pa
+<code>Read()</code> na unutrašnjem ulazu. Zato je <code>loops</code> na unutrašnjem čvoru jednak
+broju torki koje je izbacio spoljašnji čvor — u primeru iznad, tačno broju aktivnih kupaca. Drugo:
+pošto se merenja sabiraju kroz sva ponavljanja a prikazuju kao prosek,
+<span class="hi"><code>rows</code> na unutrašnjem čvoru je prosek po ponavljanju</span> i zato sme da
+bude decimalan. Ukupan broj torki koje spoj vidi dobija se množenjem:</p>
+
+<pre class="out">rows=26.8  x  loops=584  =~ 15651  =  rows na "Nested loop inner join"</pre>
+
+<div class="scope">
+  <span class="lbl">Van obima</span>
+  <code>Init()</code> na unutrašnjem ulazu ne znači uvek novo čitanje sa diska — <code>EQRefIterator</code>
+  pamti poslednji pročitani ključ i preskače ponovni pristup. Za poglavlje 5 dovoljno je znati da se
+  <code>loops</code> broji na nivou poziva, a ne na nivou U/I operacija.
+</div>
+
+<h2>4 · Pipeline teče dok ga neko ne blokira</h2>
+
+<p>Ako svaka torka nastaje tek kad je neko zatraži, onda nijedan operator ne zna unapred koliko će
+torki proizvesti — <strong>prestaje da radi onda kada ga prestanu pozivati</strong>. To je
+<strong>izvršavanje na zahtev</strong> (demand-driven), i najlakše se dokazuje jednim
+<code>LIMIT</code>-om nad velikom tabelom.</p>
+
+<p>Ali ne mogu svi operatori da rade tako. <code>SortingIterator</code> ne može da vrati prvu torku
+dok nije video <strong>sve</strong> torke svog deteta, jer dok ne vidi poslednju ne zna koja je
+prva po redosledu. Takav operator je <strong>blokirajući operator</strong>
+(blocking operator): on pipeline preseca na dva dela.</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>obrada_upita</code> i tabela
+      <code>wide_events</code> sa pet miliona torki, iz <code>examples/00-setup/</code>. Upiti samo
+      čitaju.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> obrada_upita;
+
+<span class="c">-- A: ceo plan je pipeline.</span>
+<span class="k">EXPLAIN</span> <span class="k">ANALYZE</span>
+<span class="k">SELECT</span> id, amount <span class="k">FROM</span> wide_events
+<span class="k">WHERE</span> amount &gt; 100
+<span class="k">LIMIT</span> 10;
+
+<span class="c">-- B: ista tabela, isti uslov, isti LIMIT, plus ORDER BY.</span>
+<span class="k">EXPLAIN</span> <span class="k">ANALYZE</span>
+<span class="k">SELECT</span> id, amount <span class="k">FROM</span> wide_events
+<span class="k">WHERE</span> amount &gt; 100
+<span class="k">ORDER BY</span> amount
+<span class="k">LIMIT</span> 10;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">A: tri cvora (Limit, Filter, Table scan). Na sva tri stoji rows=10.
+   Ukupno vreme je nekoliko milisekundi.
+
+B: cetiri cvora -- isti kao u A, plus Sort izmedju Limit-a i Filter-a.
+   Na skenu tabele sada stoji rows=5e+6, a ukupno vreme je oko dve
+   sekunde.
+
+Apsolutne vrednosti zavise od stanja bafer-pula; odnos ne zavisi.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> sken tabele <span class="hi">ne zna ništa o
+      <code>LIMIT</code>-u</span>. On nije „optimizovan da stane"; on jednostavno prestaje da bude
+      pozivan čim <code>LIMIT</code> dobije svojih deset torki. Kad se između njih ubaci
+      <code>Sort</code>, <code>Sort</code> mora da isprazni ceo svoj ulaz pre nego što vrati bilo
+      šta, pa se isti sken izvrši do kraja. Jedna klauzula, ista tabela, pet miliona pročitanih
+      torki umesto deset.</p>
+  </div>
+</div>
+
+<figure class="fig">
+  <img src="../figures/05-model-iteratora-02-pipeline-i-blokada.png"
+       alt="Dva panela, A i B, sa zajednickom vremenskom osom od nula do 2200 milisekundi. Panel A
+            ima tri cvora, Limit, Filter i Table scan, i sva tri imaju rows=10 i trake koje su
+            uske crtice na samom pocetku ose. Panel B ima cetiri cvora; Sort ima traku koja je
+            tacka na kraju ose, oznacena natpisom blokira: prva torka jednaka poslednjoj torki,
+            dok Filter i Table scan ispod njega imaju duge trake koje se prostiru preko vecine
+            ose. Na skenu u panelu B stoji rows=5000000.">
+  <figcaption><b>Slika 5.2</b> — Isti sken, deset pročitanih torki naspram pet miliona. Trajanje
+    trake je vreme od prve do poslednje torke; kod blokirajućeg čvora traka se skuplja u tačku
+    (<code>examples/05-model-iteratora/02-pipeline-i-blokada.sql</code>, izmereno na MySQL 8.4.11).</figcaption>
+</figure>
+
+<p>Slika 5.2 pokazuje i kako se blokada prepoznaje bez ikakvog poznavanja operatora. Priručnik kaže
+da <code>EXPLAIN ANALYZE</code> po iteratoru prijavljuje „Time to return first row" i „Time spent
+executing this iterator", što je ono što se u ispisu vidi kao <code>actual time=prvo..poslednje</code>.
+Odatle sledi pravilo koje vredi zapamtiti:</p>
+
+<table class="exp">
+  <tr><td><b>prvo &lt;&lt; poslednje</b></td><td>pipeline operator: torke izlaze postepeno, kako
+    pristižu. U panelu B tako izgleda <code>Filter</code>.</td></tr>
+  <tr><td><b>prvo = poslednje</b></td><td>blokirajući operator: ništa nije izašlo dok sve nije ušlo.
+    U panelu B tako izgleda <code>Sort</code>.</td></tr>
+</table>
+
+<p>Koji operatori blokiraju, a koji ne:</p>
+
+<table class="exp">
+  <tr><td>pipeline</td><td><code>Table scan</code>, <code>Index scan</code>, <code>Index lookup</code>,
+    <code>Filter</code>, <code>Limit</code>, <code>Nested loop join</code>, <code>Stream results</code></td></tr>
+  <tr><td>blokira</td><td><code>Sort</code> (ceo ulaz), <code>Materialize</code> (cela privremena
+    tabela), <code>Aggregate using temporary table</code>, i <strong>faza gradnje</strong> hash
+    spoja — ulaz ispod natpisa <code>Hash</code> mora ceo da se pročita pre nego što išta izađe</td></tr>
+</table>
+
+<div class="gloss">
+  Odavde se vidi i zašto <code>Stream results</code> uopšte postoji kao čvor. On je upravo
+  suprotnost materijalizaciji: rezultat se šalje klijentu kako nastaje, umesto da se prvo skupi u
+  privremenu tabelu. U stablu je to znak da na tom mestu <strong>nije</strong> ubačena barijera.
+</div>
+
+<h2>5 · <code>AccessPath</code> je plan, iterator je izvršavanje</h2>
+
+<p>Ostaje pitanje odakle iteratori dolaze. Između planera iz poglavlja 3 i izvršioca stoji struktura
+<code>AccessPath</code>, a njeno zaglavlje taj odnos iskazuje u jednoj rečenici:</p>
+
+<div class="slide">
+  „Access paths are a query planning structure that <strong>correspond 1:1 to iterators</strong>, in
+  that an access path contains pretty much exactly the information needed to instantiate given
+  iterator, plus some information that is only needed during planning, such as costs."
+  <span class="src">sql/join_optimizer/access_path.h, oznaka mysql-8.4.6</span>
+</div>
+
+<p>Optimizator, dakle, ne pravi iteratore. On pravi stablo <code>AccessPath</code> struktura, koje su
+namerno male i fiksne veličine baš zato da bi jedna mogla da se <strong>zameni boljom</strong> tokom
+pretrage bez nove alokacije. Tek na kraju funkcija <code>CreateIteratorFromAccessPath()</code>
+prevodi to stablo u stablo iteratora.</p>
+
+<div class="note">
+  <span class="lbl">Ovim se zatvara pitanje iz lekcije 4c</span>
+  U tragu optimizatora sav sadržaj je bio u fazi <code>join_optimization</code>, a
+  <code>join_execution</code> je bio prazan. Sad se vidi zašto: <span class="hi">u izvršavanju se ne
+  donosi nijedna odluka koju bi trag imao da zabeleži</span>. Sve je odlučeno u trenutku kad je
+  stablo <code>AccessPath</code> struktura bilo gotovo; posle toga se ono samo prepiše u objekte i
+  pokrene.
+</div>
+
+<p>Zato treba paziti na jednu zamku u terminologiji ovog rada: <code>AccessPath</code> je
+<strong>C++ struktura</strong>, dok je <strong>pristupni put</strong> pojam iz poglavlja 1 i 3 (način
+na koji se dolazi do torki jedne tabele). Nisu isto i ne smeju se zameniti.</p>
+
+<h2>6 · Provera</h2>
+<div class="quiz">
+  <p>Po jedno pitanje na svaku netrivijalnu tvrdnju lekcije. Odgovor se ocenjuje odmah, sa
+     obrazloženjem.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Šta <code>Read()</code> vraća pozivaocu kad uspešno pročita torku?</p>
+    <label><input type="radio"> Pokazivač na strukturu sa pročitanom torkom u njoj</label>
+    <label><input type="radio"> Kopiju torke, po vrednosti, kroz povratnu vrednost</label>
+    <label><input type="radio"> Nulu, jer torka odlazi u bafer torke same tabele</label>
+    <label><input type="radio"> Broj torki pročitanih od poslednje inicijalizacije</label>
+    <p class="why">Zaglavlje je izričito: torka se stavlja u <code>table-&gt;records[0]</code>, a
+      povratna vrednost je samo status (0, -1 ili 1).</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">2. U <code>FORMAT=TREE</code> ispisu, šta znači dublje uvučen red?</p>
+    <label><input type="radio"> Da se taj korak izvršava kasnije od reda iznad njega</label>
+    <label><input type="radio"> Da je taj iterator dete onog iteratora iznad njega</label>
+    <label><input type="radio"> Da taj iterator košta manje od svakog iznad njega</label>
+    <label><input type="radio"> Da je taj deo plana neobavezan i sme da se preskoči</label>
+    <p class="why">Uvlačenje je struktura stabla, ne redosled u vremenu: roditelj poziva
+      <code>Read()</code> deteta, a svi čvorovi postoje istovremeno.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Šta broji <code>loops</code> na jednom čvoru?</p>
+    <label><input type="radio"> Koliko je puta taj iterator pročitao blok sa diska</label>
+    <label><input type="radio"> Koliko je torki taj iterator vratio svom roditelju</label>
+    <label><input type="radio"> Koliko je puta ceo upit bio ponovljen tokom merenja</label>
+    <label><input type="radio"> Koliko je puta na tom iteratoru pozvana metoda <code>Init()</code></label>
+    <p class="why"><code>IteratorProfiler::GetNumInitCalls()</code> to kaže doslovno; kod ugnježdene
+      petlje to je jednom po torki spoljašnjeg ulaza.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">4. Zašto <code>rows</code> na unutrašnjem ulazu spoja ume da bude decimalan?</p>
+    <label><input type="radio"> Jer je to prosek po ponavljanju, a ne ukupan zbir torki</label>
+    <label><input type="radio"> Jer je to procena optimizatora, a ne izmerena vrednost</label>
+    <label><input type="radio"> Jer se torke sa <code>NULL</code> vrednostima broje kao pola torke</label>
+    <label><input type="radio"> Jer se broj zaokružuje na tri značajne cifre u ispisu</label>
+    <p class="why">Merenja se sabiraju preko svih ponavljanja a prikazuju po ponavljanju; ukupno se
+      dobija kao <code>rows</code> puta <code>loops</code>.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">5. Zašto sken tabele u upitu A pročita samo desetak torki?</p>
+    <label><input type="radio"> Jer je optimizator spustio <code>LIMIT</code> sve do samog skena</label>
+    <label><input type="radio"> Jer InnoDB prekida sken čim napuni bafer pul torkama</label>
+    <label><input type="radio"> Jer ga posle desete torke niko više ne pozove da čita</label>
+    <label><input type="radio"> Jer se uslov <code>amount &gt; 100</code> proverava u samom indeksu</label>
+    <p class="why">Sken ne zna za <code>LIMIT</code>. Rano zaustavljanje je posledica toga što se
+      torke povlače na zahtev, a zahteva više nema.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">6. Po čemu se u ispisu prepoznaje blokirajući operator?</p>
+    <label><input type="radio"> Njegovo <code>rows</code> jednako je ukupnom broju torki u tabeli</label>
+    <label><input type="radio"> Njegovo vreme prve torke jednako je vremenu poslednje</label>
+    <label><input type="radio"> Njegov <code>loops</code> je uvek veći od jedan, po svakom ulazu</label>
+    <label><input type="radio"> Njegova cena je veća od zbira cena sve njegove dece</label>
+    <p class="why">Ništa nije izašlo dok sve nije ušlo, pa se raspon
+      <code>actual time=prvo..poslednje</code> skuplja u jednu vrednost.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">7. Koji od ovih redova u stablu <strong>nije</strong> iterator?</p>
+    <label><input type="radio"> <code>Stream results</code>, koji šalje rezultat pravo klijentu</label>
+    <label><input type="radio"> <code>Filter</code>, koji proverava uslov nad pročitanom torkom</label>
+    <label><input type="radio"> <code>Limit</code>, koji prekida čitanje posle zadatog broja torki</label>
+    <label><input type="radio"> <code>Hash</code>, koji stoji iznad ulaza za hash spoj u stablu</label>
+    <p class="why">To je natpis na grani ka ulazu koji se hešira; prepoznaje se po tome što je
+      jedini red bez ijednog broja uz sebe.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">8. U kakvom su odnosu <code>AccessPath</code> i iterator?</p>
+    <label><input type="radio"> Jedan prema jedan; prvi je plan, drugi je izvršavanje</label>
+    <label><input type="radio"> Jedan prema više; iz jednog puta nastaje više iteratora</label>
+    <label><input type="radio"> Više prema jedan; više puteva se stapa u jedan iterator</label>
+    <label><input type="radio"> Nisu povezani; put je nasleđena struktura van upotrebe</label>
+    <p class="why">Zaglavlje <code>access_path.h</code> kaže „correspond 1:1 to iterators"; razlika
+      je što put nosi i cenu, koja posle planiranja više nikom ne treba.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">9. Zašto je faza <code>join_execution</code> u tragu optimizatora prazna?</p>
+    <label><input type="radio"> Jer se trag zaustavlja pre nego što izvršavanje počne</label>
+    <label><input type="radio"> Jer je ta faza isečena zbog ograničenja memorije traga</label>
+    <label><input type="radio"> Jer u izvršavanju nema nijedne odluke vredne beleženja</label>
+    <label><input type="radio"> Jer za tu fazu treba uključiti zaseban <code>optimizer_switch</code></label>
+    <p class="why">Sve je odlučeno dok je nastajalo stablo <code>AccessPath</code> struktura; posle
+      se ono samo prepiše u objekte i pokrene.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong>
+  <a href="https://github.com/mysql/mysql-server/blob/mysql-8.4.6/sql/iterators/row_iterator.h">sql/iterators/row_iterator.h</a>
+  na oznaci <code>mysql-8.4.6</code> — kratka datoteka od 254 reda, a komentari u njoj su najbolji
+  opis modela iteratora koji MySQL uopšte objavljuje. Počni od komentara iznad klase
+  <code>RowIterator</code> i pročitaj tri metoda; ostatak je detalj. Zatim
+  <a href="https://dev.mysql.com/worklog/task/?id=11785">WL#11785</a> za razlog zbog kog je model
+  uveden. ·
+  <strong>Vidi još:</strong> <a href="../reference/06-model-iteratora.html">referentna kartica 06</a>,
+  <a href="0005-explain-analyze-procena-naspram-stvarnog.html">lekcija 4b</a> (odakle dolazi
+  <code>loops</code>), <a href="0006-optimizer-trace-i-explain-for-connection.html">lekcija 4c</a>
+  (prazan <code>join_execution</code>), <a href="../GLOSSARY.md">GLOSSARY.md</a> §2f. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu — lekcija je početak, ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>

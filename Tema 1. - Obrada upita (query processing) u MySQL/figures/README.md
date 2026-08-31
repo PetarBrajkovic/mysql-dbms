@@ -49,6 +49,7 @@ All live in this topic's own `tools/`. The two generic entry points (`make-figur
 | `make-lesson04-three-formats.ps1` | same query in all three formats | two formats are table-shaped, one is iterator-shaped |
 | `make-lesson05-explain-analyze.ps1` | chapter 4b's three figures | divergence holds, histogram closes the gap on the non-indexed column but not the indexed one, per-loop count stays fractional, the alternative plan still wins. `-SkipBadPlan` while iterating on layout |
 | `make-lesson06-optimizer-trace.ps1` | chapter 4c's four figures | the load-bearing **negative** assertion: `idx_created_at` must **not** appear in `considered_execution_plans`. Figure 09 starts two real background clients. `-SkipForConnection` while iterating |
+| `make-lesson07-iterator.ps1` | chapter 5's two figures | every printed TREE node must resolve to a known iterator class (an unmapped node throws); inner `loops` == outer `rows`; `rows × loops` reconstructs the join's row count. The **negative** assertion: the `LIMIT`-only plan must contain **no** `Sort` node, or the whole pipeline/blocking contrast is a lie. `-Only 1` / `-Only 2` while iterating |
 
 ## Non-SQL figures in this paper
 

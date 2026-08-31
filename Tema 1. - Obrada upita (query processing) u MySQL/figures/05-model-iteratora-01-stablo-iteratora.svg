@@ -1,0 +1,39 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' width='1580' height='488' viewBox='0 0 1580 488'>
+<rect width='1580' height='488' fill='#ffffff'/>
+<text x='790' y='44' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='25' font-weight='bold' fill='#1a1a1a'>Jedan upit, 8 iteratora: svaki red ispisa je jedan objekat u izvr&#353;iocu</text>
+<text x='790' y='72' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c'>SELECT c.last_name, COUNT(*) AS n FROM customer c JOIN rental r ON r.customer_id = c.customer_id</text>
+<text x='790' y='90' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='12.5' fill='#5a564c'>WHERE c.active = 1 GROUP BY c.customer_id ORDER BY n DESC LIMIT 5</text>
+<text x='130' y='132' font-family="Georgia, 'Times New Roman', serif" font-size='13' font-weight='bold' fill='#8a8578' letter-spacing='0.07em'>IZLAZ SERVERA (procena izostavljena)</text>
+<text x='1210' y='132' font-family="Georgia, 'Times New Roman', serif" font-size='13' font-weight='bold' fill='#2e6b2e' letter-spacing='0.07em'>KLASA U sql/iterators/</text>
+<line x1='130' y1='140' x2='1546' y2='140' stroke='#d8d3c8' stroke-width='1'/>
+<text x='130' y='167' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#8594; </tspan><tspan>Limit: 5 row(s)</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=3.13..3.13 rows=5 loops=1)</tspan></text>
+<text x='1210' y='167' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#2e6b2e'>LimitOffsetIterator</text>
+<text x='130' y='194' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#160;&#160;&#160;&#160;&#8594; </tspan><tspan>Sort: n DESC, limit input to 5 row(s) per chunk</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=3.13..3.13 rows=5 loops=1)</tspan></text>
+<text x='1210' y='194' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#2e6b2e'>SortingIterator</text>
+<text x='130' y='221' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#8594; </tspan><tspan>Stream results</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=0.07..3.09 rows=584 loops=1)</tspan></text>
+<text x='1210' y='221' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#2e6b2e'>StreamingIterator</text>
+<text x='130' y='248' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#8594; </tspan><tspan>Group aggregate: count(0)</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=0.068..3.02 rows=584 loops=1)</tspan></text>
+<text x='1210' y='248' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#2e6b2e'>AggregateIterator</text>
+<text x='130' y='275' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#8594; </tspan><tspan>Nested loop inner join</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=0.054..2.58 </tspan><tspan fill='#7a1f1f' font-weight='bold'>rows=15640</tspan><tspan fill='#5a564c'> loops=1)</tspan></text>
+<text x='1210' y='275' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#2e6b2e'>NestedLoopIterator</text>
+<text x='130' y='302' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#8594; </tspan><tspan>Filter: (c.`active` = 1)</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=0.04..0.155 rows=584 loops=1)</tspan></text>
+<text x='1210' y='302' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#2e6b2e'>FilterIterator</text>
+<text x='130' y='329' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#8594; </tspan><tspan>Index scan on c using PRIMARY</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=0.04..0.124 rows=599 loops=1)</tspan></text>
+<text x='1210' y='329' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#2e6b2e'>IndexScanIterator&lt;false&gt;</text>
+<text x='130' y='356' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#1a1a1a' xml:space='preserve'><tspan fill='#8a8578'>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#8594; </tspan><tspan>Covering index lookup on r using idx_fk_customer_id (customer_id=c.customer_id)</tspan><tspan fill='#5a564c'>  </tspan><tspan fill='#5a564c'>(actual time=0.002..0.003 </tspan><tspan fill='#7a1f1f' font-weight='bold'>rows=26.8</tspan><tspan fill='#5a564c'> </tspan><tspan fill='#7a1f1f' font-weight='bold'>loops=584</tspan><tspan fill='#5a564c'>)</tspan></text>
+<text x='1210' y='356' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='11.5' fill='#2e6b2e'>RefIterator&lt;false&gt;</text>
+<line x1='130' y1='368' x2='1546' y2='368' stroke='#d8d3c8' stroke-width='1'/>
+<defs>
+<marker id='mdown' markerWidth='9' markerHeight='9' refX='4.5' refY='8' orient='auto'><path d='M0,0 L4.5,8 L9,0 Z' fill='#7a1f1f'/></marker>
+<marker id='mup' markerWidth='9' markerHeight='9' refX='4.5' refY='1' orient='auto'><path d='M0,9 L4.5,1 L9,9 Z' fill='#2e6b2e'/></marker>
+</defs>
+<line x1='60' y1='150' x2='60' y2='362' stroke='#7a1f1f' stroke-width='2.5' marker-end='url(#mdown)'/>
+<text x='52' y='254' transform='rotate(-90 52 254)' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' font-weight='bold' fill='#7a1f1f'>poziv Read()</text>
+<line x1='102' y1='362' x2='102' y2='150' stroke='#2e6b2e' stroke-width='2.5' marker-end='url(#mup)'/>
+<text x='94' y='254' transform='rotate(-90 94 254)' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' font-weight='bold' fill='#2e6b2e'>jedna torka</text>
+<rect x='34' y='384' width='1512' height='78' fill='#7a1f1f' opacity='0.06'/>
+<text x='790' y='408' text-anchor='middle' font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size='16' font-weight='bold' fill='#7a1f1f'>rows=26.8 &#215; loops=584 &#8776; 15651 = rows na Nested loop inner join</text>
+<text x='790' y='430' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>loops je broj poziva Init(): unutra&#353;nji iterator je inicijalizovan ta&#269;no jednom po torki spolja&#353;njeg ulaza (584 aktivnih kupaca).</text>
+<text x='790' y='452' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13.5' fill='#5a564c'>rows na unutra&#353;njem &#269;voru je prosek po ponavljanju, a ne ukupan broj torki &#183; zato ume da bude decimalan.</text>
+</svg>
+
