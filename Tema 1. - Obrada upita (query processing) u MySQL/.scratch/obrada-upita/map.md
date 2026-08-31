@@ -297,10 +297,38 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   ceiling needs a decision that is the user's: raise it ~1 page, or reclaim ~1 page from chapters 1-4
   under the suspended trim rule. Flagged on ticket 18.
 
+- [Chapter 7. Zaključak](issues/18-zakljucak.md): the last chapter written and closed, ~440 words,
+  no subsections and no figure. It **synthesises rather than summarises**, and its payload is that
+  **chapter 6's three negative claims are one decision seen from three sides**, derived rather than
+  listed: `Read()` returns at most one row, so there is no vectorization; the predicate is decided
+  above the `handler` seam, so rows cross it one at a time and parallelism stops at the first
+  `WHERE`; optimization runs per execution against the actual parameter, so there is no plan to
+  keep. The trade-off is stated in both directions (first-row latency, small memory, a plan fitted
+  to the actual parameter and cores left to other connections, all suiting OLTP, against ~20 ns per
+  row per predicate with no batch to amortize over), and the comparison closes on the point that
+  **none of the other systems started somewhere else**: the model MySQL keeps *is* Volcano, and a
+  vectorized executor changes it in exactly one place. No new citations. The **chapter 1 revisit**
+  the ticket called for found two roadmap bullets promising what the paper did not deliver (ch. 2
+  as a component list rather than a seam, ch. 3 as relational-algebra rewriting rather than five
+  phases and the cost line); both rewritten to what was written. Ticket 19's checks, run in the
+  same session, also caught **eight figures never referenced by number** and **three figures with
+  no explicit width**, all fixed. **The ceiling is the one thing left**: the paper renders at
+  **26 against the hard ≤25**, and since it was at exactly 25 with chapter 7 unwritten, any
+  conclusion puts it there. Reaching 25 now costs a figure or ~600 words of taught prose, which the
+  suspension does not license, so the ticket recommends raising the ceiling to 26.
+
 ## Not yet specified
 
-- **A final Serbian proofreading / consistency pass** over the whole paper. Almost certainly needed,
-  but its shape depends on how consistent the terminology glossary keeps things.
+- **The page ceiling itself.** ≤25 or 26, the user's call; everything else about the paper is done.
+  See [Chapter 7. Zaključak](issues/18-zakljucak.md) for what was measured and
+  [Final export, bibliography, and consistency pass](issues/19-final-export.md) for what closes
+  behind it.
+- **The user's own read-through of the finished paper.** The *consistency* half of the proofreading
+  pass this section used to carry is done: every chapter was written with `serbian-grammar`, and
+  ticket 19 swept the locked terms across all seven chapters and found one accepted divergence
+  (`plan izvršenja` in `GLOSSARY.md` §2 against `plana izvršavanja` in chapter 3's locked title).
+  What no agent pass replaces is the author reading it end to end once, which also serves the
+  defense.
 
 ## Out of scope
 

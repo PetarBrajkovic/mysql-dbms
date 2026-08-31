@@ -344,6 +344,25 @@ sits **exactly at the hard ceiling with chapter 7 (0.75) unwritten**, and that g
 decision on ticket 18: raise the ceiling by about a page, or reclaim about a page from chapters 1-4
 under the suspension below.
 
+**Measured a third time, with chapter 7 complete and the paper finished: 26 pages.** The paper was
+at exactly 25 with chapter 7 unwritten, so **any** conclusion puts it at 26; chapter 7 itself was
+written at 593 words and tightened to 444 without dropping anything but redundancy. Two mechanics
+worth keeping, both measured this session:
+
+- **Text cut from chapter 7 is the only trim with a predictable effect**, because no figure stands
+  between it and the reference list, so the bibliography moves up by the lines removed. It is what
+  took the export 27 -> 26 (the last reference entry had been sitting alone on page 27).
+- **Everywhere else, savings are absorbed by figure quantization.** Shrinking Slika 2.1 from 3.6in
+  to 3.0in, 46 pt, moved the page count by zero, and so did putting it back. A saving upstream pays
+  only if it lets a whole figure cross a page boundary.
+
+Reaching 25 needs ~660 pt in one contiguous saving. Layout was taken in ticket 20, figure widths
+bottomed out at 4.3in there, and the redundancy-only prose trim has now under-delivered three times,
+so 25 costs either a figure (~0.4 pages, and every SQL statement in this paper *is* a figure) or
+~600 words of taught prose. Neither is licensed by the suspension below. **The ceiling is therefore
+an open decision on ticket 18**, whose recommendation is to raise it to 26; the alternative, if 25
+is wanted exactly, is dropping Slika 2.3.
+
 **Figure cap, firm** (was "soft guidance" under ticket 09): chapter 5 gets **2** figures, chapter 6
 gets **1**, chapter 7 gets **0**. Figures are ~25% of the page count, which is where the paper grew
 without anyone noticing.

@@ -32,10 +32,14 @@ unaffordable to read (archived at `.scratch/obrada-upita/notes-archive-2026-08-2
   chapter 7. Decided 2026-08-31 under a hard ≤25 rendered-page target. See `GLOSSARY.md` §4, which
   now also carries a **firm** figure cap and a measured page checkpoint.
 - **Chapter 5 (iterator model) is taught and written**, §5.1-5.5, with its 2 figures.
-- **Chapter 6 is taught** (lesson 08, both figures built, terminology in `GLOSSARY.md` §2g) but
-  **not yet written**. It has zero lecture-deck coverage, so every claim in it rests on a primary
-  source or on this session's own measurements — see the open gap in `RESOURCES.md`.
+- **Chapter 6 is taught and written**, §6.1-6.3, with its one figure. It has zero lecture-deck
+  coverage, so every claim in it rests on a primary source or on this session's own measurements.
+- **All seven chapters are written.** Chapter 7 (Zaključak) needed no lesson, per `../WORKFLOW.md`,
+  and carries no figure. The paper renders at **26 pages** against the hard ≤25, which is the one
+  decision still open (ticket 18).
 - **`SELECT COUNT(*)` never reads the clustered index** (every index is covering for it), so any
   parallel-read example in this topic needs `FORCE INDEX(PRIMARY)` or it measures the wrong plan.
   This bit once and is worth keeping in front of mind; the measured detail is in LR-0008.
-- **Chapter 7 (Zaključak) is all that remains after chapter 6 is written.**
+- **Edit `rad.md` with Python or the editor tools, never PowerShell `Set-Content -Encoding utf8`** —
+  it writes a UTF-8 BOM into the file. Pandoc tolerates it; a stricter tool would read the YAML
+  block as body text. Bit once on 2026-08-31 and was stripped.
