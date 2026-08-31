@@ -4,8 +4,8 @@
 **Chapter:** 5 (Model iteratora i pipeline operatora)
 **Lesson:** `lessons/0007-model-iteratora-i-pipeline.html`
 **Reference card:** `reference/06-model-iteratora.html`
-**Status:** taught (lesson delivered; quiz not yet taken at time of writing); ticket 14 still open on
-steps 2-4
+**Status:** closed. Taught 2026-08-31, chapter written the same day; ticket 14 resolved on all four
+steps of its definition of done.
 
 ## What was taught
 
@@ -67,17 +67,16 @@ defense — it is not a textbook Volcano executor.
 
 ## Next
 
-Chapter 5 is taught. Ticket 14 remains open on steps 2-4 of its definition of done: run the two
-scripts in `examples/05-model-iteratora/` (WORKFLOW step 2), then write §5 with
-`academic-research-writer` (step 3) using the two figures the cap allows (01 and 02), then close the
-record. A third figure, `05-model-iteratora-03-stablo-nacrtano.png`, was added to the lesson on
+Chapter 5 is taught **and written**. §5.1-5.5 landed in `rad.md` on 2026-08-31 with the two figures
+the cap allows (01 and 02); a third figure, `05-model-iteratora-03-stablo-nacrtano.png`, was added to the lesson on
 2026-08-31 - the same plan drawn as nodes and edges, because both paper figures show indented text,
 which is the shape the chapter argues against. It is **lesson-only** and shifts the lesson's numbering
 (pipeline figure is now Slika 5.3 in the lesson, Slika 5.2 in the paper).
 
-Budget is **3 rendered pages** and the figure cap of **2** is fully spent. The export stood at 19
-pages with chapters 1-4 written, so re-measure with `..\tools\make-docx.ps1` right after §5 lands —
-if it comes in over 3, chapter 6 gives the page back (GLOSSARY §4).
+Budget was **3 rendered pages** and the figure cap of **2** is fully spent. **Measured: the export
+went 19 -> 22 pages, so chapter 5 came in at exactly 3.** No page needs to be given back, but there
+is no slack either: 22 + chapter 6's 2.5 + chapter 7's 0.75 projects to **~25.25 against the hard
+≤25 ceiling**, so chapter 6 is the one that has to absorb any overrun (GLOSSARY §4).
 
 Lesson 08 belongs to **chapter 6 (Gde MySQL ne prati obrazac)**, the merged 6.1/6.2/6.3. It is the
 one chapter with **zero lecture-deck coverage**, so its lesson has to carry its own sources — and

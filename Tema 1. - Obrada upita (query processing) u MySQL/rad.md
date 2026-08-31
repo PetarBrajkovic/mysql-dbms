@@ -579,6 +579,137 @@ površan pogled na tuđu.
 
 # 5. Iterator model i pipeline operatora
 
+Poglavlje 3 pokazalo je kako se plan bira, a poglavlje 4 kako se izabrani plan čita i meri. Ostaje
+pitanje šta se zapravo izvršava kada plan krene, i ono nije akademsko. Nad tabelom `wide_events` isti
+uslov i isto ograničenje `LIMIT 10` jednom dovedu do toga da sken tabele pročita desetak torki, a
+drugi put svih pet miliona, pri čemu je jedina razlika između ta dva slučaja jedna dodata klauzula
+`ORDER BY`. Pristupni put je i u jednom i u drugom slučaju isti, pa objašnjenje mora da leži u načinu
+na koji izvršilac poziva operatore, što je predmet ovog poglavlja.
+
+## 5.1. Iterator: objekat sa tri metode
+
+Model iteratora nije MySQL-ov izum. Potiče iz sistema Volcano, koji je opisao Graefe, i danas je
+podrazumevani oblik izvršioca u relacionim sistemima [@graefe1994]. MySQL je Volcano model uveo
+radnim zadatkom WL#11785, čiji je cilj bila jedna složiva apstrakcija iteratora, pozajmljena iz
+sistema Volcano, koja zamenjuje šest dotadašnjih međusobno nespojivih apstrakcija za čitanje torki
+(`QUICK_SELECT_I`, `READ_RECORD`, `QEP_TAB`, `QEP_operation`, `QEP_TAB::next_select` i
+`Query_result`) [@mysqlwl11785].
+
+Ta apstrakcija je klasa `RowIterator` sa tri metode. Metoda `Init()` inicijalizuje iterator, odnosno
+premota ga na početak, i mora se pozvati pre prvog čitanja; metoda `Read()` vraća jednu torku, a
+njena povratna vrednost je samo status, 0 za uspeh, -1 kada torki više nema i 1 za grešku; metoda
+`UnlockRow()` otpušta zaključavanje nad torkom koja je pročitana pa odbačena [@mysqlsource84].
+
+Dve stvari u tom potpisu lako se promaše, a obe su bitne. Prva: torka se ne vraća kao rezultat
+funkcije, nego se smešta u bafer torke *(record buffer)* same tabele, `table->records[0]`. Volcano
+model MySQL-u daje oblik toka upravljanja, dakle inicijalizaciju, čitanje i zatvaranje, dok torke i
+dalje putuju kroz raniju konvenciju bafera; izvorni kod tu granicu i priznaje, navodeći da
+apstrakcija nije potpuno zatvorena, jer izbor kolona koje se čitaju (`read_set`) ostaje na strukturi
+`TABLE` [@mysqlsource84]. Druga: iterator sme da čita iz drugog iteratora, pa se od iteratora ne
+gradi lanac nego stablo.
+
+## 5.2. Stablo iteratora u ispisu FORMAT=TREE
+
+Format ispisa `TREE`, u poglavlju 4 uveden kao drugi oblik plana, priručnik opisuje preciznije: u
+njemu čvorovi predstavljaju iteratore [@mysql84refman]. Uvlačenje je odnos roditelj-dete, jer
+roditeljski iterator poziva metodu `Read()` svog deteta, a dete mu vraća jednu torku. Stablo se zato
+čita odozdo naviše kada se prati odakle podaci dolaze, a odozgo nadole kada se prati ko koga poziva.
+
+Nad bazom `sakila`, upit koji spaja tabele `customer` i `rental`, grupiše po kupcu i vraća pet
+vodećih rezultata, daje osam čvorova: `Limit`, `Sort`, `Stream results`, `Group aggregate`,
+`Nested loop inner join`, pa dva ulaza spoja, `Filter` nad skenom indeksa po tabeli `customer` i
+`Covering index lookup` po tabeli `rental`. To nije osam koraka koje server izvodi jedan za drugim,
+nego osam objekata koji istovremeno postoje u memoriji, povezanih tako da koren stabla poziva
+sledeći čvor, i tako sve do listova, koji jedini dodiruju tabelu preko `handler` interfejsa iz
+poglavlja 2.
+
+Preslikavanje ispisa na klase nije analogija nego mehanika: tekst ispisa generiše se u datoteci
+`explain_access_path.cc`, a iterator se pravi u datoteci `access_path.cc`, i obe se granaju po istom
+polju `path->type` [@mysqlsource84]. Zato svakom obliku ispisa odgovara tačno jedna klasa:
+`Table scan on …` daje `TableScanIterator`, `Filter: …` daje `FilterIterator`, `Sort: …` daje
+`SortingIterator`, `Limit: N row(s)` daje `LimitOffsetIterator`, `Nested loop … join` daje
+`NestedLoopIterator`, a `Stream results` daje `StreamingIterator`. Kod skena indeksa klasa je
+`IndexScanIterator`, čiji parametar šablona označava čitanje indeksa unatrag, a ne pokrivenost
+indeksa, jer je pokrivenost svojstvo skupa `read_set` i klasu ne menja [@mysqlsource84].
+
+Jedan red ispisa je izuzetak. Red `-> Hash`, koji stoji iznad ulaza Hash spoja, nije iterator nego
+natpis na grani ka ulazu koji se hešira [@mysqlsource84]. Prepoznaje se i bez uvida u izvorni kod,
+jer je jedini red u stablu bez ijednog broja uz sebe: iza njega ne stoji ni struktura čija bi se cena
+procenila ni iterator čije bi se vreme merilo.
+
+![Slika 5.1: Osam redova ispisa naredbe `EXPLAIN ANALYZE` i osam iteratora koji im odgovaraju:
+kontrola ide nadole kroz pozive metode `Read()`, a torke se vraćaju nagore, jedna po
+jedna.](figures/05-model-iteratora-01-stablo-iteratora.png){width=5.0in}
+
+## 5.3. Vrednost `loops` je broj poziva metode `Init()`
+
+Odeljak 4.6 uveo je `loops` kao broj ponavljanja čvora i tu se zaustavio. Izvorni kod kaže šta se
+tačno broji: metoda `GetNumInitCalls()` klase `IteratorProfiler`, koja postoji zato da bi naredba
+`EXPLAIN ANALYZE` imala odakle da čita, vraća broj poziva metode `Init()` nad tim iteratorom
+[@mysqlsource84].
+
+Time dva pravila iz poglavlja 4 postaju posledice, a ne konvencije ispisa. Prvo, `NestedLoopIterator`
+za svaku torku spoljašnjeg ulaza pozove `Init()` pa `Read()` na unutrašnjem ulazu, pa je `loops` na
+unutrašnjem čvoru jednak broju torki koje je izbacio spoljašnji čvor: u navedenom upitu to je 584,
+tačno onoliko koliko u tabeli `customer` ima aktivnih kupaca. Drugo, pošto se merenja sabiraju kroz
+sva ponavljanja a prikazuju po jednom ponavljanju, `rows` na unutrašnjem čvoru je prosek po
+ponavljanju i zato sme da bude decimalan broj. Ukupan broj torki dobija se množenjem: prijavljeno
+`rows=26.8` puta `loops=584` daje približno 15.651, prema 15.640 koliko prijavljuje sam čvor spoja, a
+razlika potiče od zaokruživanja ispisane vrednosti.
+
+## 5.4. Pipeline i blokirajući operatori
+
+Ako torka nastaje tek kada je neko zatraži, nijedan operator ne zna unapred koliko će ih proizvesti,
+nego prestaje da radi onda kada ga prestanu pozivati. To je izvršavanje na zahtev *(demand-driven)*,
+i najkraće se dokazuje primerom iz uvoda ovog poglavlja.
+
+Upit koji nad tabelom `wide_events` traži deset torki sa uslovom nad kolonom `amount` daje plan od
+tri čvora, `Limit`, `Filter` i sken tabele, pri čemu sva tri prijavljuju deset torki, a upit traje
+nekoliko milisekundi. Dodavanje klauzule `ORDER BY` nad istom kolonom ubacuje čvor `Sort` između
+čvorova `Limit` i `Filter`, posle čega isti sken nad istom tabelom prijavljuje pet miliona torki, a
+upit je oko šest stotina puta sporiji. Sken pri tome ne zna ništa o klauzuli `LIMIT` i nije
+optimizovan da stane: on jednostavno prestaje da bude pozivan čim `Limit` dobije svojih deset torki,
+pa je rano zaustavljanje posledica izvršavanja na zahtev. Čim se između njih ubaci `Sort`, koji ne
+može da vrati prvu torku dok nije video sve torke svog deteta, isti sken se izvrši do kraja. Takav
+operator naziva se blokirajući operator *(blocking operator)*, jer pipeline preseca na dva dela.
+
+Blokada se u ispisu prepoznaje i bez poznavanja samih operatora. Naredba `EXPLAIN ANALYZE` po
+iteratoru prijavljuje vreme do prve vraćene torke i ukupno vreme provedeno u tom iteratoru, što se u
+ispisu vidi kao `actual time=prvo..poslednje` [@mysql84refman]. Kod pipeline operatora prva vrednost
+je znatno manja od druge, jer torke izlaze postepeno, kako pristižu, dok se kod blokirajućeg
+operatora dve vrednosti poklapaju, jer ništa nije izašlo dok sve nije ušlo. Oba potpisa vide se u
+istom planu: čvor `Sort` prijavljuje vreme prve torke jednako vremenu poslednje, a čvor `Filter`
+neposredno ispod njega prvu torku vraća posle nešto više od jedne desetine milisekunde, a poslednju
+tek pred kraj upita. Blokiraju sortiranje, materijalizacija privremene tabele, agregacija preko
+privremene tabele i faza gradnje Hash spoja, dok skenovi, pretrage po indeksu, `Filter`, `Limit` i
+spoj sa ugnježdenom petljom rade u pipeline-u. Tu je i razlog zbog kog čvor `Stream results` uopšte
+postoji: on je suprotnost materijalizaciji, jer se rezultat šalje klijentu kako nastaje, pa je
+njegovo prisustvo u stablu znak da na tom mestu barijere nema.
+
+![Slika 5.2: Isti sken tabele sa istim uslovom i istim ograničenjem `LIMIT 10`, bez klauzule
+`ORDER BY` i sa njom.](figures/05-model-iteratora-02-pipeline-i-blokada.png){width=5.0in}
+
+## 5.5. Struktura `AccessPath` je plan, iterator je izvršavanje
+
+Ostaje pitanje odakle iteratori dolaze. Između planera iz poglavlja 3 i izvršioca stoji struktura
+`AccessPath`, koju izvorni kod opisuje kao strukturu planiranja upita koja iteratorima odgovara jedan
+prema jedan, jer sadrži gotovo tačno ono što je potrebno da se odgovarajući iterator instancira, uz
+podatke koji su potrebni samo tokom planiranja, kao što je cena [@mysqlsource84]. Optimizator, dakle,
+ne pravi iteratore nego stablo struktura `AccessPath`, namerno malih i fiksne veličine, kako bi
+tokom pretrage jedna mogla da se zameni boljom bez nove alokacije; tek na kraju funkcija
+`CreateIteratorFromAccessPath()` to stablo prevodi u stablo iteratora [@mysqlsource84]. Strukturu
+`AccessPath` ne treba mešati sa pristupnim putem iz poglavlja 1 i 3: prva je konkretna struktura u
+kodu, a drugi je pojam koji označava način na koji se dolazi do torki jedne tabele.
+
+Time se zatvara i pitanje otvoreno u odeljku 4.8, gde je u tragu optimizatora sav sadržaj bio u fazi
+`join_optimization`, dok je faza `join_execution` bila prazna. Razlog je što se u izvršavanju ne
+donosi nijedna odluka koju bi trag imao da zabeleži: sve je odlučeno u trenutku kada je stablo
+struktura `AccessPath` bilo gotovo, a posle toga se ono samo prevodi u objekte i pokreće.
+
+Model iteratora je i polazna tačka narednog poglavlja. Pošto svaki poziv metode `Read()` vraća
+najviše jednu torku, tvrdnja da MySQL upite ne izvršava vektorizovano prestaje da bude izolovana
+činjenica i postaje posledica interfejsa opisanog ovde.
+
 # 6. Gde MySQL ne prati obrazac
 
 ## 6.1. Vektorizovano izvršavanje

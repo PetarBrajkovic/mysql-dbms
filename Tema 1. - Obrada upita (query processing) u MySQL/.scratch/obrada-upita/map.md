@@ -245,6 +245,29 @@ resolved only when the lesson has been taught, the examples run, and the Serbian
   in **rendered DOCX pages** and re-measured every chapter; the old unit is why 13.6 budgeted pages
   rendered as ~17 unnoticed.
 
+- [Chapter 5. Iterator model i pipeline operatora](issues/14-iterator-model.md): the chapter where
+  the plan stops being a table of numbers and becomes running code, written and closed. §5.1-5.5,
+  ~1.450 words plus two figures, **measured at exactly its 3-page budget** (export 19 -> 22). It
+  opens on a puzzle rather than a definition: the same scan under the same `LIMIT 10` reads ten rows
+  or five million, and the only difference is one `ORDER BY`. The answer runs in three moves plus a
+  seam. **The interface**: `RowIterator` with `Init()`/`Read()`/`UnlockRow()`, where the row is *not*
+  the return value but goes into `table->records[0]`, so Volcano supplied the control flow while
+  MySQL kept its own record-buffer convention, and where an iterator reading from another iterator is
+  why the plan is a tree. **The tree**: `FORMAT=TREE` nodes *are* iterators, and the printed-string →
+  class mapping is mechanics, since `explain_access_path.cc` and `access_path.cc` branch on the same
+  `path->type`; `-> Hash` is the one printed row that is not an iterator. **`loops`**: 4b's rule
+  becomes a consequence of `GetNumInitCalls()`, giving inner `loops` = outer `rows` = 584 and
+  `26.8 × 584 ≈ 15.651` against the join's 15.640. **Pipeline vs. blocking** discharges the opening
+  puzzle: the scan is not "optimized to stop", it stops being called, and first-row-vs-last-row is a
+  blocking detector the reader can apply without knowing any operator. **§5.5** ties `AccessPath` 1:1
+  to iterators and retroactively answers 4c's empty `join_execution`: execution decides nothing.
+  Two new citations, IEEE [6]-[7]: `graefe1994` (the chapter's one theory citation, since the decks
+  cover none of this) and `mysqlwl11785`, whose page carries **no publication date**, so the entry
+  claims none rather than inventing a year. Also carried LR-0007 (e)'s correction into the paper: the
+  `IndexScanIterator` template parameter is `Reverse`, not covering-ness. Seventh clean pass of the
+  per-chapter loop. **Budget flag for chapter 6**: 22 + 2.5 + 0.75 projects to ~25.25 against the
+  hard ≤25, so there is no slack left and chapter 6 absorbs any overrun.
+
 ## Not yet specified
 
 - **Whether the synthetic dataset needs to grow or change** for the parallel-execution chapter

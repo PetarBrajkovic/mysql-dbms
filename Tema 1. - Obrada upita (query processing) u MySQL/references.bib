@@ -57,3 +57,27 @@
   year         = {2024},
   note         = {MySQL Server Team Blog; pristupljeno 26. avgusta 2026}
 }
+
+% First cited in Chapter 5. The citable published origin of the iterator model.
+% The lecture decks do not cover it, so this is chapter 5's one theory citation.
+@article{graefe1994,
+  author  = {Graefe, Goetz},
+  title   = {{Volcano}: An Extensible and Parallel Query Evaluation System},
+  journal = {IEEE Transactions on Knowledge and Data Engineering},
+  volume  = {6},
+  number  = {1},
+  pages   = {120--135},
+  year    = {1994},
+  doi     = {10.1109/69.273032}
+}
+
+% First cited in Chapter 5. A published MySQL Worklog (citable per WORKFLOW.md
+% rule 7): documents why the RowIterator abstraction was introduced and which
+% six older abstractions it replaced. The page carries no publication date, so
+% none is claimed here; it is listed as affecting Server-8.0.
+@misc{mysqlwl11785,
+  author       = {{Oracle Corporation}},
+  title        = {{WL\#11785}: Volcano iterator design},
+  howpublished = {\url{https://dev.mysql.com/worklog/task/?id=11785}},
+  note         = {MySQL Worklog, Server-8.0; pristupljeno 31. avgusta 2026}
+}

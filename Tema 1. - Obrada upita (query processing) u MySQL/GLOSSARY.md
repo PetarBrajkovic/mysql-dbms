@@ -288,9 +288,11 @@ point: the old table's numbers were never measured against an export, so chapter
 nominal, a few over is fine" — the projection at the end of chapter 4 was 31-35 pages, which is
 what forced this revision.
 
-**Measured checkpoint (2026-08-31): 19 pages with chapters 1-4 complete.** Re-measure after every
-chapter with `..\tools\make-docx.ps1`; the budget is only real if it is checked against the export.
-That leaves ~6 pages for chapters 5-7, so if chapter 5 comes in over 3, chapter 6 gives the page back.
+**Measured checkpoint (2026-08-31): 19 pages with chapters 1-4 complete, 22 pages with chapter 5
+complete**, so chapter 5 came in at exactly its 3. Re-measure after every chapter with
+`..\tools\make-docx.ps1`; the budget is only real if it is checked against the export. What remains
+is 2.5 + 0.75, which projects to **~25.25 against the hard ≤25**: there is no slack left, so chapter
+6 is the one that absorbs any overrun.
 
 **Figure cap, firm** (was "soft guidance" under ticket 09): chapter 5 gets **2** figures, chapter 6
 gets **1**, chapter 7 gets **0**. Figures are ~25% of the page count, which is where the paper grew
