@@ -19,20 +19,24 @@ switched to an automated, agent-run one).
 
 ## Per-chapter budget (soft guidance, not a hard cap)
 
+**Superseded for chapters 5-7 by the firm cap in `../GLOSSARY.md` §4** (set 2026-08-31 under the hard
+≤25-page ceiling): chapter 5 gets **2**, chapter 6 gets **1**, chapter 7 gets **0**, and those are
+caps, not guidance. The table below is the original nine-chapter plan, kept for chapters 1-4 which
+were budgeted under it.
+
 | Chapter | Expected | What it's for |
 |---|---|---|
 | 1 Uvod | 0 | no SQL runs here |
 | 2 Arhitektura | 3 | official reused architecture diagram, plus an ICP-on/ICP-off flame graph pair |
 | 3 Od SQL-a do plana | 2 | parse/resolve stage, then optimized plan |
 | 4 EXPLAIN i EXPLAIN ANALYZE | 4 (lekcije su napravile 9) | access-type ladder, estimated-vs-actual divergence, JSON/TREE formats, trace excerpt |
-| 5 Iterator model | 2 (lekcija je napravila 3) | iterator/pipeline diagram, one EXPLAIN ANALYZE tree read as an iterator chain |
-| 6 Vektorizovano | 1 | row-at-a-time evidence |
-| 7 Paralelno | 1 | `innodb_parallel_read_threads` non-effect on ordinary SELECT |
-| 8 Plan cache | 2 | prepared-statement parse-tree reuse vs. "no shared plan cache" |
-| 9 Zaključak | 0 | no SQL runs here |
+| 5 Iterator model | **2** (lekcija je napravila 3) | iterator/pipeline diagram, one EXPLAIN ANALYZE tree read as an iterator chain |
+| 6 Gde MySQL ne prati obrazac | **1** (lekcija je napravila 2) | the parallel-read boundary: 2.9× without `WHERE`, 1.01× with it |
+| 7 Zaključak | **0** | no SQL runs here |
 
-~13 figures total. A chapter may go over if it genuinely needs both a diagram and a live example —
-this guards against chapter 4 swallowing every figure, it is not a quota to hit exactly.
+A chapter may **not** go over the §4 cap any more — figures are ~25% of the page count, which is
+where the paper grew unnoticed. A lesson may still build extra figures for itself; they simply do not
+enter `rad.md` (chapters 5 and 6 each did this once).
 
 ## Dedicated scripts written for this paper
 
@@ -50,6 +54,7 @@ All live in this topic's own `tools/`. The two generic entry points (`make-figur
 | `make-lesson05-explain-analyze.ps1` | chapter 4b's three figures | divergence holds, histogram closes the gap on the non-indexed column but not the indexed one, per-loop count stays fractional, the alternative plan still wins. `-SkipBadPlan` while iterating on layout |
 | `make-lesson06-optimizer-trace.ps1` | chapter 4c's four figures | the load-bearing **negative** assertion: `idx_created_at` must **not** appear in `considered_execution_plans`. Figure 09 starts two real background clients. `-SkipForConnection` while iterating |
 | `make-lesson07-iterator.ps1` | chapter 5's three figures (the third is lesson-only) | every printed TREE node must resolve to a known iterator class (an unmapped node throws); inner `loops` == outer `rows`; `rows × loops` reconstructs the join's row count. The **negative** assertion: the `LIMIT`-only plan must contain **no** `Sort` node, or the whole pipeline/blocking contrast is a lie. Figure 3 redraws figure 1's run as a real node-and-edge tree off the same `Get-TreeData` call, and adds its own negative assertion: the plan must actually branch, or a figure captioned "stablo, ne spisak" would be a lie. `-Only 1` / `-Only 2` / `-Only 3` while iterating |
+| `make-lesson08-ne-prati-obrazac.ps1` | chapter 6's two figures (the second is lesson-only) | asserts the figure's whole argument in **both** directions: the clustered `COUNT(*)` sweep must speed up ≥ 2× from 1 to 16 threads, and the **negative** half — the same scan plus one `WHERE` must stay ≤ 1.20×, or the claim "one predicate kills it" is a lie. Also asserts the premise: the *default* `COUNT(*)` plan must use a **secondary** index and `FORCE INDEX(PRIMARY)` must use `PRIMARY`, since without that the sweep silently measures the wrong plan. Figure 2 asserts monotonic growth with predicate count |
 
 ## Non-SQL figures in this paper
 

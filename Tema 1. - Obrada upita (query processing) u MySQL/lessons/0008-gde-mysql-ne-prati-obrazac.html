@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 08 — Gde MySQL ne prati obrazac</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 08 · Poglavlje 6 (Gde MySQL ne prati obrazac)</p>
+<h1>Tri stvari koje MySQL ne radi — i tačna granica svake od njih</h1>
+<p class="subtitle">Poglavlje 5 je pokazalo da izvršilac vraća <strong>jednu torku po pozivu</strong>
+<code>Read()</code>. Ova lekcija od te jedne činjenice pravi tri posledice, i za svaku meri gde
+tačno prestaje — jer se poglavlje 6 sastoji od tvrdnji oblika „MySQL nema X", a takva tvrdnja je
+tačna samo ako joj se zna granica.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Ovo je jedino poglavlje koje <strong>predavanja uopšte ne pokrivaju</strong>, pa svaka tvrdnja u
+  njemu mora da stoji na primarnom izvoru ili na sopstvenom merenju. Kad završiš lekciju, treba da
+  umeš, bez podsetnika, da odbraniš tri precizne tvrdnje:
+  <strong>(1)</strong> MySQL izvršava torku po torku, a ne u paketima torki, i to ima merljivu cenu;
+  <strong>(2)</strong> paralelizam postoji, ali samo ispod <code>handler</code> API-ja, i gasi ga
+  jedna jedina <code>WHERE</code> klauzula; <strong>(3)</strong> MySQL nema deljeni keš plana, ali
+  <span class="hi">ima</span> keš pripremljene naredbe — i to su dve različite stvari.
+</div>
+
+<div class="note">
+  <span class="lbl">Zašto je preciznost ovde važnija nego inače</span>
+  U prethodnim poglavljima si tvrdio šta MySQL <strong>radi</strong>, i primer je to potvrđivao.
+  Ovde tvrdiš šta <strong>ne radi</strong>. Takvu tvrdnju je mnogo lakše oboriti: dovoljno je da
+  profesor nađe jedan slučaj u kome MySQL to ipak radi. Zato svaka od tri sekcije ispod ne staje na
+  „nema", nego ide do <strong>granice</strong> — do mesta na kome se „nema" pretvara u „ima, ali samo
+  ovoliko".
+</div>
+
+<h2>1 · Vektorizacija: cena se plaća jednom po torki</h2>
+
+<p>Iz poglavlja 5 već znaš kako izgleda ugovor izvršioca. Vredi ga pročitati još jednom, ali sada
+gledajući <strong>koliko torki</strong> jedan poziv obrađuje:</p>
+
+<div class="slide">
+  <code>Read()</code>: Reads a single row, putting rows into the record buffers. Like the existing
+  <code>read_record()</code> abstraction, returns -1 (EOF), 0 (OK) or 1 (error).
+  <span class="src">MySQL Worklog WL#11785, „Volcano iterator design" —
+    <a href="https://dev.mysql.com/worklog/task/?id=11785">dev.mysql.com/worklog/task/?id=11785</a></span>
+</div>
+
+<p><strong>Jedna torka po pozivu.</strong> To je cela definicija izvršavanja torku po torku. Nasuprot
+tome, <span class="hi">vektorizovano izvršavanje</span> znači da operator prima i vraća
+<strong>paket torki</strong> (batch), pa se režija poziva i interpretacije izraza raspodeli na ceo
+paket umesto na jednu torku:</p>
+
+<table class="exp">
+  <tr><td><code>MySQL 8.4</code></td><td>1 torka po pozivu <code>Read()</code> — model iteratora, izvršavanje torku po torku</td></tr>
+  <tr><td><code>DuckDB</code></td><td>2.048 torki po pozivu (<code>STANDARD_VECTOR_SIZE</code>), kolonarno skladištenje</td></tr>
+  <tr><td><code>ClickHouse</code></td><td>1.024–4.096 torki po pozivu, sa SIMD instrukcijama nad paketom</td></tr>
+  <tr><td><code>PostgreSQL</code></td><td>1 torka po pozivu — dakle ni PostgreSQL ne vektorizuje</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Ne upadaj u ovu zamku</span>
+  Vektorizacija <strong>nije</strong> isto što i paralelizam, iako se u literaturi često pominju
+  zajedno. Vektorizacija je obrada više torki <strong>u jednoj niti</strong>, po jednom pozivu
+  operatora. Paralelizam je više niti. Sekcija 2 je o paralelizmu i to je zaseban problem.
+</div>
+
+<h3>Šta se od toga može izmeriti</h3>
+
+<p>Odsustvo vektorizacije ne može da se „uključi i isključi" pa da se izmeri razlika — to je
+arhitektonska odluka, ne prekidač. Ali njena <strong>posledica</strong> se meri direktno: ako se
+svaki izraz izračunava jednom za svaku torku, onda svaki dodatni predikat mora da doda približno
+<strong>konstantan iznos po torki</strong>, bez obzira na to koliko torki taj predikat propušta.</p>
+
+<figure class="fig">
+  <img src="../figures/06-gde-mysql-ne-prati-obrazac-02-cena-po-torki.png"
+       alt="Linijski dijagram: na vodoravnoj osi broj ANDovanih predikata u WHERE klauzuli (0, 1, 2, 4, 6),
+            na uspravnoj vreme izvršenja u milisekundama. Isti sken od 5.000.000 torki traje 1.483 ms bez
+            ijednog predikata, 1.603 ms sa jednim, 1.712 ms sa dva, 1.854 ms sa četiri i 2.108 ms sa šest.
+            Rast je približno linearan i iznosi oko 20 nanosekundi po torki po jednom predikatu.">
+  <figcaption><b>Slika 6.2</b> — Svaki dodatni predikat košta oko <strong>20 ns po torki</strong>, i
+    to se ne menja sa selektivnošću: predikat koji ne propušta nijednu torku (<code>amount &gt;
+    999999</code>) košta isto kao onaj koji propušta skoro sve. To je režija interpretacije koju
+    vektorizovani izvršioci amortizuju obradom paketa torki.
+    (<code>examples/06-gde-mysql-ne-prati-obrazac/02-cena-po-torki.sql</code>, mereno na MySQL 8.4.11.
+    Ova figura je samo u lekciji — poglavlje 6 u radu ima kvotu od jedne figure.)</figcaption>
+</figure>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>obrada_upita</code> sa tabelom
+      <code>wide_events</code> (~5 miliona torki), ista koju koristiš od poglavlja 3. Ništa se ne
+      menja i ništa ne treba čistiti — samo se čita.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> obrada_upita;
+<span class="c">-- Jedna nit, da paralelizam ne bi zamutio sliku (vidi sekciju 2).</span>
+<span class="k">SET SESSION</span> innodb_parallel_read_threads = 1;
+
+<span class="c">-- Bez ijednog predikata.</span>
+<span class="k">SET</span> @t0 = <span class="fn">NOW</span>(6);
+<span class="k">SELECT COUNT</span>(*) <span class="k">INTO</span> @c <span class="k">FROM</span> wide_events <span class="k">FORCE INDEX</span>(<span class="k">PRIMARY</span>);
+<span class="k">SELECT</span> <span class="s">'0 predikata'</span>, <span class="fn">ROUND</span>(<span class="fn">TIMESTAMPDIFF</span>(MICROSECOND, @t0, <span class="fn">NOW</span>(6))/1000) <span class="k">AS</span> ms;
+
+<span class="c">-- Sest predikata nad istim skenom.</span>
+<span class="k">SET</span> @t0 = <span class="fn">NOW</span>(6);
+<span class="k">SELECT COUNT</span>(*) <span class="k">INTO</span> @c <span class="k">FROM</span> wide_events <span class="k">FORCE INDEX</span>(<span class="k">PRIMARY</span>)
+  <span class="k">WHERE</span> amount &gt; 100 <span class="k">AND</span> priority &gt; 2 <span class="k">AND</span> is_flagged = 0
+    <span class="k">AND</span> currency &lt;&gt; <span class="s">'XXX'</span> <span class="k">AND</span> channel &lt;&gt; <span class="s">'zzz'</span> <span class="k">AND</span> device_type &lt;&gt; <span class="s">'zzz'</span>;
+<span class="k">SELECT</span> <span class="s">'6 predikata'</span>, <span class="fn">ROUND</span>(<span class="fn">TIMESTAMPDIFF</span>(MICROSECOND, @t0, <span class="fn">NOW</span>(6))/1000) <span class="k">AS</span> ms;
+
+<span class="c">-- Kontrola: predikat koji ne propusta gotovo nista.</span>
+<span class="k">SET</span> @t0 = <span class="fn">NOW</span>(6);
+<span class="k">SELECT COUNT</span>(*) <span class="k">INTO</span> @c <span class="k">FROM</span> wide_events <span class="k">FORCE INDEX</span>(<span class="k">PRIMARY</span>) <span class="k">WHERE</span> amount &gt; 999999;
+<span class="k">SELECT</span> <span class="s">'prolazi ~0 torki'</span>, <span class="fn">ROUND</span>(<span class="fn">TIMESTAMPDIFF</span>(MICROSECOND, @t0, <span class="fn">NOW</span>(6))/1000) <span class="k">AS</span> ms;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Tri vremena. Ono sa sest predikata je osetno vece od onog bez predikata --
+razlika je reda velicine nekoliko stotina milisekundi na pet miliona torki.
+
+Treci rezultat je poenta: predikat koji ne propusta nijednu torku traje
+prakticno isto kao predikat koji propusta skoro sve.
+
+Apsolutni brojevi zavise od bafer pula i od masine. Ono sto se tvrdi je
+NAGIB i to da selektivnost ne pomaze, a ne konkretna vrednost.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> ako bi se izrazi izračunavali nad paketom torki,
+      cena po torki bi padala sa veličinom paketa i selektivnost bi mogla da preskoči ceo paket
+      odjednom. Ovako se svaki izraz izračuna jednom za svaku torku koja prođe kroz
+      <code>Read()</code> — pa i onu koja odmah otpadne. To je merljiv potpis izvršavanja torku po
+      torku.</p>
+  </div>
+</div>
+
+<div class="note">
+  <span class="lbl">Ovo nije mana, nego kompromis</span>
+  Ne piši u radu da je MySQL „spor jer ne vektorizuje". Izvršavanje torku po torku daje
+  <strong>kratko vreme do prve torke</strong> i malu potrošnju memorije, što je tačno ono što traži
+  transakcioni workload (OLTP) — mnogo kratkih upita koji diraju malo torki. Vektorizacija se
+  isplati na analitičkom workloadu (OLAP), gde jedan upit prolazi kroz milione torki. Oracle to i ne
+  krije: <strong>HeatWave</strong> je zaseban izvršilac sa kolonarnim skladištenjem i vektorizacijom,
+  koji stoji pored MySQL-a upravo zato što ga MySQL sam nema.
+</div>
+
+<h2>2 · Paralelizam: postoji, ali ispod <code>handler</code> API-ja</h2>
+
+<p>Ovde je najlakše pogrešiti, jer su obe krajnosti netačne. „MySQL uopšte nema paralelizam" je
+netačno — postoji sistemska promenljiva koja ga kontroliše. „MySQL paralelizuje upite" je takođe
+netačno. Tačna tvrdnja je uža od obe, i ima tri uslova.</p>
+
+<table class="exp">
+  <tr><td><code>innodb_parallel_read_threads</code></td><td>sesijska promenljiva, dinamička; na ovom serveru podrazumevano <code>4</code></td></tr>
+  <tr><td>opseg vrednosti</td><td>postavljanje na <code>1024</code> server prihvata, ali vrati <code>256</code> — to je gornja granica za sve sesije zajedno</td></tr>
+  <tr><td>šta paralelizuje</td><td>čitanje <strong>klasterovanog</strong> indeksa, unutar jedne operacije</td></tr>
+  <tr><td>šta ne paralelizuje</td><td>izvršavanje plana — stablo iteratora iz poglavlja 5 ostaje jednonitno</td></tr>
+</table>
+
+<div class="slide">
+  <code>InnoDB</code> supports parallel clustered index reads, which can improve
+  <code>CHECK TABLE</code> performance. <code>InnoDB</code> reads the clustered index twice during a
+  <code>CHECK TABLE</code> operation. The second read can be performed in parallel. The
+  <code>innodb_parallel_read_threads</code> session variable must be set to a value greater than 1
+  for parallel clustered index reads to occur.
+  <span class="src">MySQL 8.4 Reference Manual, „CHECK TABLE Statement" —
+    <a href="https://dev.mysql.com/doc/refman/8.4/en/check-table.html">dev.mysql.com/doc/refman/8.4/en/check-table.html</a></span>
+</div>
+
+<p>Priručnik ovu mogućnost objašnjava uz <code>CHECK TABLE</code>, ali worklog koji ju je uveo kaže
+i za koji <strong>upit</strong> važi, i to jednom rečenicom koja je za poglavlje 6 zlata vredna:</p>
+
+<div class="slide">
+  Read the sub trees of an index in parallel <strong>only if the request is a non-locking
+  SELECT COUNT(*)</strong>.
+  <span class="src">MySQL Worklog WL#11720, „InnoDB: Parallel read of index" —
+    <a href="https://dev.mysql.com/worklog/task/?id=11720">dev.mysql.com/worklog/task/?id=11720</a>
+    (istakao autor)</span>
+</div>
+
+<p>Dakle: <strong>jedan jedini oblik upita</strong>. I to je i dalje preširoko rečeno, jer u praksi
+postoje još dva uslova koja worklog ne pominje — a oba se vide merenjem.</p>
+
+<h3>Prvi uslov: mora se stvarno čitati klasterovani indeks</h3>
+
+<p>Ovo je najlepša zamka u celom poglavlju. Napišeš <code>SELECT COUNT(*) FROM wide_events</code>,
+očekuješ paralelno čitanje, i ne dobiješ ga — jer optimizator uopšte ne čita klasterovani indeks:</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> ista baza <code>obrada_upita</code>. Samo <code>EXPLAIN</code>,
+      ništa se ne izvršava.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> obrada_upita;
+<span class="k">EXPLAIN SELECT COUNT</span>(*) <span class="k">FROM</span> wide_events;
+<span class="k">EXPLAIN SELECT COUNT</span>(*) <span class="k">FROM</span> wide_events <span class="k">FORCE INDEX</span>(<span class="k">PRIMARY</span>);</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Prvi plan u koloni key NEMA vrednost PRIMARY -- stoji ime nekog malog
+sekundarnog indeksa (na ovom serveru idx_is_flagged), uz Extra: Using index.
+Drugi plan, sa FORCE INDEX, ima key: PRIMARY.
+
+Oba imaju type: index i istu procenu broja torki.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> za <code>COUNT(*)</code> je svaki indeks
+      pokrivajući, pa optimizator bira <strong>najjeftiniji</strong> — a to je najuži sekundarni
+      indeks, ne klasterovani. Pošto se paralelno čitanje odnosi na klasterovani indeks, podrazumevani
+      plan ga nikada ni ne dobije. Zato u primerima stoji <code>FORCE INDEX(PRIMARY)</code>: to nije
+      ukras, nego jedini način da se paralelno čitanje uopšte aktivira.</p>
+  </div>
+</div>
+
+<h3>Drugi uslov: nijedan predikat</h3>
+
+<p>I sada glavno merenje poglavlja. Isti klasterovani sken, jednom bez <code>WHERE</code> klauzule i
+jednom sa jednom jedinom, kroz pet vrednosti <code>innodb_parallel_read_threads</code>:</p>
+
+<figure class="fig">
+  <img src="../figures/06-gde-mysql-ne-prati-obrazac-01-paralelni-sken-granica.png"
+       alt="Dijagram sa dve linije. Vodoravna osa je innodb_parallel_read_threads sa vrednostima 1, 2, 4, 8
+            i 16 na logaritamskoj skali, uspravna je vreme izvršenja u milisekundama. Plava linija,
+            SELECT COUNT(*) bez WHERE klauzule uz FORCE INDEX(PRIMARY), pada sa 1.483 ms na jednoj niti na
+            508 ms na šesnaest niti, što je ubrzanje od 2,9 puta. Crvena linija, isti upit sa dodatom
+            klauzulom WHERE amount veće od 100, ostaje potpuno ravna oko 1.580 ms bez obzira na broj niti.">
+  <figcaption><b>Slika 6.1</b> — Ista tabela, isti klasterovani sken, ista promenljiva: bez
+    predikata paralelno čitanje daje <strong>2,9×</strong> ubrzanje, a sa jednim predikatom
+    <strong>1,01×</strong>, odnosno ništa. Granica MySQL-ovog paralelizma nije veličina upita nego
+    prisustvo <code>WHERE</code> klauzule.
+    (<code>examples/06-gde-mysql-ne-prati-obrazac/01-paralelni-sken-granica.sql</code>, medijana od
+    tri merenja, MySQL 8.4.11.)</figcaption>
+</figure>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> ista baza. <code>innodb_parallel_read_threads</code> je
+      sesijska, pa se zatvaranjem veze sama vraća na podrazumevanu vrednost — nema šta da se čisti.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> obrada_upita;
+
+<span class="c">-- Serija A: bez WHERE klauzule.</span>
+<span class="k">SET SESSION</span> innodb_parallel_read_threads = 1;
+<span class="k">SET</span> @t0 = <span class="fn">NOW</span>(6);
+<span class="k">SELECT COUNT</span>(*) <span class="k">INTO</span> @c <span class="k">FROM</span> wide_events <span class="k">FORCE INDEX</span>(<span class="k">PRIMARY</span>);
+<span class="k">SELECT</span> <span class="s">'A, 1 nit'</span>, <span class="fn">ROUND</span>(<span class="fn">TIMESTAMPDIFF</span>(MICROSECOND, @t0, <span class="fn">NOW</span>(6))/1000) <span class="k">AS</span> ms;
+
+<span class="k">SET SESSION</span> innodb_parallel_read_threads = 16;
+<span class="k">SET</span> @t0 = <span class="fn">NOW</span>(6);
+<span class="k">SELECT COUNT</span>(*) <span class="k">INTO</span> @c <span class="k">FROM</span> wide_events <span class="k">FORCE INDEX</span>(<span class="k">PRIMARY</span>);
+<span class="k">SELECT</span> <span class="s">'A, 16 niti'</span>, <span class="fn">ROUND</span>(<span class="fn">TIMESTAMPDIFF</span>(MICROSECOND, @t0, <span class="fn">NOW</span>(6))/1000) <span class="k">AS</span> ms;
+
+<span class="c">-- Serija B: isti sken, plus jedan predikat.</span>
+<span class="k">SET SESSION</span> innodb_parallel_read_threads = 1;
+<span class="k">SET</span> @t0 = <span class="fn">NOW</span>(6);
+<span class="k">SELECT COUNT</span>(*) <span class="k">INTO</span> @c <span class="k">FROM</span> wide_events <span class="k">FORCE INDEX</span>(<span class="k">PRIMARY</span>) <span class="k">WHERE</span> amount &gt; 100;
+<span class="k">SELECT</span> <span class="s">'B, 1 nit'</span>, <span class="fn">ROUND</span>(<span class="fn">TIMESTAMPDIFF</span>(MICROSECOND, @t0, <span class="fn">NOW</span>(6))/1000) <span class="k">AS</span> ms;
+
+<span class="k">SET SESSION</span> innodb_parallel_read_threads = 16;
+<span class="k">SET</span> @t0 = <span class="fn">NOW</span>(6);
+<span class="k">SELECT COUNT</span>(*) <span class="k">INTO</span> @c <span class="k">FROM</span> wide_events <span class="k">FORCE INDEX</span>(<span class="k">PRIMARY</span>) <span class="k">WHERE</span> amount &gt; 100;
+<span class="k">SELECT</span> <span class="s">'B, 16 niti'</span>, <span class="fn">ROUND</span>(<span class="fn">TIMESTAMPDIFF</span>(MICROSECOND, @t0, <span class="fn">NOW</span>(6))/1000) <span class="k">AS</span> ms;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Serija A: vreme na 16 niti je visestruko manje nego na jednoj.
+Serija B: dva prakticno ista vremena -- razlika je u granicama suma merenja.
+
+Zanimljivo je i da je B na JEDNOJ niti sporije od A na jednoj niti, iako
+cita isto toliko podataka. Ta razlika je cena predikata iz sekcije 1.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> paralelno čitanje je posao <strong>motora</strong>,
+      ispod <code>handler</code> API-ja iz poglavlja 2. Kada nema predikata i nema projekcije,
+      InnoDB može sam da izbroji torke u više podstabala i vrati serverskom sloju samo zbir — server
+      nikada ne vidi pojedinačne torke. Čim dodaš <code>WHERE</code>, o predikatu mora da odluči
+      iterator na serverskom sloju, pa svaka torka mora da pređe granicu kroz <code>handler</code>,
+      jedna po jedna, u jednoj niti. <span class="hi">Granica paralelizma je tačno na šavu iz
+      poglavlja 2.</span></p>
+  </div>
+</div>
+
+<div class="note">
+  <span class="lbl">Za odbranu</span>
+  Ovo je paralelizam <strong>unutar operacije</strong>, ne paralelizam <strong>na nivou upita</strong>.
+  Razlika prema PostgreSQL-u nije u tome što PostgreSQL ima više niti, nego u tome što
+  <strong>PostgreSQL-ov optimizator odlučuje</strong> da li da plan bude paralelan i ugrađuje radne
+  niti u sam plan (paralelni spojevi, paralelna agregacija). U MySQL-u plan nikada nije paralelan;
+  paralelno je samo jedno čitanje ispod plana. Zato u <code>EXPLAIN</code> ispisu iz poglavlja 4 nema
+  nijednog čvora koji bi označavao paralelizam — i to je dobar argument da se izgovori naglas.
+</div>
+
+<h2>3 · Keširanje: nema deljenog keša plana, ali ima keša pripremljene naredbe</h2>
+
+<p>Ovo je centralni potez poglavlja i mesto gde je najlakše napisati nešto netačno. Postoje
+<strong>tri različite stvari</strong> koje se lako slepe u jednu:</p>
+
+<table class="exp">
+  <tr><td>keš rezultata upita <span class="dim">(query cache)</span></td><td>čuvao je <strong>rezultate</strong>. Zastareo u 5.7.20, <strong>uklonjen u 8.0</strong>. Ne postoji.</td></tr>
+  <tr><td>deljeni keš plana</td><td>čuvao bi <strong>planove izvršenja</strong> između sesija, kao Oracle-ov deljeni pul. <strong>Ne postoji u MySQL-u.</strong></td></tr>
+  <tr><td>keš pripremljene naredbe</td><td>čuva <strong>unutrašnju strukturu naredbe</strong> po sesiji. <span class="hi">Postoji.</span></td></tr>
+</table>
+
+<p>Priručnik je o trećoj stavci sasvim izričit, i ovo je rečenica koju vredi citirati doslovno:</p>
+
+<div class="slide">
+  The server maintains caches for prepared statements and stored programs on a per-session basis.
+  Statements cached for one session are not accessible to other sessions. When a session ends, the
+  server discards any statements cached for it.
+  <span class="src">MySQL 8.4 Reference Manual, „Caching of Prepared Statements and Stored Programs" —
+    <a href="https://dev.mysql.com/doc/refman/8.4/en/statement-caching.html">dev.mysql.com/doc/refman/8.4/en/statement-caching.html</a></span>
+</div>
+
+<p>A o tome <strong>šta</strong> se kešira, priručnik kaže „internal structure" — dakle stablo
+raščlanjivanja sa razrešenim kolonama, ne plan izvršenja:</p>
+
+<div class="slide">
+  For certain statements that a client might execute multiple times during a session, the server
+  converts the statement to an <strong>internal structure</strong> and caches that structure to be
+  used during execution.
+  <span class="src">isto, „Caching of Prepared Statements and Stored Programs" (istakao autor)</span>
+</div>
+
+<h3>Dokaz da se plan zaista ne kešira</h3>
+
+<p>Citat kaže šta se kešira, ali ne kaže izričito da se plan <strong>ne</strong> kešira. To možeš da
+dokažeš sam, alatom iz poglavlja 4c: ako se plan kešira, drugo izvršenje iste pripremljene naredbe
+<strong>nema šta da traguje</strong>. Ako se ne kešira, svako izvršenje ostavlja svoj trag.</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> baza <code>obrada_upita</code> i pravo da se uključi
+      <code>optimizer_trace</code> (isto kao u lekciji 06). Na kraju se naredba oslobađa sa
+      <code>DEALLOCATE PREPARE</code>.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> obrada_upita;
+<span class="k">PREPARE</span> s <span class="k">FROM</span> <span class="s">'SELECT SUM(amount) FROM wide_events WHERE country_code = ?'</span>;
+
+<span class="c">-- Sve promenljive PRE ukljucivanja traga: SET naredbe se i same traguju</span>
+<span class="c">-- i istisnule bi tragove zbog kojih smo dosli.</span>
+<span class="k">SET</span> @a = <span class="s">'DE'</span>, @b = <span class="s">'US'</span>, @c = <span class="s">'JP'</span>;
+
+<span class="k">SET SESSION</span> optimizer_trace_offset = -3, <span class="k">SESSION</span> optimizer_trace_limit = 3;
+<span class="k">SET SESSION</span> optimizer_trace = <span class="s">'enabled=on'</span>;
+<span class="k">EXECUTE</span> s <span class="k">USING</span> @a;
+<span class="k">EXECUTE</span> s <span class="k">USING</span> @b;
+<span class="k">EXECUTE</span> s <span class="k">USING</span> @c;
+<span class="k">SET SESSION</span> optimizer_trace = <span class="s">'enabled=off'</span>;
+
+<span class="k">SELECT</span> QUERY,
+       <span class="fn">LENGTH</span>(TRACE) <span class="k">AS</span> trace_bytes,
+       <span class="fn">JSON_EXTRACT</span>(TRACE, <span class="s">'$**.best_access_path.considered_access_paths[0].rows'</span>) <span class="k">AS</span> procena_torki,
+       <span class="fn">JSON_EXTRACT</span>(TRACE, <span class="s">'$**.best_access_path.considered_access_paths[0].cost'</span>) <span class="k">AS</span> cena
+<span class="k">FROM</span> information_schema.OPTIMIZER_TRACE;
+
+<span class="k">DEALLOCATE PREPARE</span> s;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">TRI reda, po jedan za svako izvrsenje. Svaki ima:
+  - svoj trag od nekoliko hiljada bajtova (dakle optimizacija se stvarno desila),
+  - u koloni QUERY vec ZAMENJENU vrednost parametra ('DE', 'US', 'JP'),
+  - SVOJU procenu broja torki i SVOJU cenu.
+
+Red za 'US' ima procenu i cenu visestruko vece od ostala dva, jer je US
+u ovoj tabeli oko 70% podataka a ostale zemlje po ~2%.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> tri traga znače tri optimizacije. Da postoji keš
+      plana, drugo i treće izvršenje ne bi imala šta da upišu u trag. Štaviše, procene se razlikuju
+      <strong>zato što</strong> se optimizacija radi nad stvarnom vrednošću parametra — MySQL ne
+      pravi generički plan koji bi važio za svaku vrednost. To je jača tvrdnja od „plan nije deljen":
+      plan se <span class="hi">iznova izvodi na svakom izvršenju</span>.</p>
+  </div>
+</div>
+
+<h3>Dokaz da se nešto ipak kešira, i da je sesijsko</h3>
+
+<p>Druga strana iste tvrdnje. Kešira se unutrašnja struktura — a to se vidi po tome što promena
+metapodataka tabele tera server da je odbaci i naredbu pripremi ponovo:</p>
+
+<div class="slide">
+  To avoid problems caused by metadata changes to tables or views referred to by the prepared
+  statement, the server detects these changes and automatically reprepares the statement when it is
+  next executed. That is, the server reparses the statement and rebuilds the internal structure.
+  […] The server attempts reparsing up to three times. An error occurs if all attempts fail.
+  <span class="src">isto, „Caching of Prepared Statements and Stored Programs"</span>
+</div>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> pravo da se kreira i briše tabela u <code>obrada_upita</code>.
+      Skript pravi malu tabelu <code>t_reprepare</code> i <strong>briše je na kraju</strong> —
+      <code>wide_events</code> se ne dira, da se ne pomere statistike na kojima stoje merenja iz
+      ranijih poglavlja.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> obrada_upita;
+<span class="k">DROP TABLE IF EXISTS</span> t_reprepare;
+<span class="k">CREATE TABLE</span> t_reprepare (id <span class="k">INT PRIMARY KEY</span>, a <span class="k">INT</span>);
+<span class="k">INSERT INTO</span> t_reprepare <span class="k">VALUES</span> (1,10),(2,20);
+
+<span class="k">PREPARE</span> p <span class="k">FROM</span> <span class="s">'SELECT * FROM t_reprepare'</span>;
+<span class="k">EXECUTE</span> p;                                    <span class="c">-- dve kolone</span>
+
+<span class="k">SELECT</span> VARIABLE_VALUE <span class="k">AS</span> reprepare_pre <span class="k">FROM</span> performance_schema.session_status
+ <span class="k">WHERE</span> VARIABLE_NAME = <span class="s">'Com_stmt_reprepare'</span>;
+
+<span class="k">ALTER TABLE</span> t_reprepare <span class="k">ADD COLUMN</span> b <span class="k">INT</span>;   <span class="c">-- promena metapodataka</span>
+
+<span class="k">EXECUTE</span> p;                                    <span class="c">-- TRI kolone</span>
+
+<span class="k">SELECT</span> VARIABLE_VALUE <span class="k">AS</span> reprepare_post <span class="k">FROM</span> performance_schema.session_status
+ <span class="k">WHERE</span> VARIABLE_NAME = <span class="s">'Com_stmt_reprepare'</span>;
+
+<span class="k">DEALLOCATE PREPARE</span> p;
+<span class="k">DROP TABLE</span> t_reprepare;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Prvi EXECUTE vraca dve kolone (id, a), a brojac Com_stmt_reprepare je 0.
+Posle ALTER TABLE-a isti EXECUTE vraca TRI kolone (id, a, b), a brojac je 1.
+
+Naredba glasi 'SELECT * FROM t_reprepare' i nije se promenila -- promenilo
+se ono sto je server od nje napravio.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> da se kešira samo tekst naredbe, brojač ne bi
+      imao šta da broji. Da se kešira ceo plan, ovo bi bio dokaz da se i plan poništava. Ono što se
+      zaista vidi jeste da je <code>*</code> bilo <strong>razrešeno u listu kolona</strong> i
+      zapamćeno — pa kad se lista kolona promeni, zapamćena struktura više ne važi i mora se
+      izgraditi ponovo. To je tačno ona „internal structure" iz citata.</p>
+  </div>
+</div>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u — potrebna su dva taba</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> dve konekcije. U Workbench-u:
+      <code>Query &gt; New Tab to Current Server</code>. Ovo je jedini primer u lekciji koji se ne
+      može pokrenuti iz jednog skripta.</p>
+
+    <h3 class="lab">Pokreni ovo — u prvom tabu</h3>
+<pre class="sql run"><span class="k">PREPARE</span> s1 <span class="k">FROM</span> <span class="s">'SELECT 1'</span>;
+<span class="k">EXECUTE</span> s1;</pre>
+
+    <h3 class="lab">Pa ovo — u drugom tabu</h3>
+<pre class="sql run"><span class="k">EXECUTE</span> s1;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Prvi tab: rezultat 1.
+Drugi tab: ERROR 1243 (HY000): Unknown prepared statement handler (s1)
+           given to EXECUTE</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> ovo je citat iz priručnika pretvoren u poruku o
+      grešci. Naredba pripremljena u jednoj sesiji ne postoji ni pod kojim imenom u drugoj. Kod
+      Oracle-a bi obe sesije delile isti plan iz deljenog pula; ovde druga sesija mora da plati i
+      raščlanjivanje i optimizaciju iznova.</p>
+  </div>
+</div>
+
+<h2>4 · Jedna rečenica po sekciji, za odbranu</h2>
+
+<p>Ako od cele lekcije zapamtiš samo tri rečenice, neka to budu ove — svaka je formulisana tako da
+preživi potpitanje:</p>
+
+<table class="exp">
+  <tr><td>§6.1</td><td>MySQL izvršava <strong>torku po torku</strong>, jer <code>Read()</code> po definiciji vraća jednu torku; merljiva posledica je da svaki predikat košta oko 20 ns po torki <strong>bez obzira na selektivnost</strong>.</td></tr>
+  <tr><td>§6.2</td><td>MySQL paralelizuje <strong>čitanje klasterovanog indeksa</strong> za nezaključavajući <code>COUNT(*)</code>, a ne izvršavanje plana; jedna <code>WHERE</code> klauzula vraća sve na jednu nit, jer predikat pripada serverskom sloju.</td></tr>
+  <tr><td>§6.3</td><td>MySQL nema <strong>deljeni</strong> keš plana i nema keš rezultata upita od 8.0, ali <strong>ima</strong> sesijski keš pripremljene naredbe; plan se iznova izvodi na svakom <code>EXECUTE</code>, nad stvarnom vrednošću parametra.</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Tri rečenice koje NE smeš da napišeš</span>
+  „MySQL ne kešira ništa" — netačno, kešira pripremljene naredbe. ·
+  „MySQL nema paralelizam" — netačno, ima <code>innodb_parallel_read_threads</code>. ·
+  „MySQL je spor jer ne vektorizuje" — meša arhitektonski izbor sa manom, i ne stoji za
+  transakcioni workload za koji je MySQL i pravljen.
+</div>
+
+<h2>5 · Provera</h2>
+<div class="quiz">
+  <p>Po jedno pitanje na svaku netrivijalnu tvrdnju lekcije. Klikni odgovor i odmah dobijaš
+     povratnu informaciju.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Šta tačno znači da MySQL ne koristi vektorizovano izvršavanje?</p>
+    <label><input type="radio"> Podaci se čuvaju po torkama na disku, a ne po kolonama u memoriji</label>
+    <label><input type="radio"> Izvršilac ne ume da koristi više niti za jedan te isti upit</label>
+    <label><input type="radio"> Jedan poziv operatora obrađuje jednu torku, a ne paket torki</label>
+    <label><input type="radio"> Optimizator ne ume da spoji više predikata u jedan izraz</label>
+    <p class="why">Vektorizacija je broj torki po pozivu operatora; <code>Read()</code> po definiciji vraća jednu.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">2. Šest predikata je sporije od jednog za oko 500 ms. Šta to pokazuje?</p>
+    <label><input type="radio"> Da optimizator za svaki predikat radi zaseban zaron u indeks</label>
+    <label><input type="radio"> Da se svaki izraz izračunava jednom za svaku pročitanu torku</label>
+    <label><input type="radio"> Da svaki dodatni predikat traži dodatno čitanje stranica sa diska</label>
+    <label><input type="radio"> Da se sa brojem predikata povećava broj poziva metoda Init()</label>
+    <p class="why">Cena raste sa brojem torki puta broj izraza — oko 20 ns po torki po predikatu.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Zašto primeri u sekciji 2 pišu <code>FORCE INDEX(PRIMARY)</code>?</p>
+    <label><input type="radio">Zato što je klasterovani sken uvek brži od skena sekundarnog indeksa</label>
+    <label><input type="radio">Zato što se paralelno čitanje uključuje samo uz eksplicitan nagoveštaj</label>
+    <label><input type="radio">Zato što bi bez toga optimizator izabrao potpuni sken cele tabele</label>
+    <label><input type="radio">Zato što bi inače plan uzeo sekundarni indeks, koji se ne čita paralelno</label>
+    <p class="why">Za <code>COUNT(*)</code> je svaki indeks pokrivajući, pa se bira najuži — a to nije klasterovani.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">4. Zašto jedna <code>WHERE</code> klauzula potpuno gasi paralelno čitanje?</p>
+    <label><input type="radio">Jer o predikatu odlučuje iterator iznad šava, pa torke idu jedna po jedna</label>
+    <label><input type="radio">Jer predikat tera optimizator da odustane od skena i uzme sken opsega</label>
+    <label><input type="radio">Jer bi paralelne niti morale da zaključaju torke koje predikat propusti</label>
+    <label><input type="radio">Jer se procena broja torki tada računa iz histograma, a ne iz indeksa</label>
+    <p class="why">Paralelno čitanje živi u motoru, ispod <code>handler</code>-a; predikat pripada serverskom sloju.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">5. Tri <code>EXECUTE</code>-a iste naredbe daju tri traga. Šta to dokazuje?</p>
+    <label><input type="radio">Da se trag optimizatora upisuje i onda kada se plan uzima iz keša</label>
+    <label><input type="radio">Da svaka sesija ima sopstvenu kopiju istog, jednom izračunatog plana</label>
+    <label><input type="radio">Da se plan izvodi iznova pri svakom izvršenju, nad vrednošću parametra</label>
+    <label><input type="radio">Da se naredba ponovo priprema zato što su se promenili metapodaci</label>
+    <p class="why">Da je plan keširan, drugo i treće izvršenje ne bi imala šta da upišu u trag.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">6. Koja formulacija o keširanju je tačna i branjiva?</p>
+    <label><input type="radio">MySQL nema nikakav keš otkako je keš rezultata uklonjen u verziji 8.0</label>
+    <label><input type="radio">MySQL kešira planove po sesiji, ali ih ne deli između više sesija</label>
+    <label><input type="radio">MySQL kešira planove upita, ali ih briše pri svakoj promeni podataka</label>
+    <label><input type="radio">MySQL nema deljeni keš plana, ali ima sesijski keš pripremljene naredbe</label>
+    <p class="why">Kešira se unutrašnja struktura naredbe, ne plan — i to samo unutar jedne sesije.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">7. Šta se dogodilo kad je <code>Com_stmt_reprepare</code> otišao sa 0 na 1?</p>
+    <label><input type="radio">Server je odbacio plan izvršenja jer je tabela dobila novu statistiku</label>
+    <label><input type="radio">Server je ponovo raščlanio naredbu jer su joj se promenili metapodaci</label>
+    <label><input type="radio">Server je premestio naredbu iz sesijskog keša u deljeni keš naredbi</label>
+    <label><input type="radio">Server je pripremio istu naredbu i u drugoj sesiji, pa je brojao obe</label>
+    <p class="why"><code>ALTER TABLE</code> je promenio listu kolona u koju je <code>*</code> bilo razrešeno.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong>
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/statement-caching.html">Caching of Prepared
+  Statements and Stored Programs</a> — kratka je, cela je relevantna za §6.3, i iz nje su oba citata
+  u sekciji 3. Posle nje pogledaj
+  <a href="https://dev.mysql.com/worklog/task/?id=11720">WL#11720</a>, odeljak „Scope", zbog one
+  jedne rečenice o <code>COUNT(*)</code>. ·
+  <strong>Vidi još:</strong> referentna kartica
+  <a href="../reference/07-ne-prati-obrazac.html">07 — Gde MySQL ne prati obrazac</a>,
+  <a href="0007-model-iteratora-i-pipeline.html">lekcija 07 (model iteratora)</a> za
+  <code>Read()</code>,
+  <a href="0002-arhitektura-serverski-sloj-i-motor.html">lekcija 02 (arhitektura)</a> za šav na kome
+  paralelizam prestaje,
+  <a href="0006-optimizer-trace-i-explain-for-connection.html">lekcija 06 (trag optimizatora)</a> za
+  alat kojim je dokazano da keša plana nema,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §2g i §3. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu — lekcija je početak, ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>

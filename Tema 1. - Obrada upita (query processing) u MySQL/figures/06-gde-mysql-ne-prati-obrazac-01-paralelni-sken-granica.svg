@@ -1,0 +1,57 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='760' viewBox='0 0 1200 760'>
+<rect width='1200' height='760' fill='#ffffff'/>
+<text x='600' y='44' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='24' font-weight='bold' fill='#1a1a1a'>Granica paralelizma u MySQL-u: jedna WHERE klauzula je gasi</text>
+<text x='600' y='72' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='15' fill='#4a4a4a'>wide_events, 5.000.000 torki &#183; medijana od 3 merenja &#183; MySQL 8.4.11</text>
+<line x1='130' y1='640' x2='960' y2='640' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='645' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>0</text>
+<line x1='130' y1='572.5' x2='960' y2='572.5' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='577.5' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>250</text>
+<line x1='130' y1='505' x2='960' y2='505' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='510' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>500</text>
+<line x1='130' y1='437.5' x2='960' y2='437.5' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='442.5' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>750</text>
+<line x1='130' y1='370' x2='960' y2='370' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='375' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>1.000</text>
+<line x1='130' y1='302.5' x2='960' y2='302.5' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='307.5' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>1.250</text>
+<line x1='130' y1='235' x2='960' y2='235' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='240' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>1.500</text>
+<line x1='130' y1='167.5' x2='960' y2='167.5' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='172.5' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>1.750</text>
+<line x1='130' y1='100' x2='960' y2='100' stroke='#d8d3c8' stroke-width='1'/>
+<text x='118' y='105' text-anchor='end' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>2.000</text>
+<line x1='130' y1='640' x2='130' y2='646' stroke='#4a4a4a' stroke-width='1'/>
+<text x='130' y='666' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>1</text>
+<line x1='337.5' y1='640' x2='337.5' y2='646' stroke='#4a4a4a' stroke-width='1'/>
+<text x='337.5' y='666' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>2</text>
+<line x1='545' y1='640' x2='545' y2='646' stroke='#4a4a4a' stroke-width='1'/>
+<text x='545' y='666' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>4</text>
+<line x1='752.5' y1='640' x2='752.5' y2='646' stroke='#4a4a4a' stroke-width='1'/>
+<text x='752.5' y='666' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>8</text>
+<line x1='960' y1='640' x2='960' y2='646' stroke='#4a4a4a' stroke-width='1'/>
+<text x='960' y='666' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>16</text>
+<text x='545' y='702' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='15' fill='#1a1a1a'>innodb_parallel_read_threads (logaritamska osa)</text>
+<text x='30' y='370' text-anchor='middle' font-family="Georgia, 'Times New Roman', serif" font-size='15' fill='#1a1a1a' transform='rotate(-90 30 370)'>vreme izvr&#353;enja (ms)</text>
+<line x1='130' y1='100' x2='130' y2='640' stroke='#4a4a4a' stroke-width='1.5'/>
+<line x1='130' y1='640' x2='960' y2='640' stroke='#4a4a4a' stroke-width='1.5'/>
+<polyline points='130,212.86 337.5,216.64 545,215.83 752.5,214.75 960,215.02' fill='none' stroke='#7a1f1f' stroke-width='2.5'/>
+<circle cx='130' cy='212.86' r='5' fill='#7a1f1f'/>
+<circle cx='337.5' cy='216.64' r='5' fill='#7a1f1f'/>
+<circle cx='545' cy='215.83' r='5' fill='#7a1f1f'/>
+<circle cx='752.5' cy='214.75' r='5' fill='#7a1f1f'/>
+<circle cx='960' cy='215.02' r='5' fill='#7a1f1f'/>
+<polyline points='130,239.59 337.5,363.79 545,442.36 752.5,491.23 960,502.84' fill='none' stroke='#1f5c7a' stroke-width='2.5'/>
+<circle cx='130' cy='239.59' r='5' fill='#1f5c7a'/>
+<circle cx='337.5' cy='363.79' r='5' fill='#1f5c7a'/>
+<circle cx='545' cy='442.36' r='5' fill='#1f5c7a'/>
+<circle cx='752.5' cy='491.23' r='5' fill='#1f5c7a'/>
+<circle cx='960' cy='502.84' r='5' fill='#1f5c7a'/>
+<text x='976' y='209.02' font-family="Georgia, 'Times New Roman', serif" font-size='14' font-weight='bold' fill='#7a1f1f'>+ WHERE amount &gt; 100</text>
+<text x='976' y='229.02' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>ravno: 1.01x</text>
+<text x='976' y='247.02' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>niti ne poma&#382;u</text>
+<text x='976' y='506.84' font-family="Georgia, 'Times New Roman', serif" font-size='14' font-weight='bold' fill='#1f5c7a'>COUNT(*) bez WHERE</text>
+<text x='976' y='526.84' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>ubrzanje: 2.9x</text>
+<text x='976' y='544.84' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>FORCE INDEX(PRIMARY)</text>
+<text x='130' y='736' font-family="Georgia, 'Times New Roman', serif" font-size='13' fill='#4a4a4a'>Paralelno se &#269;ita samo klasterovani indeks, i samo bez predikata. &#352;ta god tra&#382;i iteratorski izvr&#353;ilac ide jednom niti.</text>
+</svg>
+

@@ -18,6 +18,7 @@ a chapter, never when planning a lesson.
 | [0005](0005-explain-analyze-estimate-vs-actual.md) | 4b EXPLAIN ANALYZE | A bad estimate is not a bad plan | measurement vs estimate, `loops`, divergence as a screening threshold, histograms |
 | [0006](0006-optimizer-trace-and-for-connection.md) | 4c optimizer_trace | The bad plan was never costed against anything | `optimizer_trace`, rejected plans, `EXPLAIN FOR CONNECTION` |
 | [0007](0007-iterator-model-and-pipeline.md) | 5 Model iteratora | A row exists only because someone above asked for it | `RowIterator`, TREE node → iterator class, `loops` as `Init()` calls, blocking vs pipelined, `AccessPath` |
+| [0008](0008-ne-prati-obrazac-three-boundaries.md) | 6 Ne prati obrazac | A negative claim is defensible only once you find its boundary | vectorization, `innodb_parallel_read_threads`, plan cache vs. statement cache, `Com_stmt_reprepare` |
 
 ## Standing constraints these records impose on every later chapter
 
@@ -43,6 +44,15 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   be swapped in the prose (0007, GLOSSARY §2f).
 - `-> Hash` is **not** an iterator — it is an edge label on a hash join's build input, and it is the
   only tree row that carries no numbers (0007).
+- MySQL's parallelism stops **exactly at the `handler` seam**: a clustered `COUNT(*)` scan gets
+  2.9× from `innodb_parallel_read_threads`, the same scan plus one `WHERE` gets 1.01×. Never write
+  that MySQL "has no parallelism" (0008).
+- `SELECT COUNT(*)` does **not** read the clustered index — every index is covering for it, so the
+  optimizer takes the narrowest secondary one. Any parallel-read demo needs `FORCE INDEX(PRIMARY)`
+  or it silently measures the wrong thing (0008).
+- The plan is **re-derived on every `EXECUTE`**, against the actual parameter value — proved by three
+  `EXECUTE`s producing three traces with three different estimates. Stronger than "not shared", and
+  it means MySQL has no generic-plan machinery to compare with PostgreSQL's (0008).
 
 ## Settled by research, before any lesson
 
@@ -52,10 +62,11 @@ mid-chapter either.
 - MySQL has **five** pipeline stages, and transformations live inside **resolution**.
 - The **hypergraph optimizer cannot run** on the stock 8.4 build installed here: it is compile-gated
   to debug builds. Teach it as a documented fact, never as a live demo.
-- MySQL does **not** vectorize, and `innodb_parallel_read_threads` does **not** speed up an ordinary
-  `SELECT`.
+- MySQL does **not** vectorize. (The companion claim that `innodb_parallel_read_threads` never speeds
+  up a `SELECT` was **corrected by measurement in 0008** — see the standing constraints above and the
+  corrections filed against memo 06 below.)
 - MySQL has **no shared plan cache**, but it does cache prepared-statement **parse trees** per
-  session. Chapter 8 turns on drawing that line precisely; never write "MySQL doesn't cache anything".
+  session. §6.3 turns on drawing that line precisely; never write "MySQL doesn't cache anything".
 - `optimizer_search_depth` defaults to **62**.
 
 ## Corrections filed against the research memos
@@ -65,6 +76,16 @@ teaching chapter 5 (0007): §3.4's mapping table reads the `IndexScanIterator`/`
 parameter as "covering" when it is **`Reverse`**, and §3.1 paraphrases WL#11785's Volcano sentence
 rather than quoting it (the worklog says "borrowed from the classic Volcano database system"). The
 rest of that memo held up, including the whole `AccessPath`↔iterator account.
+
+`.scratch/obrada-upita/research/06-vectorized-parallel-plancache.md` has **two** errors in its
+parallelism section (§2), found while teaching chapter 6 (0008). It says the feature covers "index
+creation" and "bulk insert operations (LOAD DATA INFILE)" — that is `innodb_ddl_threads`, a different
+variable, and the memo has merged two features. And it says MySQL does "NOT parallelize ordinary
+SELECT queries", while WL#11720's own Scope names exactly one that it does:
+"only if the request is a non-locking SELECT COUNT(*)". Its §1 (vectorization) and §3 (plan cache)
+held up, including the plan-cache-vs-parse-tree-cache distinction, which live testing sharpened
+rather than contradicted. Its summary table's Oracle column is unreliable throughout (it lists
+Oracle's "Parallelism Scope" as "Shared pool", a category error) — do not cite that table.
 
 `.scratch/obrada-upita/research/05-explain-semantics.md` has **three** errors found by live testing;
 do not quote it on these without checking: §2.5-2.6's `UPDATE`/`DELETE` claim (0005), the stale

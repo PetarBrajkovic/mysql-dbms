@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kartica 07 — Gde MySQL ne prati obrazac</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica 07 · Poglavlje 6 · uz <a href="../lessons/0008-gde-mysql-ne-prati-obrazac.html">lekciju 08</a></p>
+<h1>Gde MySQL ne prati obrazac</h1>
+<p class="subtitle">Tri negativne tvrdnje sa tačnim granicama, izvorima i merenjima. Ovo je jedino
+poglavlje koje predavanja ne pokrivaju — svaka tvrdnja mora da stoji sama.</p>
+
+<h2>1 · Tri tvrdnje, u jednoj tabeli</h2>
+
+<table class="exp">
+  <tr><td><strong>§6.1 vektorizacija</strong></td><td><strong>Nema je.</strong> <code>Read()</code> vraća jednu torku po pozivu. Cena: ~20 ns po torki po predikatu, nezavisno od selektivnosti.</td></tr>
+  <tr><td><strong>§6.2 paralelizam</strong></td><td><strong>Ima ga, ali samo u motoru.</strong> Paralelno čitanje klasterovanog indeksa za nezaključavajući <code>COUNT(*)</code>. Plan nikada nije paralelan.</td></tr>
+  <tr><td><strong>§6.3 keširanje</strong></td><td><strong>Nema deljenog keša plana</strong>, nema keša rezultata upita od 8.0, <strong>ima sesijski keš pripremljene naredbe</strong>.</td></tr>
+</table>
+
+<h2>2 · Vektorizacija: brojevi za poređenje</h2>
+
+<table class="exp">
+  <tr><td><code>MySQL 8.4</code></td><td><strong>1</strong> torka po pozivu operatora — model iteratora</td></tr>
+  <tr><td><code>PostgreSQL</code></td><td><strong>1</strong> torka po pozivu — ni on ne vektorizuje</td></tr>
+  <tr><td><code>DuckDB</code></td><td><strong>2.048</strong> torki (<code>STANDARD_VECTOR_SIZE</code>), kolonarno</td></tr>
+  <tr><td><code>ClickHouse</code></td><td><strong>1.024–4.096</strong> torki, uz SIMD nad paketom</td></tr>
+  <tr><td><code>HeatWave</code></td><td>zaseban izvršilac: kolonarno skladištenje + vektorizacija + više čvorova</td></tr>
+</table>
+
+<p><strong>Vektorizacija ≠ paralelizam.</strong> Vektorizacija je više torki po pozivu
+<strong>u jednoj niti</strong>. Paralelizam je više niti. Nezavisne osobine.</p>
+
+<h2>3 · Paralelizam: tri uslova i jedan šav</h2>
+
+<table class="exp">
+  <tr><td><code>innodb_parallel_read_threads</code></td><td>sesijska, dinamička, podrazumevano <code>4</code>; vrednost preko <code>256</code> se odseca na <code>256</code></td></tr>
+  <tr><td>uslov 1</td><td>upit mora biti <strong>nezaključavajući <code>COUNT(*)</code></strong> (WL#11720)</td></tr>
+  <tr><td>uslov 2</td><td>mora se čitati <strong>klasterovani</strong> indeks — otuda <code>FORCE INDEX(PRIMARY)</code></td></tr>
+  <tr><td>uslov 3</td><td><strong>nijedan predikat</strong> — jedna <code>WHERE</code> klauzula gasi sve</td></tr>
+  <tr><td>izmereno</td><td>bez <code>WHERE</code>: <strong>2,9×</strong> (1 → 16 niti). Sa <code>WHERE</code>: <strong>1,01×</strong>, tj. ništa.</td></tr>
+</table>
+
+<p><strong>Zašto baš tu granica:</strong> paralelno čitanje je posao motora, <span class="hi">ispod
+<code>handler</code> API-ja</span>. Bez predikata i projekcije InnoDB sam izbroji torke u podstablima
+i vrati serverskom sloju samo zbir. Sa predikatom o torki odlučuje iterator <strong>iznad</strong>
+šava, pa svaka torka mora da pređe granicu pojedinačno, u jednoj niti.</p>
+
+<table class="exp">
+  <tr><td>paralelizam unutar operacije</td><td>MySQL: jedno čitanje ispod plana</td></tr>
+  <tr><td>paralelizam na nivou upita</td><td>PostgreSQL: <strong>optimizator</strong> ugrađuje radne niti u sam plan</td></tr>
+</table>
+
+<h2>4 · Keširanje: tri stvari koje se ne smeju mešati</h2>
+
+<table class="exp">
+  <tr><td>keš rezultata upita <span class="dim">(query cache)</span></td><td>čuvao <strong>rezultate</strong> · zastareo 5.7.20 · <strong>uklonjen u 8.0</strong></td></tr>
+  <tr><td>deljeni keš plana</td><td>čuvao bi <strong>planove</strong> između sesija (Oracle-ov deljeni pul) · <strong>ne postoji</strong></td></tr>
+  <tr><td>keš pripremljene naredbe</td><td>čuva <strong>unutrašnju strukturu</strong> naredbe · <strong>postoji, sesijski</strong></td></tr>
+</table>
+
+<p><strong>Šta je „unutrašnja struktura":</strong> stablo raščlanjivanja, razrešene kolone
+(<code>*</code> razvijeno u listu), tabela simbola. <strong>Nije</strong> plan izvršenja: ni izbor
+indeksa, ni redosled spoja, ni procene cene.</p>
+
+<h3>Dva merljiva dokaza</h3>
+
+<table class="exp">
+  <tr><td>plan se <strong>ne</strong> kešira</td><td>tri <code>EXECUTE</code>-a iste naredbe → <strong>tri zasebna traga</strong>, sa različitim procenama i cenama, jer se optimizuje nad stvarnom vrednošću parametra</td></tr>
+  <tr><td>naredba se <strong>kešira</strong>, sesijski</td><td><code>EXECUTE</code> u drugoj sesiji → <code>ERROR 1243 (HY000)</code>; <code>ALTER TABLE</code> → <code>Com_stmt_reprepare</code> ide 0 → 1</td></tr>
+</table>
+
+<pre class="out">-- Zamka: SET naredbe se i same traguju. Sve @promenljive PRE ukljucivanja traga.
+SET @a='DE', @b='US', @c='JP';
+SET SESSION optimizer_trace_offset=-3, SESSION optimizer_trace_limit=3;
+SET SESSION optimizer_trace='enabled=on';
+EXECUTE s USING @a; EXECUTE s USING @b; EXECUTE s USING @c;
+SET SESSION optimizer_trace='enabled=off';
+SELECT QUERY, LENGTH(TRACE) FROM information_schema.OPTIMIZER_TRACE;</pre>
+
+<p>Ponovna priprema se pokušava <strong>najviše tri puta</strong>; posle toga greška. Okidači su
+promene metapodataka (<code>ALTER</code>, <code>DROP</code>, <code>TRUNCATE</code>,
+<code>ANALYZE</code>, <code>FLUSH TABLES</code>) — <strong>ne</strong> i promene sadržaja
+(<code>INSERT</code>, <code>UPDATE</code>).</p>
+
+<h2>5 · Formulacije</h2>
+
+<table class="exp">
+  <tr><td>✗ „MySQL ne kešira ništa"</td><td>✓ „MySQL nema <strong>deljeni</strong> keš plana, ali ima sesijski keš pripremljene naredbe"</td></tr>
+  <tr><td>✗ „MySQL nema paralelizam"</td><td>✓ „MySQL paralelizuje <strong>čitanje klasterovanog indeksa</strong>, ne izvršavanje plana"</td></tr>
+  <tr><td>✗ „MySQL je spor jer ne vektorizuje"</td><td>✓ „Izvršavanje torku po torku je kompromis u korist <strong>transakcionog</strong> workloada"</td></tr>
+</table>
+
+<h2>6 · Izvori</h2>
+
+<table class="exp">
+  <tr><td><a href="https://dev.mysql.com/worklog/task/?id=11785">WL#11785</a></td><td>„Reads a single row" — definicija izvršavanja torku po torku</td></tr>
+  <tr><td><a href="https://dev.mysql.com/worklog/task/?id=11720">WL#11720</a></td><td>„only if the request is a non-locking SELECT COUNT(*)"</td></tr>
+  <tr><td><a href="https://dev.mysql.com/doc/refman/8.4/en/check-table.html">CHECK TABLE</a></td><td>paralelno čitanje klasterovanog indeksa, uslov <code>&gt; 1</code></td></tr>
+  <tr><td><a href="https://dev.mysql.com/doc/refman/8.4/en/statement-caching.html">Statement Caching</a></td><td>sesijski opseg, „internal structure", tri pokušaja, <code>Com_stmt_reprepare</code></td></tr>
+  <tr><td><a href="https://dev.mysql.com/doc/refman/8.0/en/query-cache.html">Query Cache (8.0)</a></td><td>zastarevanje u 5.7.20 i uklanjanje u 8.0</td></tr>
+</table>
+
+<p class="meta">
+  <strong>Vidi još:</strong> <a href="../lessons/0008-gde-mysql-ne-prati-obrazac.html">lekcija 08</a> ·
+  <a href="06-model-iteratora.html">kartica 06 (model iteratora)</a> za <code>Read()</code> ·
+  <a href="01-arhitektura-serverski-sloj-i-motor.html">kartica 01 (arhitektura)</a> za
+  <code>handler</code> šav · <a href="05-optimizer-trace.html">kartica 05 (trag optimizatora)</a> ·
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §2g i §3.
+</p>
+
+</body>
+</html>

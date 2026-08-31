@@ -52,5 +52,19 @@ primary/documented sources, not forum consensus. The user has not opted into any
 
 ## Gaps
 
-- **Chapters 6-8 have no verified primary source** beyond the two research memos above. Every claim
-  in those chapters still needs its own citation hunted down at write time. This is the one open gap.
+- **Chapter 6 now has verified primary sources for its MySQL claims**, fetched and quoted verbatim in
+  lesson 08 and listed in `.scratch/obrada-upita/measurements/0008-ne-prati-obrazac-three-boundaries.md`:
+  WL#11785 (`Read()` returns one row), [WL#11720](https://dev.mysql.com/worklog/task/?id=11720)
+  (parallel read only for a non-locking `SELECT COUNT(*)`),
+  [CHECK TABLE](https://dev.mysql.com/doc/refman/8.4/en/check-table.html) (parallel clustered index
+  reads), [Statement Caching](https://dev.mysql.com/doc/refman/8.4/en/statement-caching.html)
+  (per-session scope, "internal structure", three reparse attempts, `Com_stmt_reprepare`), and
+  [Query Cache](https://dev.mysql.com/doc/refman/8.0/en/query-cache.html) (deprecated 5.7.20,
+  removed 8.0). Those are enough to write §6.1-§6.3.
+  **What is still open:** the chapter's *comparative* claims — DuckDB's 2048-row vectors,
+  ClickHouse's 1024-4096, PostgreSQL's optimizer-driven parallel plans, Oracle's shared pool,
+  HeatWave — currently rest only on research memo 06, whose summary table is unreliable for Oracle.
+  Each needs its own vendor-documentation citation at write time.
+  Also unobtained: the prose paragraph under `innodb_parallel_read_threads` in
+  `innodb-parameters.html` (page truncates in WebFetch). Lesson 08 carries that point by measurement
+  instead of by quotation.
