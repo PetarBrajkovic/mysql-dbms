@@ -1,0 +1,901 @@
+{
+  "nodes": [
+    {
+      "id": "legend",
+      "type": "text",
+      "text": "# Obrada upita u MySQL\n### mapa gradiva, lekcije 01–08\n\n**Crveno** = kičma. Nit od deklarativnog SQL-a do izvršene torke.\n**Ljubičasto** = opšta teorija. Važi i van MySQL-a.\n**Narandžasto** = zamka. Formulacija koju ne smeš da napišeš.\n**Zelene strelice** = veze između grupa. Zbog njih ovo nije šest ostrva.",
+      "x": 0,
+      "y": -1500,
+      "width": 900,
+      "height": 380
+    },
+    {
+      "id": "t2",
+      "type": "text",
+      "text": "## ◆ Ekvivalentnost izraza relacione algebre\nselekcija naniže · projekcija naniže\nkomutativnost i asocijativnost spoja\n\nSkup ekvivalentnih izraza = **prostor pretrage** logičkog nivoa.",
+      "x": 0,
+      "y": -1000,
+      "width": 400,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "t1",
+      "type": "text",
+      "text": "## ◆ Fizička nezavisnost podataka\nCodd: logička shema ne sme da zna kako se do torki stiže.\n\nZato uopšte i postoji sloj koji bira **kako** — i zato taj sloj sme da se zameni, a upit ostaje isti.",
+      "x": 700,
+      "y": -1000,
+      "width": 400,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "t3",
+      "type": "text",
+      "text": "## ◆ Optimizacija zasnovana na ceni\nSystem R / Selinger, 1979: dinamičko programiranje nad left-deep stablima.\n\nstatistika → selektivnost → kardinalnost → cena\n\nModel cene je model, a ne merenje.",
+      "x": 1400,
+      "y": -1000,
+      "width": 400,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "t4",
+      "type": "text",
+      "text": "## ◆ Procena kardinalnosti je slaba tačka\nPretpostavke: uniformna raspodela i nezavisnost kolona.\n\nGreška se kroz nivoe spoja **množi**, ne sabira.\n\nZato procena i merenje moraju da stoje jedno pored drugog.",
+      "x": 2100,
+      "y": -1000,
+      "width": 400,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "t5",
+      "type": "text",
+      "text": "## ◆ Volcano model (Graefe)\n`open` – `next` – `close`, isti interfejs za svaki operator.\n\n⇒ operatori se slažu proizvoljno, jedan iznad drugog\n\nCena: jedan virtuelni poziv po torki po operatoru.",
+      "x": 2620,
+      "y": -1000,
+      "width": 400,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "t6",
+      "type": "text",
+      "text": "## ◆ Pipeline naspram materijalizacije\n**pipelined** — bez međurezultata, prva torka stiže rano\n**blokirajući** — ceo ulaz mora da uđe pre prve izlazne torke\n\nTačka materijalizacije = mesto gde pipeline puca.",
+      "x": 3060,
+      "y": -1000,
+      "width": 400,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "t7",
+      "type": "text",
+      "text": "## ◆ OLTP naspram OLAP\ntorka po torku · MVCC · kratke transakcije → **OLTP**\nkolone · vektori · više niti → **OLAP**\n\nAmdahl: ubrzava se samo ono što nije serijsko — a u OLTP-u je serijsko skoro sve.",
+      "x": 3500,
+      "y": -1000,
+      "width": 400,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "t8",
+      "type": "text",
+      "text": "## ◆ Generički naspram specifičnog plana\n**keširan plan** — jedan za sve parametre; rizik je pogrešna procena za konkretnu vrednost\n**ponovna optimizacija** — tačna procena, ali se plaća pri svakom izvršavanju",
+      "x": 3940,
+      "y": -1000,
+      "width": 400,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "g1",
+      "type": "group",
+      "label": "1 · ZAŠTO POSTOJI  —  Pogl. 1",
+      "x": -40,
+      "y": -290,
+      "width": 620,
+      "height": 1260
+    },
+    {
+      "id": "n1a",
+      "type": "text",
+      "text": "## ✳ JAZ\nSQL → **šta**\nmašina → **kako**\nstranice · B+ stablo · torke\n\nTeret je prešao na **DBMS**.",
+      "x": 0,
+      "y": -220,
+      "width": 540,
+      "height": 240,
+      "color": "1"
+    },
+    {
+      "id": "n1b",
+      "type": "text",
+      "text": "## ⇅ DVA NIVOA\n**logički** — oblik izraza RA\n↳ menja oblik, čuva rezultat\n\n**fizički** — algoritam + pristupni put\n↳ sken / indeks · petlja / sort-merge / heš\n\n⚠ dva *nivoa*, ne dva problema — spaja ih **cena**",
+      "x": 0,
+      "y": 80,
+      "width": 540,
+      "height": 240,
+      "color": "1"
+    },
+    {
+      "id": "n1c",
+      "type": "text",
+      "text": "### 1 upit → n planova\nisti rezultat\ncene se razlikuju za red veličine\n\n⇒ mora da se **pretražuje i bira**",
+      "x": 0,
+      "y": 380,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n1d",
+      "type": "text",
+      "text": "### Okvir za ceo rad\nPogl. 3–5 = fizički nivo, u detalje\nPogl. 4 = fizički izbori pročitani unazad\n\n↳ kasnije se ne uvodi ponovo, nego se **vezuje** za ovo",
+      "x": 0,
+      "y": 680,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "g2",
+      "type": "group",
+      "label": "2 · GDE SE DEŠAVA  —  Pogl. 2",
+      "x": 660,
+      "y": -290,
+      "width": 620,
+      "height": 1560
+    },
+    {
+      "id": "n2a",
+      "type": "text",
+      "text": "### Serverski sloj — razume SQL\nkonekcija · sesija (`THD`)\nparser → resolver → optimizator → planer → izvršilac\nrečnik podataka · histogrami\nreplikacija · backup",
+      "x": 700,
+      "y": -220,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n2b",
+      "type": "text",
+      "text": "## ✂ ŠAV — `handler` API\nIterator ne čita stranicu.\nZove `ha_rnd_next()` / `ha_index_next()` i **čeka torku**.\n\n**Test pripadnosti:** menja se kad zameniš motor? → pripada motoru",
+      "x": 700,
+      "y": 80,
+      "width": 540,
+      "height": 240,
+      "color": "1"
+    },
+    {
+      "id": "n2c",
+      "type": "text",
+      "text": "### Motor (InnoDB) — razume torke\nbafer pul · stranice 16 KB\nklasterovani indeks · B+ stabla\nMVCC · zaključavanje na nivou torke\nkardinalnost indeksa, procenjena iz uzorka",
+      "x": 700,
+      "y": 380,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n2d",
+      "type": "text",
+      "text": "### Šav propušta u oba pravca\n**↓ ICP** — uslov ide naniže\n`idx_cond_push()` · 499.297 → 165.707\n\n**↑ statistika** — brojevi idu naviše\n`info()` · `records_in_range()`",
+      "x": 700,
+      "y": 680,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n2e",
+      "type": "text",
+      "text": "### Ko drži koji broj\n**kardinalnost** = motor\n`innodb_index_stats` · uzorak od 16 stranica\n\n**histogram** = server\n`COLUMN_STATISTICS` · rečnik podataka",
+      "x": 700,
+      "y": 980,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "g3",
+      "type": "group",
+      "label": "3 · KAKO SE PLAN BIRA  —  Pogl. 3",
+      "x": 1360,
+      "y": -290,
+      "width": 620,
+      "height": 1560
+    },
+    {
+      "id": "n3a",
+      "type": "text",
+      "text": "## ⚙ PET FAZA\n**parser** — tekst → stablo, samo gramatika\n**razrešavanje** — imena + trajne transformacije\n**optimizator** — strategije, po ceni\n**planer** — redosled spoja + pristupni put\n**izvršilac** — stablo iteratora",
+      "x": 1400,
+      "y": -220,
+      "width": 540,
+      "height": 240,
+      "color": "1"
+    },
+    {
+      "id": "n3c",
+      "type": "text",
+      "text": "## ● CENA\n`row_evaluate` 0,1 · `key_compare` 0,05\n`io_block_read` 1,0 · `memory_block_read` 0,25\n\nsken = 0,1 × torke + 1,0 × stranice\n\n**Svaka odluka koja ima alternativu razrešava se ovim brojem.**",
+      "x": 1400,
+      "y": 80,
+      "width": 540,
+      "height": 240,
+      "color": "1"
+    },
+    {
+      "id": "n3b",
+      "type": "text",
+      "text": "### Transformacija ≠ strategija\n**priprema** — menja *oblik*, trajno, **bez cene**\npoluspoj · izvedene tabele · dekorelacija\n\n**optimizacija** — menja *način*, privremeno, **po ceni**\nFirstMatch · LooseScan · redosled · put",
+      "x": 1400,
+      "y": 380,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n3d",
+      "type": "text",
+      "text": "### Dve odluke, obe po ceni\n**pristupni put** — po tabeli\n`best_access_path()`\n\n**redosled spoja** — po upitu\n`greedy_search()` + ograničen pogled unapred\n`optimizer_search_depth` = 62",
+      "x": 1400,
+      "y": 680,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n3e",
+      "type": "text",
+      "text": "### ⚠ Odbijen ≠ neupotrebljiv\n`cause: \"cost\"` → procenjen, pa skuplji\n`usable: false` → nije ni bio kandidat\n`pruned_by_cost` → napušten pre kraja",
+      "x": 1400,
+      "y": 980,
+      "width": 540,
+      "height": 240,
+      "color": "2"
+    },
+    {
+      "id": "g4",
+      "type": "group",
+      "label": "4 · KAKO SE PLAN VIDI  —  Pogl. 4",
+      "x": 2060,
+      "y": -290,
+      "width": 620,
+      "height": 2460
+    },
+    {
+      "id": "n4a",
+      "type": "text",
+      "text": "## ◉ ČETIRI ALATA = ČETIRI PITANJA\n`EXPLAIN` — koji bi se plan izvršio\n`EXPLAIN ANALYZE` — koliko taj plan zaista košta\n`optimizer_trace` — **zašto baš taj**\n`EXPLAIN FOR CONNECTION` — šta radi tuđa sesija",
+      "x": 2100,
+      "y": -220,
+      "width": 540,
+      "height": 240,
+      "color": "1"
+    },
+    {
+      "id": "n4b",
+      "type": "text",
+      "text": "### Dva oblika, ne tri formata\ntabelarni + JSON v1 → red po **tabeli** (oblik iz 5.6)\nTREE + JSON v2 → čvor po **iteratoru**\n\nmost: `rows × filtered / 100` = procena čvora `Filter`\n16.500 × 33,33 % = 5.499",
+      "x": 2100,
+      "y": 80,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n4c",
+      "type": "text",
+      "text": "### 12 tipova pristupa\n`system` · `const` · `eq_ref` · `ref` · `fulltext` · `ref_or_null`\n`index_merge` · `unique_subquery` · `index_subquery`\n`range` · `index` · `ALL`\n\n⚠ redosled **oblika**, ne cene\n`range` nad 50 torki jeftiniji je od `ref` nad 5 M",
+      "x": 2100,
+      "y": 380,
+      "width": 540,
+      "height": 240,
+      "color": "2"
+    },
+    {
+      "id": "n4d",
+      "type": "text",
+      "text": "### Tri reči = tri mesta = šav\n`Using index` — u indeksu, i samo u indeksu\n`Using index condition` — u **motoru**, nad zapisom indeksa\n`Using where` — u **serveru**, nad već predatom torkom",
+      "x": 2100,
+      "y": 680,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n4e",
+      "type": "text",
+      "text": "### Procena pored merenja\n`(cost=… rows=…)` — procena\n`(actual time=a..b rows=… loops=…)` — merenje\n\n`loops` = koliko je puta čvor pokrenut\n`rows` = **prosek po jednom ponavljanju**\nukupno = `rows × loops`",
+      "x": 2100,
+      "y": 980,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n4f",
+      "type": "text",
+      "text": "### ⚠ Odstupanje je prag, ne presuda\ndo 50 % → u redu · 3× i više → proveri\n\nali: izmereno 48×, a redosled spoja pet tabela **ostaje isti**\n\nLoš plan se dokazuje samo **drugim planom**.",
+      "x": 2100,
+      "y": 1280,
+      "width": 540,
+      "height": 240,
+      "color": "2"
+    },
+    {
+      "id": "n4g",
+      "type": "text",
+      "text": "### Trag = odlučivanje, ne merenje\n`join_preparation` → `join_optimization` → `join_execution` (prazna)\ncene postoje **samo** u srednjoj fazi\n\n⚠ tri faze traga nisu pet faza iz Pogl. 3\n`optimizer_trace_limit` = 1 ⇒ ugasi trag **pre** čitanja\nspor upit? prati njegov `EXPLAIN`",
+      "x": 2100,
+      "y": 1580,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n4h",
+      "type": "text",
+      "text": "### Nalaz koji nosi poglavlje\nrazmatranih planova: **1** · njegova cena ≈ 574.800\nprijavljena cena: **0,838**\n\nzamena u `reconsidering_access_paths_for_index_ordering`, `\"steps\": []`\nokidač: **LIMIT**\n\n⇒ cena nije razlog izbora nego posledica",
+      "x": 2100,
+      "y": 1880,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "g5",
+      "type": "group",
+      "label": "5 · KAKO SE PLAN IZVRŠAVA  —  Pogl. 5",
+      "x": 2760,
+      "y": -290,
+      "width": 620,
+      "height": 1860
+    },
+    {
+      "id": "n5a",
+      "type": "text",
+      "text": "## ↺ MODEL ITERATORA\n`RowIterator`: `Init()` · `Read()` · `UnlockRow()`\ntorka se upisuje u `table->records[0]`\n\n**Nijedna torka ne nastaje dok je neko odozgo ne zatraži.**",
+      "x": 2800,
+      "y": -220,
+      "width": 540,
+      "height": 240,
+      "color": "1"
+    },
+    {
+      "id": "n5b",
+      "type": "text",
+      "text": "### Ispis → klasa\n`Table scan` → `TableScanIterator`\n`Index lookup` → `RefIterator`\n`Filter` → `FilterIterator`\n`Sort` → `SortingIterator`\n`Nested loop …` → `NestedLoopIterator`\n\n`Hash` — **natpis na grani**, nije iterator",
+      "x": 2800,
+      "y": 80,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n5e",
+      "type": "text",
+      "text": "### ⚠ `AccessPath` ≠ pristupni put\n`AccessPath` — C++ struktura plana, 1 : 1 sa iteratorom\n`CreateIteratorFromAccessPath()`\n\n**pristupni put** — pojam iz Pogl. 1 i 3: način dolaženja do torki jedne tabele\n\nU radu se nikada ne zamenjuju.",
+      "x": 2800,
+      "y": 380,
+      "width": 540,
+      "height": 240,
+      "color": "2"
+    },
+    {
+      "id": "n5d",
+      "type": "text",
+      "text": "### `loops` = broj poziva `Init()`\nkod ugnježdene petlje: jednom po spoljašnjoj torki\nzato `rows` unutra sme da bude decimalan\n\n178 × 5,48 = 975 ≈ 976, koliko spoj iznad prijavljuje",
+      "x": 2800,
+      "y": 680,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n5c",
+      "type": "text",
+      "text": "### Ko blokira pipeline\n**prvo ≪ poslednje** → pipeline\nsken · lookup · `Filter` · `Limit` · `Nested loop` · `Stream`\n\n**prvo = poslednje** → blokira\n`Sort` · `Materialize` · agregacija uz privremenu tabelu · gradnja heša",
+      "x": 2800,
+      "y": 980,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n5f",
+      "type": "text",
+      "text": "### `LIMIT` deluje odozgo\nSken ne zna za `LIMIT` — prosto prestanu da ga pozivaju.\n`LIMIT 10` → pročita deset torki.\n\nStavi `Sort` iznad njega → pročita celu tabelu.",
+      "x": 2800,
+      "y": 1280,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "g6",
+      "type": "group",
+      "label": "6 · DOKLE MySQL IDE  —  Pogl. 6",
+      "x": 3460,
+      "y": -290,
+      "width": 620,
+      "height": 1860
+    },
+    {
+      "id": "n6a",
+      "type": "text",
+      "text": "## ⛔ TRI GRANICE\n**vektorizacija** — nema je\n**paralelizam** — ima ga, ali samo ispod šava\n**keš plana** — nema deljenog; ima sesijski keš naredbe\n\nNegativna tvrdnja vredi tek kad joj nađeš granicu.",
+      "x": 3500,
+      "y": -220,
+      "width": 540,
+      "height": 240,
+      "color": "1"
+    },
+    {
+      "id": "n6b",
+      "type": "text",
+      "text": "### Vektorizacija: brojevi za poređenje\nMySQL 8.4 — 1 torka po pozivu\nPostgreSQL — 1 torka po pozivu\nDuckDB — 2.048 · ClickHouse — 1.024–4.096\nHeatWave — zaseban izvršilac\n\n**vektorizacija ≠ paralelizam**",
+      "x": 3500,
+      "y": 80,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n6c",
+      "type": "text",
+      "text": "### Paralelizam: tri uslova\nnezaključavajući `COUNT(*)`\nklasterovani indeks ⇒ `FORCE INDEX(PRIMARY)`\n**nijedan predikat**\n\nbez `WHERE`: 2,9× · sa `WHERE`: 1,01×",
+      "x": 3500,
+      "y": 380,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n6d",
+      "type": "text",
+      "text": "### Keširanje: tri stvari koje se ne mešaju\n**keš rezultata** — uklonjen u 8.0\n**deljeni keš plana** — ne postoji\n**keš pripremljene naredbe** — postoji, sesijski\n\nČuva se stablo raščlanjivanja, **a ne plan**.",
+      "x": 3500,
+      "y": 680,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n6e",
+      "type": "text",
+      "text": "### Dva merljiva dokaza\n3 × `EXECUTE` → tri traga, tri različite procene\n⇒ plan se iznova izvodi nad **stvarnom vrednošću** parametra\n\ndruga sesija → `ERROR 1243`\n`ALTER TABLE` → `Com_stmt_reprepare` 0 → 1",
+      "x": 3500,
+      "y": 980,
+      "width": 540,
+      "height": 240
+    },
+    {
+      "id": "n6f",
+      "type": "text",
+      "text": "### ⚠ Formulacije\n✗ „MySQL nema paralelizam“\n✓ „paralelizuje čitanje klasterovanog indeksa, a ne izvršavanje plana“\n\n✗ „MySQL ne kešira ništa“\n✓ „nema deljeni keš plana, ali ima sesijski keš pripremljene naredbe“",
+      "x": 3500,
+      "y": 1280,
+      "width": 540,
+      "height": 240,
+      "color": "2"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e001",
+      "fromNode": "n1a",
+      "fromSide": "bottom",
+      "toNode": "n1b",
+      "toSide": "top",
+      "label": "jaz se prelazi na dva nivoa",
+      "color": "1"
+    },
+    {
+      "id": "e002",
+      "fromNode": "n1b",
+      "fromSide": "bottom",
+      "toNode": "n1c",
+      "toSide": "top",
+      "label": "oba nivoa imaju više rešenja"
+    },
+    {
+      "id": "e003",
+      "fromNode": "n1c",
+      "fromSide": "bottom",
+      "toNode": "n1d",
+      "toSide": "top",
+      "label": "i zato rad izgleda ovako"
+    },
+    {
+      "id": "e004",
+      "fromNode": "n2a",
+      "fromSide": "bottom",
+      "toNode": "n2b",
+      "toSide": "top",
+      "label": "ne čita sam, nego zove"
+    },
+    {
+      "id": "e005",
+      "fromNode": "n2b",
+      "fromSide": "bottom",
+      "toNode": "n2c",
+      "toSide": "top",
+      "label": "ispod šava"
+    },
+    {
+      "id": "e006",
+      "fromNode": "n2c",
+      "fromSide": "bottom",
+      "toNode": "n2d",
+      "toSide": "top",
+      "label": "šav ipak nije zatvoren"
+    },
+    {
+      "id": "e007",
+      "fromNode": "n2d",
+      "fromSide": "bottom",
+      "toNode": "n2e",
+      "toSide": "top",
+      "label": "šta kojoj strani pripada"
+    },
+    {
+      "id": "e008",
+      "fromNode": "n3a",
+      "fromSide": "bottom",
+      "toNode": "n3c",
+      "toSide": "top",
+      "label": "sve što ima alternativu svodi se na jedan broj",
+      "color": "1"
+    },
+    {
+      "id": "e009",
+      "fromNode": "n3c",
+      "fromSide": "bottom",
+      "toNode": "n3b",
+      "toSide": "top",
+      "label": "ali priprema nema alternativu, pa nema ni cenu"
+    },
+    {
+      "id": "e010",
+      "fromNode": "n3b",
+      "fromSide": "bottom",
+      "toNode": "n3d",
+      "toSide": "top",
+      "label": "šta se onda zaista bira"
+    },
+    {
+      "id": "e011",
+      "fromNode": "n3d",
+      "fromSide": "bottom",
+      "toNode": "n3e",
+      "toSide": "top",
+      "label": "šta biva sa gubitnicima"
+    },
+    {
+      "id": "e012",
+      "fromNode": "n4a",
+      "fromSide": "bottom",
+      "toNode": "n4b",
+      "toSide": "top",
+      "label": "u kom obliku se plan uopšte ispisuje"
+    },
+    {
+      "id": "e013",
+      "fromNode": "n4b",
+      "fromSide": "bottom",
+      "toNode": "n4c",
+      "toSide": "top",
+      "label": "kolona `type`"
+    },
+    {
+      "id": "e014",
+      "fromNode": "n4c",
+      "fromSide": "bottom",
+      "toNode": "n4d",
+      "toSide": "top",
+      "label": "kolona `Extra`"
+    },
+    {
+      "id": "e015",
+      "fromNode": "n4d",
+      "fromSide": "bottom",
+      "toNode": "n4e",
+      "toSide": "top",
+      "label": "isti plan, sada i izmeren"
+    },
+    {
+      "id": "e016",
+      "fromNode": "n4e",
+      "fromSide": "bottom",
+      "toNode": "n4f",
+      "toSide": "top",
+      "label": "koliko odstupanje je previše"
+    },
+    {
+      "id": "e017",
+      "fromNode": "n4f",
+      "fromSide": "bottom",
+      "toNode": "n4g",
+      "toSide": "top",
+      "label": "zašto je plan izabran — ovde još ne piše"
+    },
+    {
+      "id": "e018",
+      "fromNode": "n4g",
+      "fromSide": "bottom",
+      "toNode": "n4h",
+      "toSide": "top",
+      "label": "šta je trag rekao o lošem planu"
+    },
+    {
+      "id": "e019",
+      "fromNode": "n5a",
+      "fromSide": "bottom",
+      "toNode": "n5b",
+      "toSide": "top",
+      "label": "šta koji red stabla znači"
+    },
+    {
+      "id": "e020",
+      "fromNode": "n5b",
+      "fromSide": "bottom",
+      "toNode": "n5e",
+      "toSide": "top",
+      "label": "odakle ti iteratori dolaze"
+    },
+    {
+      "id": "e021",
+      "fromNode": "n5e",
+      "fromSide": "bottom",
+      "toNode": "n5d",
+      "toSide": "top",
+      "label": "šta stoji uz svaki čvor"
+    },
+    {
+      "id": "e022",
+      "fromNode": "n5d",
+      "fromSide": "bottom",
+      "toNode": "n5c",
+      "toSide": "top",
+      "label": "prva torka naspram poslednje"
+    },
+    {
+      "id": "e023",
+      "fromNode": "n5c",
+      "fromSide": "bottom",
+      "toNode": "n5f",
+      "toSide": "top",
+      "label": "posledica koju vredi pamtiti"
+    },
+    {
+      "id": "e024",
+      "fromNode": "n6a",
+      "fromSide": "bottom",
+      "toNode": "n6b",
+      "toSide": "top",
+      "label": "granica 1"
+    },
+    {
+      "id": "e025",
+      "fromNode": "n6b",
+      "fromSide": "bottom",
+      "toNode": "n6c",
+      "toSide": "top",
+      "label": "granica 2"
+    },
+    {
+      "id": "e026",
+      "fromNode": "n6c",
+      "fromSide": "bottom",
+      "toNode": "n6d",
+      "toSide": "top",
+      "label": "granica 3"
+    },
+    {
+      "id": "e027",
+      "fromNode": "n6d",
+      "fromSide": "bottom",
+      "toNode": "n6e",
+      "toSide": "top",
+      "label": "čime se to dokazuje"
+    },
+    {
+      "id": "e028",
+      "fromNode": "n6e",
+      "fromSide": "bottom",
+      "toNode": "n6f",
+      "toSide": "top",
+      "label": "i kako se onda piše"
+    },
+    {
+      "id": "e029",
+      "fromNode": "n1b",
+      "fromSide": "right",
+      "toNode": "n2b",
+      "toSide": "left",
+      "label": "fizički nivo se u MySQL-u lomi na jednom mestu",
+      "color": "1"
+    },
+    {
+      "id": "e030",
+      "fromNode": "n2b",
+      "fromSide": "right",
+      "toNode": "n3a",
+      "toSide": "left",
+      "label": "šta serverski sloj uradi pre nego što pozove motor",
+      "color": "1"
+    },
+    {
+      "id": "e031",
+      "fromNode": "n3c",
+      "fromSide": "right",
+      "toNode": "n4a",
+      "toSide": "left",
+      "label": "izabran plan se čita unazad, alatima",
+      "color": "1"
+    },
+    {
+      "id": "e032",
+      "fromNode": "n4a",
+      "fromSide": "right",
+      "toNode": "n5a",
+      "toSide": "left",
+      "label": "pročitan plan neko mora i da izvrši",
+      "color": "1"
+    },
+    {
+      "id": "e033",
+      "fromNode": "n5a",
+      "fromSide": "right",
+      "toNode": "n6a",
+      "toSide": "left",
+      "label": "interfejs koji izvršava ujedno je i granica",
+      "color": "1"
+    },
+    {
+      "id": "e034",
+      "fromNode": "n1b",
+      "fromSide": "right",
+      "toNode": "n3b",
+      "toSide": "left",
+      "label": "logički = transformacija · fizički = strategija",
+      "color": "4"
+    },
+    {
+      "id": "e035",
+      "fromNode": "n2b",
+      "fromSide": "right",
+      "toNode": "n4d",
+      "toSide": "left",
+      "label": "isti šav, pročitan iz kolone `Extra`",
+      "color": "4"
+    },
+    {
+      "id": "e036",
+      "fromNode": "n2e",
+      "fromSide": "right",
+      "toNode": "n4f",
+      "toSide": "left",
+      "label": "odavde dolazi procena koja odstupa",
+      "color": "4"
+    },
+    {
+      "id": "e037",
+      "fromNode": "n3d",
+      "fromSide": "right",
+      "toNode": "n4c",
+      "toSide": "left",
+      "label": "izabran pristupni put → tip pristupa u ispisu",
+      "color": "4"
+    },
+    {
+      "id": "e038",
+      "fromNode": "n3e",
+      "fromSide": "right",
+      "toNode": "n4g",
+      "toSide": "left",
+      "label": "gde se odbijeni kandidati zaista vide",
+      "color": "4"
+    },
+    {
+      "id": "e039",
+      "fromNode": "n5d",
+      "fromSide": "left",
+      "toNode": "n4e",
+      "toSide": "right",
+      "label": "`loops` je broj poziva `Init()` — otud prosek",
+      "color": "4"
+    },
+    {
+      "id": "e040",
+      "fromNode": "n5f",
+      "fromSide": "left",
+      "toNode": "n4h",
+      "toSide": "right",
+      "label": "isti `LIMIT`: gore menja plan, dole zaustavlja sken",
+      "color": "4"
+    },
+    {
+      "id": "e041",
+      "fromNode": "n5a",
+      "fromSide": "right",
+      "toNode": "n6b",
+      "toSide": "left",
+      "label": "`Read()` vraća jednu torku — to i jeste razlog za ✗",
+      "color": "4"
+    },
+    {
+      "id": "e042",
+      "fromNode": "n2b",
+      "fromSide": "top",
+      "toNode": "n6c",
+      "toSide": "top",
+      "label": "paralelizam staje tačno na šavu",
+      "color": "4"
+    },
+    {
+      "id": "e043",
+      "fromNode": "n4g",
+      "fromSide": "right",
+      "toNode": "n6e",
+      "toSide": "left",
+      "label": "tri traga su i dokaz da se plan ne kešira",
+      "color": "4"
+    },
+    {
+      "id": "e044",
+      "fromNode": "t2",
+      "fromSide": "bottom",
+      "toNode": "n1b",
+      "toSide": "top",
+      "label": "prostor logičkih alternativa",
+      "color": "6"
+    },
+    {
+      "id": "e045",
+      "fromNode": "t1",
+      "fromSide": "bottom",
+      "toNode": "n2b",
+      "toSide": "top",
+      "label": "zašto šav uopšte postoji",
+      "color": "6"
+    },
+    {
+      "id": "e046",
+      "fromNode": "t3",
+      "fromSide": "bottom",
+      "toNode": "n3c",
+      "toSide": "top",
+      "label": "odakle ceo pristup",
+      "color": "6"
+    },
+    {
+      "id": "e047",
+      "fromNode": "t4",
+      "fromSide": "bottom",
+      "toNode": "n4a",
+      "toSide": "top",
+      "label": "zašto se procena i meri",
+      "color": "6"
+    },
+    {
+      "id": "e048",
+      "fromNode": "t5",
+      "fromSide": "bottom",
+      "toNode": "n5a",
+      "toSide": "top",
+      "label": "MySQL je jedna instanca opšteg modela",
+      "color": "6"
+    },
+    {
+      "id": "e049",
+      "fromNode": "t6",
+      "fromSide": "bottom",
+      "toNode": "n5c",
+      "toSide": "right",
+      "label": "šta znači blokirati",
+      "color": "6"
+    },
+    {
+      "id": "e050",
+      "fromNode": "t7",
+      "fromSide": "bottom",
+      "toNode": "n6a",
+      "toSide": "top",
+      "label": "zašto su granice baš tu",
+      "color": "6"
+    },
+    {
+      "id": "e051",
+      "fromNode": "t8",
+      "fromSide": "bottom",
+      "toNode": "n6d",
+      "toSide": "right",
+      "label": "izbor koji MySQL nije ni imao",
+      "color": "6"
+    }
+  ]
+}
