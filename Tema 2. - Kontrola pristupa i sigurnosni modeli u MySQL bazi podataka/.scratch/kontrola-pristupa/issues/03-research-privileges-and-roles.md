@@ -1,7 +1,7 @@
 # Research: MySQL's privilege system and roles (RBAC)
 
 Type: research
-Status: open
+Status: resolved
 
 ## Question
 
@@ -30,3 +30,23 @@ Produce a memo at `../research/03-privileges-and-roles.md` covering:
 
 Flag any claim that ought to be checked against the live server rather than trusted; Tema 1's live
 server corrected its research memos more than once.
+
+## Answer
+
+Findings: [`research/03-privileges-and-roles.md`](../research/03-privileges-and-roles.md)
+
+All ten grant tables mapped to their privilege levels, the two-stage connection/request check
+documented, `FLUSH PRIVILEGES` and the effect of a `GRANT` on an open connection covered, static vs
+dynamic privileges and the `SUPER` decomposition covered, and `partial_revokes` explained as the one
+deny-shaped thing in an otherwise grant-only model. **Everything in scope is Community Edition** -
+no Enterprise lock-in anywhere in the privilege system.
+
+**The finding with the most leverage**: MySQL's roles do not match the NIST/Sandhu RBAC model, and
+the reason is structural - **a role and a user are the same kind of object** in the grant tables,
+and there is no separation-of-duty mechanism at all. That is the contrast the RBAC chapter is built
+on.
+
+**Caveat - the memo is short (~920 words against the 1500-2500 asked for)** and its role section is
+the part that needs the most checking. See the correction recorded on ticket 07: a sister memo made
+two false claims about MySQL roles that this memo contradicts correctly. Five claims are flagged for
+live-server verification in ticket 10.

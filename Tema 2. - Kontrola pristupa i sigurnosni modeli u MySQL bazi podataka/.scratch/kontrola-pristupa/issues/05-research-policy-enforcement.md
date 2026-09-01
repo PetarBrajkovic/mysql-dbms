@@ -1,7 +1,7 @@
 # Research: security policy enforcement — authentication, password and account policy
 
 Type: research
-Status: open
+Status: resolved
 
 ## Question
 
@@ -31,3 +31,28 @@ Produce a memo at `../research/05-policy-enforcement.md` covering:
 Flag which of these are demonstrable on a free Community 8.4 server (most should be) and which
 produce a good figure — a locked account and its exact error is a better picture than a settings
 table.
+
+## Answer
+
+Findings: [`research/05-policy-enforcement.md`](../research/05-policy-enforcement.md)
+
+Fourteen enforcement mechanisms inventoried across authentication (pluggable auth,
+`caching_sha2_password` as the 8.4 default and `mysql_native_password`'s removal, multi-factor auth
+via `authentication_policy`), password policy (`validate_password`, expiration, history and reuse,
+**dual passwords**, random generation), account policy (`ACCOUNT LOCK`, `FAILED_LOGIN_ATTEMPTS` +
+`PASSWORD_LOCK_TIME`, resource limits) and connection policy (`REQUIRE SSL`/`X509`/`SUBJECT`, host
+matching and the user-table sort order, `skip_networking`).
+
+**The organising finding, and the chapter's spine**: for each mechanism the memo names *where the
+enforcement point is* - server core (11 of 14), loadable component (`validate_password`, Enterprise
+Firewall), or built-in plugin (`caching_sha2_password`) - and establishes that **an authentication
+plugin only verifies credentials; every policy decision is made by the server core**. That turns a
+settings list into an argument.
+
+**13 of 14 are demonstrable free**; only Enterprise Firewall is commercial, and it is cited as such.
+Five figure candidates identified, all of the good kind - a visible error rather than a settings
+table (failed-login lockout, error 1820 on an expired password, host-matching behaviour, SSL
+rejection, error 1226 on a resource limit).
+
+**Caveat - the shortest memo of the five (~560 words)**. The inventory is complete but thin on
+detail; expect to re-read the manual when the chapter is taught rather than writing from this alone.

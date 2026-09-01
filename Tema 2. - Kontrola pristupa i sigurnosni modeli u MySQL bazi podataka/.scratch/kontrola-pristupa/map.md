@@ -73,6 +73,51 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   same paper shape as Tema 1 in a new folder; ~20–25 pages soft; commercial features covered as
   theory rather than demoed; chapter tickets deliberately left as fog until the skeleton is locked.
 
+- [Research: mine the lecture deck for required content and Serbian terminology](issues/02-research-mine-lecture-deck.md):
+  the deck is **Ramakrishnan & Gehrke ch. 21 in Serbian** — its own metadata names R&G and the
+  examples are `Sailors`/`Boats` — so every deck-backed claim cites a book Tema 1 already owns.
+  ~36 Serbian terms harvested, including *sigurnost na nivou polja* for fine-grained access control.
+  Its frame is **DAC vs MAC, with a third of the deck on Bell–LaPadula**, which MySQL has none of,
+  making the professor's own material the paper's sharpest contrast. **Zero MySQL coverage**: the
+  split is Tema 1's reversed — the theory chapters are deck-backed, every MySQL chapter is not.
+
+- [Research: MySQL's privilege system and roles (RBAC)](issues/03-research-privileges-and-roles.md):
+  ten grant tables, the two-stage check, static vs dynamic privileges and the `SUPER` decomposition,
+  `partial_revokes` as the one deny-shaped thing in a grant-only model. **All of it is Community.**
+  The leverage is that MySQL's roles miss the NIST model **structurally**: a role and a user are the
+  same object, and there is no separation of duty.
+
+- [Research: fine-grained and row-level access control](issues/04-research-fgac-and-rls.md):
+  three RLS emulation patterns, each with how it is defeated, plus definer/invoker semantics and the
+  `USER()`/`CURRENT_USER()` distinction that recurs in the audit chapter. **Verdict: RLS is a
+  section, not a chapter** — MySQL's absence of native RLS is the point, and a chapter of absence
+  does not sustain itself. One startling claim (`SELECT *` bypassing column privileges, sourced to a
+  2009 bug) is flagged for live testing before it goes anywhere near the paper.
+
+- [Research: security policy enforcement](issues/05-research-policy-enforcement.md): fourteen
+  mechanisms across authentication, password, account and connection policy, **13 of them free**.
+  The chapter's spine is not the list but the question *where is the enforcement point* — server
+  core, component, or plugin — and the finding that **an auth plugin only verifies credentials while
+  the server core makes every policy decision**. Five figure candidates, all of them a visible error
+  rather than a settings table.
+
+- [Research: audit logging](issues/06-research-audit-logging.md): **no** — neither Percona's nor
+  MariaDB's free audit plugin can be relied on to load into stock Oracle MySQL 8.4 Community on
+  Windows, so ticket 11 does not attempt an install and the working server is never at risk. The
+  free instruments (general query log, error log, `performance_schema` as a **ring buffer, not a
+  durable trail**) are judged against NIST SP 800-92 rather than against the manual: they are
+  *instruments, not audit trails*. Two repairs made before acceptance — a truncated tail
+  reconstructed, and a "migrate to Percona" recommendation overruled as against the map's rules.
+
+- [Research: access-control theory and multi-tenant security models](issues/07-research-models-and-multitenancy.md):
+  **15 references with full bibliographic detail**, ready for `references.bib` — Sandhu 1996,
+  Ferraiolo & Kuhn 1992, ANSI/INCITS 359-2004, NIST SP 800-162, Bell–LaPadula, the Orange Book, and
+  Saltzer & Schroeder 1975 with the least-privilege principle's exact wording. Recommends least
+  privilege as a **thread**, multi-tenancy as the **closing synthesis chapter**, and hands the paper
+  its best single idea: the **connection-pooling collision**. **One false claim corrected in place**
+  (it denied `SET ROLE` and role-to-role grants, both of which exist) — the memo carries the
+  correction and ticket 09 is warned off the deleted wording.
+
 ## Not yet specified
 
 - **The chapter tickets.** The nine bullets on the professor's screenshot are not nine chapters:
@@ -83,20 +128,33 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   [Decide the Serbian terminology glossary and lock the paper skeleton](issues/09-terminology-and-skeleton.md)
   closes, and not before.
 - **The paper's spine.** Tema 1 found one late ("one query, many plans, unified by cost") and it made
-  the paper. A candidate here is that MySQL's access control is *discretionary and object-based*, and
-  that everything the modern bullets ask for is either composed out of that (roles, views, definers)
-  or absent and named as absent — but this is a hunch, not a decision, and the research tickets are
-  what will confirm or kill it.
-- **Whether the paper needs a comparison system at all.** Row-level security in PostgreSQL and Oracle
-  VPD/Label Security are the obvious contrasts, and Tema 1's chapter 6 proved a contrast chapter can
-  carry a paper. Whether that is one section, one chapter, or a thread depends on ticket 04.
+  the paper. The hunch charted here — MySQL's access control is *discretionary and object-based*, and
+  everything the modern bullets ask for is either composed out of that or absent and named as absent
+  — **survived all six research memos and is now the leading candidate**, but it is still ticket 09's
+  decision to make or break. The sharper form the research suggests: the professor's deck teaches
+  **DAC vs MAC**, MySQL is **DAC only**, and every modern requirement on the bullet list is that gap
+  being filled by something other than the DBMS.
+- **Whether the paper needs a comparison system at all.** *Partly settled*: ticket 04 fixes
+  PostgreSQL `CREATE POLICY` and Oracle VPD as the cited contrasts for row-level security, and
+  ticket 07 supplies the theory to compare against. What is still open is **how much weight they
+  carry** — a paragraph each inside the RLS section, or a Tema-1-style contrast chapter.
 - **How much of the Tema 1 dataset survives.** `wide_events` and Sakila were built for query
   processing; a security paper wants tenants, roles and users instead. Ticket 08 decides the scenario
   and ticket 10 builds it, but whether Sakila is reused as the *data* underneath a new privilege
   design is not yet decided.
 - **The defense angle.** What the professor is likely to press on for a security topic — probably
   least privilege applied to a real design, and whether the student can say precisely what MySQL
-  cannot enforce. Revisit once the skeleton exists.
+  cannot enforce. The deck sharpens the guess: he taught **Bell–LaPadula formally** and the
+  **Trojan-horse argument** for why DAC is insufficient, so "why does MySQL not implement MAC, and
+  what does that cost you" is a question worth being ready for. Revisit once the skeleton exists.
+- **Two topics the professor taught that are not on the bullet list**: the Trojan-horse argument
+  (deck slide 15) and statistical databases / the inference problem (slide 19). Neither appears in
+  the nine bullets, both are his own material, and MySQL offers nothing for the second. Whether
+  either earns space is ticket 09's call.
+- **Which research claims need the live server to settle them.** Three are already named — whether
+  `SELECT *` really bypasses column privileges (ticket 04), the exact role-activation semantics
+  (tickets 03 and 07), and whether the NIST/PCI-DSS citations say what the memo says they say
+  (ticket 06). Ticket 10 is where they get tested; more will accumulate as chapters are taught.
 
 ## Out of scope
 

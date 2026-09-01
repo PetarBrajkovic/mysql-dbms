@@ -1,7 +1,7 @@
 # Research: fine-grained and row-level access control — what MySQL has, and what it doesn't
 
 Type: research
-Status: open
+Status: resolved
 
 ## Question
 
@@ -30,3 +30,28 @@ Produce a memo at `../research/04-fgac-and-rls.md` covering:
 
 Say plainly whether there is enough here for a chapter of its own, or whether row-level security is a
 section inside the fine-grained-access-control chapter. That answer feeds ticket 09.
+
+## Answer
+
+Findings: [`research/04-fgac-and-rls.md`](../research/04-fgac-and-rls.md)
+
+The fullest of the five memos (~1900 words, 25+ primary URLs). Column-level privileges and the
+1142/1143 error distinction documented - **1143 names the column, so the error itself leaks that the
+column exists**. Definer/invoker semantics, `WITH CHECK OPTION` `CASCADED` vs `LOCAL`, and what
+happens to a view whose `DEFINER` account is dropped, all covered.
+
+**Three row-level-security emulation patterns**, each with how it is defeated: `CURRENT_USER()`
+views (needs one real MySQL account per tenant, so it collides with pooling), session variables
+(settable by anyone who controls the connection), and a stored-procedure API with no direct table
+grants. The `USER()` / `SESSION_USER()` / `CURRENT_USER()` distinction under `SQL SECURITY DEFINER`
+is the technical heart of it, and it recurs in the audit ticket.
+
+**Flagged for live verification**: the memo claims `SELECT *` bypasses column privileges, citing a
+2009 bug report. That would be a startling security claim to put in a paper on the strength of an
+old bug entry - **ticket 10 must test it directly**, and the chapter states whatever the server
+actually does.
+
+**Verdict**: row-level security is a *section* inside a fine-grained-access-control chapter, not a
+chapter of its own - MySQL's *absence* of native RLS is the point, and a whole chapter of absence
+does not sustain itself. PostgreSQL `CREATE POLICY` and Oracle VPD/Label Security are the cited
+contrasts. Enterprise Data Masking confirmed commercial.
