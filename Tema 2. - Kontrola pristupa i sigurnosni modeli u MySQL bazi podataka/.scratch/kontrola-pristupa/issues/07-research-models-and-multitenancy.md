@@ -1,0 +1,33 @@
+# Research: access-control theory and multi-tenant security models
+
+Type: research
+Status: open
+
+## Question
+
+Two bullets — *kontrola pristupa i sigurnosni modeli* and *multi-tenant security modeli* — need
+material that is **not** in the MySQL manual, and the paper's first chapters cannot be written from
+vendor documentation alone. This ticket finds the citable backbone.
+
+Produce a memo at `../research/07-models-and-multitenancy.md` covering:
+1. **The classical models**, each with its primary citable source and a one-paragraph definition
+   sharp enough to classify a real system: DAC, MAC (and where Bell–LaPadula belongs), RBAC, ABAC.
+   The Sandhu et al. RBAC paper and the NIST RBAC standard are the obvious anchors; find the exact
+   references, with years and venues, in a form that goes straight into `references.bib`.
+2. **Where MySQL sits.** Classify MySQL's privilege system against those definitions and defend the
+   classification: it is discretionary, object-based, grant-only, with an ownership notion that is
+   weaker than Oracle's. State what it is *not* — there is no MAC, no labels, no ABAC. Support each
+   claim with something citable rather than with an assertion.
+3. **The least privilege principle**: its origin (Saltzer & Schroeder, 1975 — get the exact citation)
+   and what it means operationally for a DBMS. Note whether this reads as a chapter or as a thread
+   running through every chapter; the map currently suspects the latter.
+4. **Multi-tenancy patterns**, with sources rather than blog folklore: database-per-tenant,
+   schema-per-tenant, shared-schema-with-discriminator. For each: which MySQL mechanism enforces the
+   isolation (separate accounts and `GRANT` scope, `partial_revokes`, view-based row filtering),
+   what it costs at scale (accounts, connections, pooling, migrations), and where it fails.
+5. **The connection-pooling collision**, stated precisely: pooled applications connect as one MySQL
+   account, so the database cannot see the tenant, so every per-user mechanism above stops applying.
+   This is the sharpest thing the multi-tenancy chapter can say — find whether it can be cited.
+
+Say whether this is enough for its own chapter, or whether multi-tenancy is the paper's closing
+synthesis chapter that reuses everything before it. That answer feeds ticket 09.
