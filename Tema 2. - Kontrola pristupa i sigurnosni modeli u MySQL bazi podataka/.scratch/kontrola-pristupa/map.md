@@ -185,6 +185,16 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   with `ramakrishnan2003`, `mysql84refman`, `sandhu1996`. Export pipeline re-verified clean. Ch. 8
   should reconcile against this intro once written, per Tema 1's own note.
 
+- [Chapter 2. Klasični modeli kontrole pristupa](issues/15-klasicni-modeli.md): lesson taught by
+  derivation (learning record 0003), then ~3.5 pages written into `rad.md` §2 with
+  `academic-research-writer` — the (subject, object, operation) triple, policy vs. mechanism, DAC
+  with the ownership/delegation argument, the live-measured MySQL `REVOKE` non-cascade
+  (`examples/02-klasicni-modeli/`), the Trojan-horse hinge, MAC/Bell–LaPadula with both properties
+  stated formally and illustrated by a new figure, one paragraph on the statistical-database
+  problem, then RBAC-as-a-model (Sandhu 1996, Ferraiolo & Kuhn 1992, ANSI/INCITS 359-2004) and
+  least privilege in Saltzer & Schroeder's exact 1975 wording plus their fail-safe-defaults
+  principle. Four new `references.bib` entries. Every deck-backed claim cites R&G, never the deck.
+
 ## Not yet specified
 
 - **Whether the paper needs a comparison system at all.** *Partly settled*: ticket 04 fixes

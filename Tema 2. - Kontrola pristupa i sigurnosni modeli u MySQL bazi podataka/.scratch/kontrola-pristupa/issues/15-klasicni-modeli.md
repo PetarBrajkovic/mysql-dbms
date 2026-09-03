@@ -1,7 +1,7 @@
 # Chapter 2. Klasični modeli kontrole pristupa
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 02, 07, 09
 
 ## Question
@@ -32,3 +32,30 @@ tested in every chapter after this one.
 
 **Grounding**: research memo 02 (the deck) and memo 07 (RBAC/ABAC theory, least privilege, the
 Sandhu/NIST bibliography), plus the terminology and chapter notes in `../../GLOSSARY.md` §1–§2a.
+
+## Answer
+
+All four Definition-of-Done items closed.
+
+1. **Lesson taught** (2026-09-04): `lessons/0001-klasicni-modeli-kontrole-pristupa.html`, learning
+   record `learning-records/0003-klasicni-modeli-kontrole-pristupa.md`. Taught by derivation (DAC →
+   Trojan horse → MAC/Bell-LaPadula → RBAC → least privilege), not by definition; three
+   misconceptions found and corrected (owner-decides read as owner-only; BLP assumed symmetric;
+   overcorrection to "any class crossing is forbidden", fixed with the Bell-LaPadula figure).
+2. **Artifacts**: `examples/02-klasicni-modeli/01-dac-kaskadno-oduzimanje.sql` (run live by the user
+   on 8.4.11: no cascade on `REVOKE`, `GRANT OPTION` survives the revoke of the privilege it applied
+   to, `mysql.tables_priv.Grantor` set but unused), figure
+   `figures/02-klasicni-modeli-01-bell-lapadula.png` (Mermaid via `visualize`, verified by looking at
+   it).
+3. **Prose**: ~3.5 pages appended to `rad.md` §2 with `academic-research-writer`, impersonal
+   *se*-construction, per-paragraph citation. Follows the deck's own order (policy vs. mechanism →
+   DAC → Trojan horse → MAC/BLP, both properties stated formally → statistical-database paragraph)
+   then extends past it with RBAC-as-a-model (Sandhu 1996, Ferraiolo & Kuhn 1992, ANSI/INCITS
+   359-2004) and least privilege in Saltzer & Schroeder's exact 1975 wording, plus their
+   fail-safe-defaults principle (found while teaching, not in memo 07) linked to MySQL's grant-only
+   design. Every deck-backed claim cites R&G, never the deck. Six new `references.bib` entries:
+   `bell1973`, `ferraiolokuhn1992`, `incits2004`, `saltzerschroeder1975` (plus the two chapter-1
+   entries already present). Closes by restating the paper's spine as the claim every later chapter
+   tests.
+4. **Learning record**: already covers this chapter in full (0003, written at the lesson); no
+   separate writing-session record needed. Export re-verified clean with `make-docx.ps1`.
