@@ -1,0 +1,7 @@
++----------------------------+-------------------+--------------+-----------+----------+
+| connected_user             | effective_user    | diagnosis_id | tenant_id | icd_code |
++----------------------------+-------------------+--------------+-----------+----------+
+| recept_podgorica@localhost | dbadmin@localhost |            1 |         1 | J06.9    |
+| recept_podgorica@localhost | dbadmin@localhost |            2 |         1 | M54.5    |
+| recept_podgorica@localhost | dbadmin@localhost |            3 |         1 | R51      |
++----------------------------+-------------------+--------------+-----------+----------+

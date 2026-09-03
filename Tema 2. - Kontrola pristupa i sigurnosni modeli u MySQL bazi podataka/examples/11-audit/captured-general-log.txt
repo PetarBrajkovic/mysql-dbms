@@ -1,0 +1,21 @@
+C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqld.exe, Version: 8.4.11 (MySQL Community Server - GPL). started with:
+TCP Port: 3306, Named Pipe: MySQL
+Time                 Id Command    Argument
+2026-09-03T15:05:05.062263Z	   61 Query	SELECT @@general_log_file
+2026-09-03T15:05:05.062437Z	   61 Quit	
+2026-09-03T15:05:09.695237Z	   62 Connect	recept_podgorica@localhost on poliklinika using SSL/TLS
+2026-09-03T15:05:09.695437Z	   62 Query	select @@version_comment limit 1
+2026-09-03T15:05:09.695563Z	   62 Query	SELECT * FROM diagnoses LIMIT 1
+2026-09-03T15:05:09.695735Z	   62 Quit	
+2026-09-03T15:05:09.723744Z	   63 Connect	recept_podgorica@localhost on poliklinika using SSL/TLS
+2026-09-03T15:05:09.723955Z	   63 Query	select @@version_comment limit 1
+2026-09-03T15:05:09.724125Z	   63 Query	SELECT * FROM v_definer_demo
+2026-09-03T15:05:09.724521Z	   63 Quit	
+2026-09-03T15:05:09.752570Z	   64 Connect	doc_podgorica@localhost on poliklinika using SSL/TLS
+2026-09-03T15:05:09.752719Z	   64 Query	select @@version_comment limit 1
+2026-09-03T15:05:09.752831Z	   64 Query	SELECT diagnosis_id, tenant_id, icd_code FROM diagnoses LIMIT 1
+2026-09-03T15:05:09.753103Z	   64 Quit	
+2026-09-03T15:05:09.779706Z	   65 Connect	root@localhost on  using SSL/TLS
+2026-09-03T15:05:09.779797Z	   65 Query	select @@version_comment limit 1
+2026-09-03T15:05:09.779900Z	   65 Query	SET GLOBAL general_log = OFF
+

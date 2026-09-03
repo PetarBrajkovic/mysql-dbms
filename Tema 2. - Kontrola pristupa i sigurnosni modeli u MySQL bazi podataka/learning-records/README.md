@@ -13,6 +13,7 @@ checking a chapter, never when planning a lesson.
 | # | Chapter | Headline | Open it when you are teaching / writing about |
 |---|---|---|---|
 | [0001](0001-poliklinika-sandbox.md) | 10 (sandbox, pre-chapter) | Sandbox built and enforcing; `SELECT *` does not bypass column privileges on 8.4.11 | Privilegije i uloge (16), FGAC i RLS (17), any chapter that runs a demo against `poliklinika` |
+| [0002](0002-audit-log-vs-definer-identity.md) | 19 (audit, pre-chapter) | No free audit plugin loads on this server (nothing to install); general query log records the connecting account, never the `SQL SECURITY DEFINER` view's effective account | Audit logging (19), any mention of `USER()` vs `CURRENT_USER()` |
 
 ## Standing constraints these records impose on every later chapter
 
@@ -24,8 +25,13 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
 - `activate_all_roles_on_login` is `OFF` on this server; every demo account has its role set
   as its `DEFAULT ROLE` so a plain login already has it active. (0001)
 - Re-running `examples/00-setup/04-roles-and-accounts.sql` requires re-running
-  `05-tenant-view.sql` immediately after — `04` drops and recreates the roles, wiping the
+  `05-tenant-view.sql` immediately after - `04` drops and recreates the roles, wiping the
   view grant. (0001)
+- No third-party audit plugin (Percona `audit_log`, MariaDB `server_audit`) is installed or
+  installable on this server: `SHOW PLUGINS` shows no `AUDIT`-class plugin beyond the two
+  built-in cache cleaners, and the plugin directory has no such `.dll` to attempt loading.
+  `dbadmin` cannot toggle `general_log` (needs `SUPER`/`SYSTEM_VARIABLES_ADMIN`); any future
+  general-log capture must be run by root, by hand, same as ticket 11. (0002)
 
 ## Corrections filed against the research memos
 

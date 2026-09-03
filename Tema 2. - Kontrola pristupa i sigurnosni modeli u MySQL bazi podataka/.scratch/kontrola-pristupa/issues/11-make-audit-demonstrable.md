@@ -1,7 +1,7 @@
 # Get an audit trail demonstrable, for free
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 06, 10
 
 ## Question

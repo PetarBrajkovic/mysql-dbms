@@ -154,6 +154,18 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   version. Findings in `learning-records/0001-poliklinika-sandbox.md`, scripts in
   `examples/00-setup/`.
 
+- [Get an audit trail demonstrable, for free](issues/11-make-audit-demonstrable.md): no plugin
+  install was even attempted — `SHOW PLUGINS` confirms no `AUDIT`-class plugin or third-party
+  `.dll` is present to try, matching memo 06's prediction exactly, so the working server was
+  never at risk. Fallback executed instead: `v_definer_demo`, a `SQL SECURITY DEFINER` view
+  granted to an account (`recept_podgorica`) with **no** grant on `diagnoses` at all, captured
+  reading `diagnoses` through the view while the general query log ran. Payload proven: the
+  log's `Connect` line names only the connecting account; nothing in it shows the query actually
+  ran under the view definer's (`dbadmin`'s) privileges — `USER()`/`CURRENT_USER()` inside the
+  view's own result set is what makes that split visible at all. `dbadmin` cannot toggle
+  `general_log` itself (needed root, by hand, once). Evidence in `examples/11-audit/`, findings
+  in `learning-records/0002-audit-log-vs-definer-identity.md`.
+
 ## Not yet specified
 
 - **Whether the paper needs a comparison system at all.** *Partly settled*: ticket 04 fixes
@@ -169,8 +181,8 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   charting are now settled by ticket 10 (learning record 0001): `SELECT *` does **not** bypass
   column privileges on 8.4.11 (memo 04 corrected), and role-activation via `SET DEFAULT ROLE`
   works exactly as memo 03/07 described. Still open: whether the NIST/PCI-DSS citations say what
-  memo 06 says they say — that one waits for ticket 11. More will accumulate as chapters are
-  taught.
+  memo 06 says they say - ticket 11 did not touch this, it belongs to whoever writes chapter 19.
+  More will accumulate as chapters are taught.
 
 ## Out of scope
 
