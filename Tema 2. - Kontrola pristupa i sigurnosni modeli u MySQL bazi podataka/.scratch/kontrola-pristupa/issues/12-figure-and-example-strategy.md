@@ -1,7 +1,7 @@
 # Decide the figure and example strategy for a security paper
 
 Type: grilling
-Status: open
+Status: closed
 Blocked by: 09, 10
 
 ## Question

@@ -166,6 +166,17 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   `general_log` itself (needed root, by hand, once). Evidence in `examples/11-audit/`, findings
   in `learning-records/0002-audit-log-vs-definer-identity.md`.
 
+- [Decide the figure and example strategy for a security paper](issues/12-figure-and-example-strategy.md):
+  five figure types catalogued — result-and-error pair (this paper's workhorse, built by a new shared
+  `tools/make-pair-figure.ps1`), table figure (`make-table-figure.ps1`, used sparingly), drawn diagram
+  (role graph, privilege-check flow, RLS/tenancy comparisons — Mermaid via the `visualize` skill is
+  the default, replacing Tema 1's hand-built SVG), and a log extract for ch. 6 (shape TBD between a
+  new `make-log-figure.ps1` and a `-Raw` mode on the existing table script). **No screenshots
+  anywhere**, carried forward from Tema 1's own trap note. Naming/caption/aspect-ratio-width rules
+  adopted unchanged. Budget locked lean after a round of user pushback on page count: **~8 figures
+  total** (1-2 per substantive chapter, 0 for Uvod/Zaključak), down from an initial ~14-figure draft.
+  Written into `figures/README.md`, binding from here on.
+
 ## Not yet specified
 
 - **Whether the paper needs a comparison system at all.** *Partly settled*: ticket 04 fixes
