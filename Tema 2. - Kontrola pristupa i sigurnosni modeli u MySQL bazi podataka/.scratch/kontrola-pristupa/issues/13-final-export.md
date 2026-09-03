@@ -2,13 +2,12 @@
 
 Type: task
 Status: open
-Blocked by: 12
+Blocked by: 12, 14, 15, 16, 17, 18, 19, 20, 21
 
 ## Question
 
-The last ticket. **It is also blocked by every chapter ticket**, which do not exist yet — they
-graduate from the map's fog when ticket 09 locks the skeleton. Wire them into this ticket's
-`Blocked by` line at that point.
+The last ticket, now that ticket 09 has graduated the chapter tickets (14 through 21) and wired
+them into this line.
 
 When every chapter is written:
 1. **Bibliography**: every entry cited at least once, every citation resolving to an entry, no dead

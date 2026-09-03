@@ -124,6 +124,17 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   (it denied `SET ROLE` and role-to-role grants, both of which exist) — the memo carries the
   correction and ticket 09 is warned off the deleted wording.
 
+- [Decide the Serbian terminology glossary and lock the paper skeleton](issues/09-terminology-and-skeleton.md):
+  all four frontier questions accepted as recommended in one grilling round. Terminology and chapter
+  skeleton written into `GLOSSARY.md` (deck's ~36 terms as default, 7 fresh decisions for concepts the
+  deck never named, reasoning in `terminology-rationale.md`). Skeleton locked at 6 body chapters +
+  intro + conclusion, 22.5 pages budgeted: Uvod, Klasični modeli, Privilegije i uloge, FGAC i RLS
+  (RLS a section, not a chapter), Sprovođenje politika, Audit logging (survives as its own short
+  chapter), Multi-tenant (the closing synthesis, least privilege lands here as a thread). Paper's
+  spine adopted as charted: MySQL is DAC-only, everything modern is composed from that or absent.
+  Citation voice confirmed unchanged from Tema 1. **Fog graduated**: chapter tickets 14–21 created
+  and wired into ticket 13's blocking.
+
 - [Decide the running example the whole paper is built on](issues/08-running-example.md): **the
   "Poliklinika" scenario** — a small multi-branch outpatient clinic, built fresh (not Sakila), 6
   tables (`tenants`, `staff`, `patients`, `visits`, `diagnoses`, `invoices`), 4 roles
@@ -135,20 +146,6 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
 
 ## Not yet specified
 
-- **The chapter tickets.** The nine bullets on the professor's screenshot are not nine chapters:
-  *fine-grained access control* and *row-level security* are one chapter's worth of material,
-  *least privilege* reads as a thread running through all of them rather than a chapter, and
-  *security policy enforcement* may be a chapter or may be the frame the whole paper hangs on.
-  Expect ~7 chapters plus an intro and a conclusion. These graduate into tickets in one pass when
-  [Decide the Serbian terminology glossary and lock the paper skeleton](issues/09-terminology-and-skeleton.md)
-  closes, and not before.
-- **The paper's spine.** Tema 1 found one late ("one query, many plans, unified by cost") and it made
-  the paper. The hunch charted here — MySQL's access control is *discretionary and object-based*, and
-  everything the modern bullets ask for is either composed out of that or absent and named as absent
-  — **survived all six research memos and is now the leading candidate**, but it is still ticket 09's
-  decision to make or break. The sharper form the research suggests: the professor's deck teaches
-  **DAC vs MAC**, MySQL is **DAC only**, and every modern requirement on the bullet list is that gap
-  being filled by something other than the DBMS.
 - **Whether the paper needs a comparison system at all.** *Partly settled*: ticket 04 fixes
   PostgreSQL `CREATE POLICY` and Oracle VPD as the cited contrasts for row-level security, and
   ticket 07 supplies the theory to compare against. What is still open is **how much weight they
@@ -158,10 +155,6 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   cannot enforce. The deck sharpens the guess: he taught **Bell–LaPadula formally** and the
   **Trojan-horse argument** for why DAC is insufficient, so "why does MySQL not implement MAC, and
   what does that cost you" is a question worth being ready for. Revisit once the skeleton exists.
-- **Two topics the professor taught that are not on the bullet list**: the Trojan-horse argument
-  (deck slide 15) and statistical databases / the inference problem (slide 19). Neither appears in
-  the nine bullets, both are his own material, and MySQL offers nothing for the second. Whether
-  either earns space is ticket 09's call.
 - **Which research claims need the live server to settle them.** Three are already named — whether
   `SELECT *` really bypasses column privileges (ticket 04), the exact role-activation semantics
   (tickets 03 and 07), and whether the NIST/PCI-DSS citations say what the memo says they say
