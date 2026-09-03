@@ -31,11 +31,19 @@ Puno izvođenje je u <a href="../lessons/0001-klasicni-modeli-kontrole-pristupa.
 </table>
 
 <div class="note">
-  <span class="lbl">MySQL odstupa</span>
+  <span class="lbl">MySQL odstupa — izmereno na 8.4.11</span>
   Standard kaskadira oduzimanje, <span class="hi">MySQL ne</span>: prava se uklanjaju samo eksplicitno,
   sa <code>REVOKE</code> ili <code>DROP USER</code>. Priručnik navodi razliku sam
-  (15.7.1.6, „MySQL and Standard SQL Versions of GRANT"). Demonstracija:
+  (15.7.1.6, „MySQL and Standard SQL Versions of GRANT"). Uz to, <code>REVOKE</code> nad pravom
+  <b>ne skida</b> <code>GRANT OPTION</code> — ostaje red <code>USAGE … WITH GRANT OPTION</code>
+  (<code>USAGE</code> = nikakve privilegije), pa nalog bez ijednog prava i dalje sme da delegira
+  prava koja tek dobije. Traži zaseban
+  <code>REVOKE GRANT OPTION ON …</code>. Demonstracija:
   <code>examples/02-klasicni-modeli/01-dac-kaskadno-oduzimanje.sql</code>.
+  <br><br>
+  Najoštrija verzija: <code>mysql.tables_priv</code> <b>ima</b> kolonu <code>Grantor</code>, koju
+  priručnik opisuje kao postavljenu „but otherwise unused" (8.2.3). Podatak za kaskadu postoji i
+  namerno se ignoriše — odluka, ne ograničenje.
 </div>
 
 <h2>MAC i Bell–LaPadula</h2>
@@ -83,6 +91,7 @@ sesije u RBAC<sub>0</sub>.</p>
   <tr><td>Least privilege, fail-safe defaults</td><td>Saltzer &amp; Schroeder, Proc. IEEE 63(9), 1975</td></tr>
   <tr><td>Bell–LaPadula original</td><td>Bell &amp; LaPadula, MITRE TR-2547, 1973; Unified Exposition, 1976</td></tr>
   <tr><td>Nekaskadni <code>REVOKE</code></td><td>MySQL 8.4 Reference Manual, 15.7.1.6 GRANT Statement</td></tr>
+  <tr><td><code>Grantor</code> kolona, neiskorišćena</td><td>MySQL 8.4 Reference Manual, 8.2.3 Grant Tables</td></tr>
 </table>
 
 <p class="meta">

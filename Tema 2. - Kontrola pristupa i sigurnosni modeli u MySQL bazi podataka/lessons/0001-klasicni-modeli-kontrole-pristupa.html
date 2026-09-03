@@ -93,6 +93,19 @@ projektovanja.</p>
   <span class="src">MySQL 8.4 Reference Manual, 15.7.1.6 GRANT Statement — „MySQL and Standard SQL Versions of GRANT"</span>
 </div>
 
+<p>Moglo bi se pomisliti da MySQL kaskadu ne sprovodi zato što ne zna ko je kome šta dao. Zna:
+tabela <code>mysql.tables_priv</code> ima kolonu <code>Grantor</code>.</p>
+
+<div class="slide">
+  The <code>Timestamp</code> and <code>Grantor</code> columns are set to the current timestamp and
+  the <code>CURRENT_USER</code> value, respectively, but are otherwise unused.
+  <span class="src">MySQL 8.4 Reference Manual, 8.2.3 Grant Tables</span>
+</div>
+
+<p>Podatak koji je za kaskadu potreban <span class="hi">postoji i namerno se ignoriše</span>.
+Nekaskadno oduzimanje nije ograničenje podataka nego projektantska odluka — i to je najoštrija
+rečenica koju ovaj deo poglavlja može da ponese.</p>
+
 <div class="try">
   <div class="hd">Probaj u Workbench-u</div>
   <div class="bd">
@@ -121,12 +134,29 @@ projektovanja.</p>
 <span class="k">DROP USER IF EXISTS</span> <span class="s">'demo_ceca'</span>@<span class="s">'localhost'</span>;</pre>
 
     <h3 class="lab">Šta treba da vidiš</h3>
-<pre class="out">Borisu je SELECT nestao iz liste dodela.
-Ceci je SELECT ostao, iako nalog koji joj ga je dao vise to pravo nema.</pre>
+<pre class="out">GRANT USAGE ON *.* TO `demo_boris`@`localhost`
+GRANT USAGE ON `poliklinika`.`patients` TO `demo_boris`@`localhost` WITH GRANT OPTION
+
+GRANT USAGE ON *.* TO `demo_ceca`@`localhost`
+GRANT SELECT ON `poliklinika`.`patients` TO `demo_ceca`@`localhost`</pre>
 
     <p class="interpret"><b>Kako se ovo čita:</b> model kaže da grana pada kad se koren povuče;
-      MySQL ostavlja granu da visi. Prvi konkretan dokaz da MySQL nije uredna implementacija DAC
-      modela, nego DAC sa sopstvenim rupama — što je tačno ono što teza rada tvrdi.</p>
+      MySQL ostavlja granu da visi. Ceca čita tabelu iako nalog koji joj je to pravo dao više ne sme
+      ni sam da je pročita. Prvi konkretan dokaz da MySQL nije uredna implementacija DAC modela, nego
+      DAC sa sopstvenim rupama — što je tačno ono što teza rada tvrdi.</p>
+
+    <p><code>USAGE</code> u izlazu <span class="hi">nije pravo</span>, nego oznaka za „nikakve
+      privilegije": tako <code>SHOW GRANTS</code> prikazuje puko postojanje naloga. Zato je drugi
+      Borisov red iznenađenje — <code>REVOKE SELECT</code> jeste skinuo <code>SELECT</code>, ali
+      <code>GRANT OPTION</code> je zasebna privilegija i traži zasebnu naredbu:</p>
+
+<pre class="sql run"><span class="k">REVOKE GRANT OPTION ON</span> poliklinika.patients <span class="k">FROM</span> <span class="s">'demo_boris'</span>@<span class="s">'localhost'</span>;</pre>
+
+    <p class="interpret"><b>Zašto to nije sitnica:</b> Boris nema nijedno pravo nad tabelom, a
+      zadržava sposobnost delegiranja — i ona važi i za prava koja tek može dobiti. Dodeli mu neko
+      sutra <code>INSERT</code>, on ga istog trenutka može proslediti dalje, a niko mu delegiranje
+      nije ponovo dao. <code>REVOKE</code> u MySQL-u ne vraća stanje na ono pre <code>GRANT</code>-a;
+      ostavlja talog.</p>
   </div>
 </div>
 
@@ -262,7 +292,16 @@ opseg uloga u Poglavlju 3 i kroz sudar sa connection poolingom u Poglavlju 7.</p
     <label><input type="radio"> Ceca gubi pravo tek pošto Boris bude obrisan naredbom <code>DROP USER</code></label>
     <label><input type="radio"> Ceca gubi pravo, ali tek pri sledećem povezivanju na server</label>
     <label><input type="radio"> Ceca zadržava pravo, jer MySQL ne sprovodi kaskadno oduzimanje</label>
-    <p class="why">Standard kaskadira, MySQL ne — priručnik tu razliku navodi sam. Grana preživljava koren iz kojeg je izrasla.</p>
+    <p class="why">Standard kaskadira, MySQL ne — priručnik tu razliku navodi sam, a merenje na 8.4.11 to potvrđuje. Grana preživljava koren iz kojeg je izrasla.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">3a. Posle <code>REVOKE SELECT</code>, Borisu ostaje red <code>USAGE ON poliklinika.patients … WITH GRANT OPTION</code>. Šta to znači?</p>
+    <label><input type="radio"> Zadržao je pravo čitanja, koje se sada prikazuje pod imenom <code>USAGE</code></label>
+    <label><input type="radio"> Nema nijedno pravo nad tabelom, ali zadržava sposobnost delegiranja</label>
+    <label><input type="radio"> Nema nijedno pravo, a red će nestati sam pri sledećem povezivanju</label>
+    <label><input type="radio"> Zadržao je pravo delegiranja samo nad nalozima kojima je već dodelio pravo</label>
+    <p class="why"><code>USAGE</code> znači „nikakve privilegije". <code>GRANT OPTION</code> je zasebna privilegija i traži zaseban <code>REVOKE</code> — i važi i za prava koja nalog tek može dobiti.</p>
   </div>
 
   <div class="q" data-correct="1">

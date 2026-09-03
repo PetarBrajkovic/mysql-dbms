@@ -33,7 +33,14 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   `REVOKE` or `DROP USER`, and the manual states the difference itself (8.4 refman 15.7.1.6,
   "MySQL and Standard SQL Versions of GRANT"). A privilege delegated with `WITH GRANT OPTION`
   outlives the grant it grew from. Do not write "kaskadno oduzimanje" as MySQL behaviour — it is
-  model/standard behaviour only. (0003)
+  model/standard behaviour only. **Measured on 8.4.11**, not just sourced. (0003)
+- **`REVOKE <priv>` does not remove `GRANT OPTION`.** Measured: revoking `SELECT` left
+  `GRANT USAGE ON … WITH GRANT OPTION` on the account. `USAGE` means "no privileges"; the
+  delegation capability needs its own `REVOKE GRANT OPTION ON …`, and per the manual it covers
+  privileges the account "may be given in the future". (0003)
+- **`mysql.tables_priv` has a `Grantor` column that the server does not use** — the manual says it
+  is set to `CURRENT_USER` "but otherwise unused" (8.4 refman 8.2.3). Use this whenever the paper
+  argues that non-cascading revoke is a design decision rather than a data limitation. (0003)
 - Saltzer & Schroeder 1975 supplies **two** citable principles for this paper, not one: least
   privilege (f) and fail-safe defaults (b, *"Base access decisions on permission rather than
   exclusion"*), the latter describing MySQL's grant-only model exactly. Memo 07 cites only (f). (0003)

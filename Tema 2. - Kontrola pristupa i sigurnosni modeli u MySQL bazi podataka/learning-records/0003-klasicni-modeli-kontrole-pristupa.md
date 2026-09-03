@@ -67,11 +67,30 @@ Mid-lesson I asserted that cascading revoke follows from the model *and holds in
 model half is right; the MySQL half is wrong, and I corrected it in the session from the manual.
 See the standing constraint added to `README.md`.
 
+## Evidence
+
+`.scratch/kontrola-pristupa/measurements/0003-klasicni-modeli-kontrole-pristupa.md` — the example
+was **run by the user in the same session**, two Workbench connections, on 8.4.11. It returned two
+findings rather than the one it was written for: no cascade (Ceca keeps `SELECT`), and
+`GRANT OPTION` surviving the revoke of the privilege it applied to (`USAGE … WITH GRANT OPTION`).
+Both are now in the lesson as measured output, not as the manual's expectation.
+
+One further fact found while checking whether MySQL even records provenance: `mysql.tables_priv`
+has a `Grantor` column that the manual describes as set "but otherwise unused" (8.2.3). The data a
+cascade needs exists and is ignored — a decision, not a limitation. Strongest sentence available to
+the chapter's DAC section.
+
+Worth noting how he took this: he came back with the raw `SHOW GRANTS` output and read the
+surprise (`USAGE … WITH GRANT OPTION`) as something to be explained rather than a mistake to be
+corrected. The running-it step is doing what it is meant to do; keep every later chapter's example
+small enough that he actually runs it.
+
 ## What comes next
 
-Chapter 2's remaining DoD items: run
-`examples/02-klasicni-modeli/01-dac-kaskadno-oduzimanje.sql` against the live server (**not yet
-executed** — the "what you should see" block in the lesson states the manual's expectation, not a
-measurement), then write the chapter with `academic-research-writer`. The `references.bib` entries
-this chapter needs beyond `ramakrishnan2003`: Sandhu 1996, ANSI/INCITS 359-2004, Saltzer &
-Schroeder 1975, Bell & LaPadula 1973/1976.
+Chapter 2's remaining DoD items: write the chapter with `academic-research-writer` (the example and
+the figure are done). The `references.bib` entries this chapter needs beyond `ramakrishnan2003`:
+Sandhu 1996, ANSI/INCITS 359-2004, Saltzer & Schroeder 1975, Bell & LaPadula 1973/1976, and the
+MySQL 8.4 manual for the two grant-related sections.
+
+Still unrun: the `SELECT … FROM mysql.tables_priv` step at the bottom of the example, which needs
+root. Not blocking — the manual quote carries the claim on its own; the query only illustrates it.
