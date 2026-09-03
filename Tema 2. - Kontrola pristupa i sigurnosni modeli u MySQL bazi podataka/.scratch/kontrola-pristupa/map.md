@@ -124,6 +124,15 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   (it denied `SET ROLE` and role-to-role grants, both of which exist) — the memo carries the
   correction and ticket 09 is warned off the deleted wording.
 
+- [Decide the running example the whole paper is built on](issues/08-running-example.md): **the
+  "Poliklinika" scenario** — a small multi-branch outpatient clinic, built fresh (not Sakila), 6
+  tables (`tenants`, `staff`, `patients`, `visits`, `diagnoses`, `invoices`), 4 roles
+  (`role_receptionist`, `role_nurse`, `role_doctor`, `role_billing`) with genuinely different rights
+  over `diagnoses.diagnosis_text`, 3 branches as tenants, ~10–12 named `<role>_<branch>` accounts, and
+  a named `dbadmin` account instead of `root`. Approved by the user as-sketched. Hands ticket 10 four
+  discharge sentences to build the demos against, and a to-do list of the three live-verification
+  claims (memos 03/04/06/07) to test on this exact schema.
+
 ## Not yet specified
 
 - **The chapter tickets.** The nine bullets on the professor's screenshot are not nine chapters:
@@ -144,10 +153,6 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   PostgreSQL `CREATE POLICY` and Oracle VPD as the cited contrasts for row-level security, and
   ticket 07 supplies the theory to compare against. What is still open is **how much weight they
   carry** — a paragraph each inside the RLS section, or a Tema-1-style contrast chapter.
-- **How much of the Tema 1 dataset survives.** `wide_events` and Sakila were built for query
-  processing; a security paper wants tenants, roles and users instead. Ticket 08 decides the scenario
-  and ticket 10 builds it, but whether Sakila is reused as the *data* underneath a new privilege
-  design is not yet decided.
 - **The defense angle.** What the professor is likely to press on for a security topic — probably
   least privilege applied to a real design, and whether the student can say precisely what MySQL
   cannot enforce. The deck sharpens the guess: he taught **Bell–LaPadula formally** and the
