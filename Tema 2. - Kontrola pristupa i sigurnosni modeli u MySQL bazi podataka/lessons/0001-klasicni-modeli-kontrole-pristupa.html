@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 01 — Klasični modeli kontrole pristupa</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 01 · Poglavlje 2 (Klasični modeli kontrole pristupa)</p>
+<h1>Tri modela nisu tri nivoa strogoće — dva odgovaraju na jedno pitanje, treći na sasvim drugo</h1>
+<p class="subtitle">Uvod je izneo tezu da je MySQL čist DAC sistem. Ova lekcija gradi merilo po kojem
+se ta teza uopšte može proveriti: šta DAC jeste, gde puca, čime ga MAC popravlja i po kojoj ceni, i
+zašto RBAC ne stoji na istoj skali.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Poglavlje 2 je jedino poglavlje rada bez ijedne MySQL naredbe, i istovremeno ono na koje se svako
+  kasnije poglavlje poziva. Kad završiš, treba da umeš bez podsetnika:
+  <strong>(1)</strong> da izvedeš osobine DAC-a iz jedne rečenice o vlasniku, umesto da ih nabrajaš;
+  <strong>(2)</strong> da izgovoriš obe Bell–LaPadula osobine sa tačnim smerom nejednakosti i da
+  objasniš zašto su asimetrične; <strong>(3)</strong> da odbraniš tvrdnju da je RBAC druga osa, a ne
+  treći stepen strogoće.
+</div>
+
+<h2>1 · Zajednički koordinatni sistem</h2>
+
+<p>Poređenje modela nema smisla dok ne postoji nešto što je svima zajedničko. Postoji, i to je jedina
+rečenica u lekciji koja važi bez ijednog izuzetka: svaki sistem kontrole pristupa odgovara na pitanje
+o <strong>trojci</strong> — sme li subjekat <code>S</code> da izvrši operaciju <code>op</code> nad
+objektom <code>O</code>. Odgovor je uvek binaran.</p>
+
+<table class="exp">
+  <tr><td><code>subjekat</code></td><td>onaj ko traži pristup — korisnički nalog, uloga, proces</td></tr>
+  <tr><td><code>objekat</code></td><td>ono čemu se pristupa — tabela, pogled, kolona, rutina</td></tr>
+  <tr><td><code>operacija</code></td><td>šta se traži — <code>SELECT</code>, <code>INSERT</code>, <code>DROP</code></td></tr>
+</table>
+
+<p>Iz toga odmah sledi nešto što će se isplatiti tri poglavlja kasnije. U naredbi
+<code>UPDATE termini SET status='otkazan' WHERE id=7</code> vrednost <span class="hi">nije deo
+trojke</span>. Zato nijedan model zasnovan na trojci ne može izraziti pravilo koje zavisi od sadržaja
+podataka — a upravo to traži red-level security (Poglavlje 4).</p>
+
+<p>Ako svi modeli odlučuju o istoj trojci, onda se razlikuju samo po tome
+<strong>ko popunjava odgovor i na osnovu čega</strong>. To je cela mapa ovog poglavlja.</p>
+
+<h2>2 · Politika nije mehanizam</h2>
+
+<p><strong>Politika pristupa</strong> je pravilo o tome ko sme šta. <strong>Mehanizam sigurnosti</strong>
+je tehničko sredstvo kojim se pravilo sprovodi. Isti mehanizam nosi mnogo različitih politika, i
+promena politike ne traži promenu mehanizma: kad bolnica odluči da sestre više ne vide finansijske
+podatke, menjaju se <code>GRANT</code> naredbe, ne menja se MySQL.</p>
+
+<p>Razlika nije akademska — bez nje se teza rada ne može precizno izgovoriti. Tvrdnja
+<strong>„MySQL ne podržava MAC"</strong> ne znači da niko nije napisao MAC politiku, nego da MySQL
+nema mehanizam kojim bi je sproveo: nema klase sigurnosti, nema dozvola, nema oznaka.</p>
+
+<h2>3 · DAC: sve ispada iz jedne rečenice</h2>
+
+<p>Najjednostavniji mogući odgovor na pitanje „ko odlučuje" jeste: <strong>vlasnik objekta</strong>.
+Ti si tabelu kreirao, tvoja je, ti biraš ko je čita. Sistem poštuje tvoju diskreciju i ne postavlja
+pitanja. Otud <strong>diskreciona kontrola pristupa</strong>.</p>
+
+<p>Ono što se obično uči kao spisak osobina DAC-a zapravo je skup <span class="hi">posledica</span>
+te jedne rečenice:</p>
+
+<table class="exp">
+  <tr><td><b>prenosivost</b></td><td>puna diskrecija znači da vlasnik sme da preda i samo pravo odlučivanja — <code>WITH GRANT OPTION</code>. Pravilo „samo vlasnik ikada dodeljuje" bilo bi ograničenje koje sistem nameće vlasniku, dakle zametak obavezne kontrole</td></tr>
+  <tr><td><b>zavisna prava</b></td><td>pravo dodeljeno delegacijom postoji samo dok postoji ono iz kojeg je izvedeno — otud kaskadno oduzimanje u standardu</td></tr>
+  <tr><td><b>grant-only</b></td><td>ako prava nastaju isključivo izričitom dodelom, odsustvo dodele je jedini oblik zabrane; <code>DENY</code> nema šta da poriče</td></tr>
+</table>
+
+<div class="slide">
+  Fail-safe defaults: Base access decisions on permission rather than exclusion. […] the default
+  situation is lack of access, and the protection scheme identifies conditions under which access is
+  permitted.
+  <span class="src">J. H. Saltzer, M. D. Schroeder, „The Protection of Information in Computer Systems", Proc. IEEE 63(9), 1975, §I.A.3</span>
+</div>
+
+<p>Grant-only model iz 1975. opisuje MySQL iz 2024. doslovno. To nije slučajnost nego isti princip
+projektovanja.</p>
+
+<h2>4 · Gde MySQL izneverava model</h2>
+
+<p>Kaskadno oduzimanje je posledica modela i deo je SQL standarda — ali MySQL ga
+<strong>ne sprovodi</strong>, i priručnik tu razliku navodi sam.</p>
+
+<div class="slide">
+  In standard SQL, when you revoke a privilege, all privileges that were granted based on that
+  privilege are also revoked. In MySQL, privileges can be dropped with <code>DROP USER</code> or
+  <code>REVOKE</code> statements.
+  <span class="src">MySQL 8.4 Reference Manual, 15.7.1.6 GRANT Statement — „MySQL and Standard SQL Versions of GRANT"</span>
+</div>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> sandbox <code>poliklinika</code> i nalog
+      <code>dbadmin</code>@<code>localhost</code>. Treba ti <strong>dve konekcije</strong>: jedna kao
+      <code>dbadmin</code>, jedna kao <code>demo_boris</code>. Nalozi se prave i brišu unutar samog
+      primera — počisti ih obavezno, nisu deo sandboxa.</p>
+
+    <h3 class="lab">Pokreni ovo — konekcija A, kao dbadmin</h3>
+<pre class="sql run"><span class="k">CREATE USER IF NOT EXISTS</span> <span class="s">'demo_boris'</span>@<span class="s">'localhost'</span> <span class="k">IDENTIFIED BY</span> <span class="s">'Demo#2026'</span>;
+<span class="k">CREATE USER IF NOT EXISTS</span> <span class="s">'demo_ceca'</span>@<span class="s">'localhost'</span>  <span class="k">IDENTIFIED BY</span> <span class="s">'Demo#2026'</span>;
+
+<span class="c">-- Boris dobija pravo, i pravo da to pravo dalje dodeljuje.</span>
+<span class="k">GRANT SELECT ON</span> poliklinika.patients <span class="k">TO</span> <span class="s">'demo_boris'</span>@<span class="s">'localhost'</span> <span class="k">WITH GRANT OPTION</span>;</pre>
+
+    <h3 class="lab">Konekcija B, kao demo_boris</h3>
+<pre class="sql run"><span class="k">GRANT SELECT ON</span> poliklinika.patients <span class="k">TO</span> <span class="s">'demo_ceca'</span>@<span class="s">'localhost'</span>;</pre>
+
+    <h3 class="lab">Konekcija A, kao dbadmin — povuci koren lanca</h3>
+<pre class="sql run"><span class="k">REVOKE SELECT ON</span> poliklinika.patients <span class="k">FROM</span> <span class="s">'demo_boris'</span>@<span class="s">'localhost'</span>;
+
+<span class="k">SHOW GRANTS FOR</span> <span class="s">'demo_boris'</span>@<span class="s">'localhost'</span>;
+<span class="k">SHOW GRANTS FOR</span> <span class="s">'demo_ceca'</span>@<span class="s">'localhost'</span>;
+
+<span class="k">DROP USER IF EXISTS</span> <span class="s">'demo_boris'</span>@<span class="s">'localhost'</span>;
+<span class="k">DROP USER IF EXISTS</span> <span class="s">'demo_ceca'</span>@<span class="s">'localhost'</span>;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Borisu je SELECT nestao iz liste dodela.
+Ceci je SELECT ostao, iako nalog koji joj ga je dao vise to pravo nema.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> model kaže da grana pada kad se koren povuče;
+      MySQL ostavlja granu da visi. Prvi konkretan dokaz da MySQL nije uredna implementacija DAC
+      modela, nego DAC sa sopstvenim rupama — što je tačno ono što teza rada tvrdi.</p>
+  </div>
+</div>
+
+<h2>5 · Granica DAC-a: pristup nije tok</h2>
+
+<p>Program se izvršava sa pravima korisnika koji ga je pokrenuo — drugog identiteta nema. Spoji to sa
+diskrecijom i dobijaš <strong>Trojanskog konja</strong>: Boris napiše Ani koristan program, Ana ga
+pokrene, program u pozadini prepiše njene podatke u tabelu koju Boris čita. Boris nikada nije dobio
+nikakvo pravo nad Aninom tabelom. Nijedna provera pristupa nije prekršena.</p>
+
+<p>Ana to ne može sprečiti nijednom kombinacijom <code>GRANT</code> i <code>REVOKE</code> naredbi, i
+razlog je strukturni: trojka se proverava <strong>u trenutku pristupa</strong>, a curenje se dešava
+<strong>posle</strong> njega. Otud rečenica koju vredi zapamtiti doslovno:</p>
+
+<p class="interpret"><span class="hi">DAC kontroliše pristup podacima, ali ne i tok podataka nakon
+pristupa.</span></p>
+
+<p>Jedini strukturni izlaz je vezati ograničenje za sam podatak, tako da važi i pošto je pročitan.
+To se zove sigurnosna oznaka, i to je MAC.</p>
+
+<h2>6 · MAC i Bell–LaPadula</h2>
+
+<p>Centralni autoritet dodeljuje svakom objektu klasu sigurnosti i svakom subjektu dozvolu, iz
+uređenog skupa (nepoverljivo &lt; poverljivo &lt; tajno &lt; strogo poverljivo). Korisnik oznake
+<strong>ne može menjati</strong>, ni na sopstvenim objektima — otud „obavezna".</p>
+
+<table class="exp">
+  <tr><td><b>Simple Security Property</b></td><td>čitanje: <code>class(S) &ge; class(O)</code> — „no read up"</td></tr>
+  <tr><td><b>*-Property</b></td><td>upis: <code>class(S) &le; class(O)</code> — „no write down"</td></tr>
+</table>
+
+<p>Nejednakosti su namerno asimetrične, i asimetrija je ceo model. Provera na Trojancu: proces na
+nivou <b>tajno</b> pokušava upis u tabelu <b>nepoverljivo</b>. Simetrično pravilo
+(<code>&ge;</code>) taj upis <strong>dozvoljava</strong> — dakle propušta baš curenje zbog kojeg je
+pravilo uvedeno. Samo <code>&le;</code> ga odbija.</p>
+
+<figure class="fig">
+  <img src="../figures/02-klasicni-modeli-01-bell-lapadula.png"
+       alt="Tri vodoravna sloja jedan iznad drugog: nepoverljivo dole, poverljivo u sredini, tajno gore.
+            Subjekat je na srednjem sloju. Cetiri strelice prikazuju kretanje informacije: zelena
+            strelica nagore od subjekta ka sloju tajno oznacena kao dozvoljen upis; crvena isprekidana
+            strelica nadole od sloja tajno ka subjektu oznacena kao zabranjeno citanje; zelena strelica
+            nagore od sloja nepoverljivo ka subjektu oznacena kao dozvoljeno citanje; crvena isprekidana
+            strelica nadole od subjekta ka sloju nepoverljivo oznacena kao zabranjen upis. Sve zelene
+            strelice pokazuju nagore, sve crvene nadole.">
+  <figcaption><b>Slika 2.1</b> — Obe Bell–LaPadula osobine su jedno pravilo: informacija sme da teče
+    samo naviše. Strelice pokazuju kretanje informacije, ne naredbu koju korisnik kuca.</figcaption>
+</figure>
+
+<div class="note">
+  <span class="lbl">Zamka</span>
+  Prelazak granice klase <strong>nije</strong> ono što se zabranjuje — zabranjuje se samo smer
+  naniže. Subjekat na nivou <b>poverljivo</b> sme da upiše u objekat <b>tajno</b>, iako taj
+  objekat ne sme ni da pročita. To se zove <strong>slepi upis</strong> i deluje apsurdno dok se ne
+  seti čemu model služi: Bell–LaPadula štiti <span class="hi">tajnost, ne integritet</span>. Upis
+  naviše ne otkriva nikome ništa, pa model nema osnov da ga zabrani. Integritet je posao dualnog
+  modela (Biba), koji obrće obe strelice.
+</div>
+
+<p>Cena je visoka: oznaka na svakom objektu i subjektu, i svakodnevni apsurdi poput „nosilac najviše
+dozvole ne sme da napiše javno saopštenje". Zato komercijalni DBMS-ovi MAC po pravilu ne
+implementiraju i on se zadržao uglavnom u vojnim sistemima. <strong>MySQL ga nema uopšte.</strong></p>
+
+<h2>7 · RBAC je druga osa</h2>
+
+<p>Vraćamo se u DAC svet, ali sa novim problemom — <strong>administrativnim, ne bezbednosnim</strong>.
+Poliklinika ima 200 zaposlenih i 40 tabela; prava se dodeljuju nalog po nalog, a nigde ne piše „ovo je
+posao recepcionera". Politika postoji samo kao gomila zapisa raštrkanih po nalozima.</p>
+
+<p>RBAC uvodi sloj indirekcije: privilegije se kače na <strong>ulogu</strong>, korisnik se dodeljuje
+ulozi. Umesto <code>korisnik → privilegija</code>, sada je <code>korisnik → uloga → privilegija</code>.
+Zato RBAC <span class="hi">nije treći stepen strogoće</span>: DAC i MAC odgovaraju na pitanje ko
+donosi odluku, RBAC na pitanje kako se dodela strukturira. Ose su nezavisne, pa RBAC lepo staje povrh
+diskrecionog sistema — što MySQL i radi.</p>
+
+<table class="exp">
+  <tr><td><b>RBAC<sub>0</sub></b></td><td>jezgro: korisnici, uloge, privilegije i <b>sesije</b> — aktiviranje podskupa uloga</td></tr>
+  <tr><td><b>RBAC<sub>1</sub></b></td><td>hijerarhije uloga: starija uloga nasleđuje prava mlađe</td></tr>
+  <tr><td><b>RBAC<sub>2</sub></b></td><td>ograničenja, pre svega <b>razdvajanje dužnosti</b></td></tr>
+  <tr><td><b>RBAC<sub>3</sub></b></td><td>oba prethodna zajedno</td></tr>
+</table>
+
+<p>Podela je iz R. Sandhu i saradnici, „Role-Based Access Control Models", <b>IEEE Computer</b> 29(2),
+1996, a standardizovana je kao ANSI/INCITS 359-2004. To je merilo po kojem Poglavlje 3 sudi MySQL-u:
+aktivacija uloga postoji, dodela uloge ulozi postoji, razdvajanje dužnosti ne postoji.</p>
+
+<div class="scope">
+  <span class="lbl">Van obima</span>
+  Kako MySQL uloge zaista rade — <code>SET ROLE</code>, <code>mandatory_roles</code>, i činjenica da
+  su uloga i korisnik isti objekat u grant tabelama — jeste Poglavlje 3. Ovde je uloga samo model.
+</div>
+
+<h2>8 · Princip najmanjih privilegija</h2>
+
+<div class="slide">
+  Least privilege: Every program and every user of the system should operate using the least set of
+  privileges necessary to complete the job.
+  <span class="src">J. H. Saltzer, M. D. Schroeder, „The Protection of Information in Computer Systems", Proc. IEEE 63(9), 1975, §I.A.3</span>
+</div>
+
+<p>Ključne su reči <strong>operate using</strong>: princip ne govori o tome šta korisnik sme, nego sa
+čime u datom trenutku radi. Zbog toga RBAC<sub>0</sub> traži sesije — bez aktivacije uloga „najmanji
+skup" je zauvek jednak „svemu što ti je ikad dodeljeno". Princip se dalje provlači kroz ceo rad: kroz
+opseg uloga u Poglavlju 3 i kroz sudar sa connection poolingom u Poglavlju 7.</p>
+
+<h2>9 · Provera</h2>
+<div class="quiz">
+  <p>Šest pitanja na šest netrivijalnih tvrdnji lekcije. Odgovaraj iz glave, bez vraćanja gore —
+     težina je ovde namerna i ona je ono što gradi trajno pamćenje.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. U naredbi <code>UPDATE termini SET status='otkazan' WHERE id=7</code>, šta je objekat u trojci?</p>
+    <label><input type="radio"> Naredba <code>UPDATE</code></label>
+    <label><input type="radio"> Vrednost <code>'otkazan'</code></label>
+    <label><input type="radio"> Tabela <code>termini</code></label>
+    <label><input type="radio"> Uslov <code>id=7</code></label>
+    <p class="why">Objekat je ono nad čime se radi. Vrednost uopšte ne ulazi u odluku o pristupu — otud nemoć modela nad pravilima koja zavise od sadržaja.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">2. Zašto puna diskrecija vlasnika povlači postojanje <code>WITH GRANT OPTION</code>?</p>
+    <label><input type="radio"> Jer bi zabrana delegiranja bila ograničenje koje sistem nameće vlasniku</label>
+
+    <label><input type="radio"> Jer bi bez delegiranja vlasnik morao svakome dodeliti puna prava</label>
+    <label><input type="radio"> Jer se prava inače ne bi mogla oduzeti bez saglasnosti primaoca</label>
+    <label><input type="radio"> Jer bi u suprotnom sistem morao da uvede i eksplicitnu zabranu</label>
+    <p class="why">Ako sistem vlasniku brani da preda pravo odlučivanja, njegova diskrecija više nije puna — to je već zametak obavezne kontrole.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Ana dâ Borisu <code>SELECT ... WITH GRANT OPTION</code>, Boris isto dâ Ceci, pa Ana oduzme Borisu. Šta se dešava u MySQL-u?</p>
+    <label><input type="radio"> Ceca gubi pravo, jer je ono bilo izvedeno iz Borisovog</label>
+    <label><input type="radio"> Ceca gubi pravo tek pošto Boris bude obrisan naredbom <code>DROP USER</code></label>
+    <label><input type="radio"> Ceca gubi pravo, ali tek pri sledećem povezivanju na server</label>
+    <label><input type="radio"> Ceca zadržava pravo, jer MySQL ne sprovodi kaskadno oduzimanje</label>
+    <p class="why">Standard kaskadira, MySQL ne — priručnik tu razliku navodi sam. Grana preživljava koren iz kojeg je izrasla.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">4. Zašto Ana ne može da spreči Trojanca nijednom <code>REVOKE</code> naredbom?</p>
+    <label><input type="radio"> Jer Borisov program radi pod Borisovim, a ne pod Aninim identitetom</label>
+    <label><input type="radio"> Jer se trojka proverava pri pristupu, a curenje se dešava posle njega</label>
+    <label><input type="radio"> Jer Boris ima pravo koje mu je Ana ranije nepažljivo dodelila</label>
+    <label><input type="radio"> Jer sistem nema naredbu kojom se pristup izričito zabranjuje nalogu</label>
+    <p class="why">Svaka pojedinačna provera prolazi ispravno. DAC kontroliše pristup, ne tok podataka nakon pristupa.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">5. Subjekat sa dozvolom <b>poverljivo</b> upisuje u objekat klase <b>tajno</b>. Bell–LaPadula tu operaciju:</p>
+    <label><input type="radio"> zabranjuje, jer subjekat piše izvan sopstvene klase</label>
+    <label><input type="radio"> zabranjuje, jer subjekat tu klasu ne sme ni da čita</label>
+    <label><input type="radio"> dozvoljava, jer se informacija pomera naviše</label>
+    <label><input type="radio"> dozvoljava, ali samo uz status trusted subject</label>
+    <p class="why"><code>poverljivo &le; tajno</code> zadovoljava *-Property. Pravo čitanja je odvojeno pitanje — otud slepi upis.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">6. Gde RBAC stoji u odnosu na DAC i MAC?</p>
+    <label><input type="radio"> Odgovara na drugo pitanje, pa se može nadgraditi i na diskrecioni sistem</label>
+    <label><input type="radio"> Predstavlja sredinu između njih po strogosti sprovođenja politike</label>
+    <label><input type="radio"> Predstavlja stroži oblik MAC-a, jer se prava ne kače na pojedinca</label>
+    <label><input type="radio"> Zamenjuje DAC, jer vlasnik objekta u njemu više ne odlučuje</label>
+    <p class="why">DAC i MAC odgovaraju na pitanje ko odlučuje; RBAC na pitanje kako se dodela strukturira. Nezavisne ose.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong>
+  <a href="https://web.mit.edu/Saltzer/www/publications/protection/Basic.html">J. H. Saltzer, M. D. Schroeder, „The Protection of Information in Computer Systems" (1975)</a>
+  — pročitaj samo odeljak <b>Design Principles</b>, osam principa na dve stranice; tačke b i f su
+  doslovno citirane u ovoj lekciji. ·
+  <strong>Vidi još:</strong> <a href="../reference/01-modeli-kontrole-pristupa.html">Referentna kartica: modeli kontrole pristupa</a>,
+  <a href="../examples/02-klasicni-modeli/01-dac-kaskadno-oduzimanje.sql">examples/02-klasicni-modeli/01-dac-kaskadno-oduzimanje.sql</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §1 i §2a. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu — lekcija je početak, ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>

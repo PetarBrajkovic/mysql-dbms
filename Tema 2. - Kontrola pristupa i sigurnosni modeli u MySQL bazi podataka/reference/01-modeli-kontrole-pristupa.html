@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referentna kartica 01 — Modeli kontrole pristupa</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica 01 · Poglavlje 2</p>
+<h1>Modeli kontrole pristupa — sažetak za odbranu</h1>
+<p class="subtitle">Sve što se iz Poglavlja 2 poziva u kasnijim poglavljima, na jednoj strani.
+Puno izvođenje je u <a href="../lessons/0001-klasicni-modeli-kontrole-pristupa.html">Lekciji 01</a>.</p>
+
+<h2>Zajednički okvir</h2>
+<table class="exp">
+  <tr><td><b>trojka</b></td><td>sme li subjekat <code>S</code> izvršiti operaciju <code>op</code> nad objektom <code>O</code>; odgovor je binaran</td></tr>
+  <tr><td><b>posledica</b></td><td>vrednosti u upitu nisu deo trojke, pa se pravilo zavisno od sadržaja podataka ne može izraziti</td></tr>
+  <tr><td><b>politika</b></td><td>pravilo o tome ko sme šta</td></tr>
+  <tr><td><b>mehanizam</b></td><td>tehničko sredstvo kojim se politika sprovodi; isti mehanizam nosi mnogo politika</td></tr>
+</table>
+
+<h2>DAC — diskreciona kontrola pristupa</h2>
+<p><b>Definicija:</b> odluku o dodeli prava nad objektom donosi vlasnik objekta, ne sistem.</p>
+<table class="exp">
+  <tr><td><b>prenosivost</b></td><td><code>WITH GRANT OPTION</code>; vlasnik sme da preda i samo pravo odlučivanja</td></tr>
+  <tr><td><b>zavisna prava</b></td><td>delegirano pravo postoji dok postoji ono iz kojeg je izvedeno (kaskadno oduzimanje u standardu)</td></tr>
+  <tr><td><b>grant-only</b></td><td>odsustvo dodele je jedini oblik zabrane; <code>DENY</code> ne postoji</td></tr>
+  <tr><td><b>granica</b></td><td>kontroliše pristup podacima, ne i tok podataka nakon pristupa → Trojanski konj</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">MySQL odstupa</span>
+  Standard kaskadira oduzimanje, <span class="hi">MySQL ne</span>: prava se uklanjaju samo eksplicitno,
+  sa <code>REVOKE</code> ili <code>DROP USER</code>. Priručnik navodi razliku sam
+  (15.7.1.6, „MySQL and Standard SQL Versions of GRANT"). Demonstracija:
+  <code>examples/02-klasicni-modeli/01-dac-kaskadno-oduzimanje.sql</code>.
+</div>
+
+<h2>MAC i Bell–LaPadula</h2>
+<p><b>Definicija:</b> centralni autoritet dodeljuje klase objektima i dozvole subjektima; korisnik ih
+ne može menjati.</p>
+<table class="exp">
+  <tr><td><b>Simple Security Property</b></td><td>čitanje: <code>class(S) &ge; class(O)</code> — „no read up"</td></tr>
+  <tr><td><b>*-Property</b></td><td>upis: <code>class(S) &le; class(O)</code> — „no write down"</td></tr>
+  <tr><td><b>jedno pravilo</b></td><td>informacija sme da teče samo naviše; prelazak granice sam po sebi nije zabranjen</td></tr>
+  <tr><td><b>slepi upis</b></td><td>dozvoljen upis u klasu koju subjekat ne sme da čita; BLP štiti tajnost, ne integritet (integritet je Biba)</td></tr>
+  <tr><td><b>cena</b></td><td>oznaka na svakom objektu i subjektu; komercijalni DBMS-ovi ga po pravilu nemaju</td></tr>
+  <tr><td><b>MySQL</b></td><td>nema ga uopšte: nema klasa, dozvola ni oznaka</td></tr>
+</table>
+
+<h2>RBAC — druga osa, ne treći stepen</h2>
+<p><b>Definicija:</b> privilegije se kače na ulogu, korisnik se dodeljuje ulozi:
+<code>korisnik → uloga → privilegija</code>. DAC i MAC odgovaraju ko odlučuje; RBAC kako se dodela
+strukturira — pa staje povrh diskrecionog sistema.</p>
+<table class="exp">
+  <tr><td><b>RBAC<sub>0</sub></b></td><td>korisnici, uloge, privilegije, sesije (aktiviranje uloga)</td></tr>
+  <tr><td><b>RBAC<sub>1</sub></b></td><td>hijerarhije uloga; starija nasleđuje prava mlađe</td></tr>
+  <tr><td><b>RBAC<sub>2</sub></b></td><td>ograničenja, pre svega razdvajanje dužnosti</td></tr>
+  <tr><td><b>RBAC<sub>3</sub></b></td><td>RBAC<sub>1</sub> + RBAC<sub>2</sub></td></tr>
+</table>
+<p>Merilo za Poglavlje 3: MySQL ima aktivaciju uloga i dodelu uloge ulozi;
+<span class="hi">razdvajanje dužnosti nema</span>.</p>
+
+<h2>Princip najmanjih privilegija</h2>
+<div class="slide">
+  Every program and every user of the system should operate using the least set of privileges
+  necessary to complete the job.
+  <span class="src">Saltzer &amp; Schroeder, 1975, §I.A.3, tačka f</span>
+</div>
+<div class="slide">
+  Fail-safe defaults: Base access decisions on permission rather than exclusion.
+  <span class="src">isto, tačka b — grant-only model MySQL-a u jednoj rečenici iz 1975.</span>
+</div>
+<p><b>Operate using</b>, ne „sme": princip meri prava kojima se u datom trenutku raspolaže. Otud
+sesije u RBAC<sub>0</sub>.</p>
+
+<h2>Izvori za citiranje</h2>
+<table class="exp">
+  <tr><td>DAC, MAC, BLP, pogledi</td><td>Ramakrishnan &amp; Gehrke, <b>Database Management Systems</b>, 3. izd., gl. 21</td></tr>
+  <tr><td>RBAC modeli</td><td>Sandhu i dr., „Role-Based Access Control Models", IEEE Computer 29(2), 1996; ANSI/INCITS 359-2004</td></tr>
+  <tr><td>Least privilege, fail-safe defaults</td><td>Saltzer &amp; Schroeder, Proc. IEEE 63(9), 1975</td></tr>
+  <tr><td>Bell–LaPadula original</td><td>Bell &amp; LaPadula, MITRE TR-2547, 1973; Unified Exposition, 1976</td></tr>
+  <tr><td>Nekaskadni <code>REVOKE</code></td><td>MySQL 8.4 Reference Manual, 15.7.1.6 GRANT Statement</td></tr>
+</table>
+
+<p class="meta">
+  <strong>Vidi još:</strong> <a href="../lessons/0001-klasicni-modeli-kontrole-pristupa.html">Lekcija 01</a> ·
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §1 (termini) i §2a (šta poglavlje 2 poseduje).
+</p>
+
+</body>
+</html>
