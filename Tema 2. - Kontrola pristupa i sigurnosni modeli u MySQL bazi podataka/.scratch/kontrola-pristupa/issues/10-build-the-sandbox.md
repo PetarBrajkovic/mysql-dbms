@@ -1,7 +1,7 @@
 # Stand up the security sandbox on the live server
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 01, 08
 
 ## Question

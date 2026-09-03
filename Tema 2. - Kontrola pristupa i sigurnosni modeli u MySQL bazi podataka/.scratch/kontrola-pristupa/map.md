@@ -144,6 +144,16 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   discharge sentences to build the demos against, and a to-do list of the three live-verification
   claims (memos 03/04/06/07) to test on this exact schema.
 
+- [Stand up the security sandbox on the live server](issues/10-build-the-sandbox.md): built and
+  verified on MySQL 8.4.11 Community, Win64 — `poliklinika` schema, `dbadmin`@`localhost` as the
+  paper's own non-root connection (`mysql-credentials.cnf` repointed), 4 roles, 12 named
+  `<role>_<branch>` accounts, and `v_my_branch_diagnoses` emulating branch isolation. Real
+  `ERROR 1142`/`1143` proven for every restricted role and both isolation directions. **One
+  memo 04 claim overturned**: `SELECT *` does not bypass column privileges on this server —
+  reproducible `ERROR 1142` instead of bug #41354's silent leak; the paper must caveat this by
+  version. Findings in `learning-records/0001-poliklinika-sandbox.md`, scripts in
+  `examples/00-setup/`.
+
 ## Not yet specified
 
 - **Whether the paper needs a comparison system at all.** *Partly settled*: ticket 04 fixes
@@ -155,10 +165,12 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   cannot enforce. The deck sharpens the guess: he taught **Bell–LaPadula formally** and the
   **Trojan-horse argument** for why DAC is insufficient, so "why does MySQL not implement MAC, and
   what does that cost you" is a question worth being ready for. Revisit once the skeleton exists.
-- **Which research claims need the live server to settle them.** Three are already named — whether
-  `SELECT *` really bypasses column privileges (ticket 04), the exact role-activation semantics
-  (tickets 03 and 07), and whether the NIST/PCI-DSS citations say what the memo says they say
-  (ticket 06). Ticket 10 is where they get tested; more will accumulate as chapters are taught.
+- **Which research claims need the live server to settle them.** Two of the three named at
+  charting are now settled by ticket 10 (learning record 0001): `SELECT *` does **not** bypass
+  column privileges on 8.4.11 (memo 04 corrected), and role-activation via `SET DEFAULT ROLE`
+  works exactly as memo 03/07 described. Still open: whether the NIST/PCI-DSS citations say what
+  memo 06 says they say — that one waits for ticket 11. More will accumulate as chapters are
+  taught.
 
 ## Out of scope
 
