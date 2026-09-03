@@ -177,6 +177,14 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   total** (1-2 per substantive chapter, 0 for Uvod/Zaključak), down from an initial ~14-figure draft.
   Written into `figures/README.md`, binding from here on.
 
+- [Chapter 1. Uvod](issues/14-uvod.md): no lesson taught (intro needs none, per `../WORKFLOW.md`);
+  no SQL, no figure (ch. 12's budget gives Uvod none). Serbian prose written straight into `rad.md`
+  §1 with `academic-research-writer`: policy-vs-mechanism and DAC/MAC framing cited to Ramakrishnan
+  & Gehrke, the paper's spine stated from `GLOSSARY.md` §0, then a one-sentence roadmap per chapter
+  2–8 with RBAC named against Sandhu et al. 1996 ahead of ch. 3's full use. `references.bib` seeded
+  with `ramakrishnan2003`, `mysql84refman`, `sandhu1996`. Export pipeline re-verified clean. Ch. 8
+  should reconcile against this intro once written, per Tema 1's own note.
+
 ## Not yet specified
 
 - **Whether the paper needs a comparison system at all.** *Partly settled*: ticket 04 fixes

@@ -1,0 +1,36 @@
+% references.bib - grown incrementally, one entry per source as it is first cited in rad.md.
+% Never retrofitted at the end; see WORKFLOW.md rule 5.
+
+% Policy: the university-provided lecture deck (../../Predavanja/06_Sigurnost 2016.pdf) is used for
+% LEARNING ONLY and is never cited in the paper (WORKFLOW.md rule 7 / WRITING.md rule 7). Claims it
+% backed are re-homed onto their external published origin: Ramakrishnan & Gehrke for classical
+% access-control theory, MySQL's own reference manual for anything product-specific.
+
+@book{ramakrishnan2003,
+  author    = {Ramakrishnan, Raghu and Gehrke, Johannes},
+  title     = {Database Management Systems},
+  edition   = {3},
+  publisher = {McGraw-Hill},
+  address   = {New York, NY, USA},
+  year      = {2003}
+}
+
+@misc{mysql84refman,
+  author       = {{Oracle Corporation}},
+  title        = {{MySQL} 8.4 Reference Manual},
+  howpublished = {\url{https://dev.mysql.com/doc/refman/8.4/en/}},
+  year         = {2024},
+  note         = {pristupljeno 3. septembra 2026}
+}
+
+% First cited in Chapter 1 (roadmap paragraph, RBAC named against MySQL's roles). Full use in Chapter 3.
+@article{sandhu1996,
+  author  = {Sandhu, Ravi S. and Coyne, Edward J. and Feinstein, Hal L. and Youman, Charles E.},
+  title   = {Role-Based Access Control Models},
+  journal = {IEEE Computer},
+  volume  = {29},
+  number  = {2},
+  pages   = {38--47},
+  year    = {1996},
+  doi     = {10.1109/2.485845}
+}
