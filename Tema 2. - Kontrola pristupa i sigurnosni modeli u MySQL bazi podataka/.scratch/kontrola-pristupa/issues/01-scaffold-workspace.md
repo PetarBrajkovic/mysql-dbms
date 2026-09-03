@@ -1,7 +1,7 @@
 # Scaffold the Tema 2 workspace and write MISSION.md
 
 Type: task
-Status: open
+Status: resolved
 
 ## Question
 

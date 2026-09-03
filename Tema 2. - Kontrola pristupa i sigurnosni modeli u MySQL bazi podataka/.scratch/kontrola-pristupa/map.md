@@ -73,6 +73,12 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   same paper shape as Tema 1 in a new folder; ~20–25 pages soft; commercial features covered as
   theory rather than demoed; chapter tickets deliberately left as fog until the skeleton is locked.
 
+- [Scaffold the Tema 2 workspace and write MISSION.md](issues/01-scaffold-workspace.md): full
+  directory skeleton scaffolded (worked around the scaffolder's refusal to write into an existing
+  folder by scaffolding into a temp sibling and merging), `MISSION.md` written and approved by the
+  user, title set in `naslovna.md` and `rad.md`, `mysql-credentials.cnf` copied from Tema 1 (root,
+  revisit at ticket 10), `GLOSSARY.md` left as the stub for ticket 09. All UTF-8, no BOM.
+
 - [Research: mine the lecture deck for required content and Serbian terminology](issues/02-research-mine-lecture-deck.md):
   the deck is **Ramakrishnan & Gehrke ch. 21 in Serbian** — its own metadata names R&G and the
   examples are `Sailors`/`Boats` — so every deck-backed claim cites a book Tema 1 already owns.
