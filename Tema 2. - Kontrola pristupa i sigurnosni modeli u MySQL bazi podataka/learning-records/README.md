@@ -15,6 +15,7 @@ checking a chapter, never when planning a lesson.
 | [0001](0001-poliklinika-sandbox.md) | 10 (sandbox, pre-chapter) | Sandbox built and enforcing; `SELECT *` does not bypass column privileges on 8.4.11 | Privilegije i uloge (16), FGAC i RLS (17), any chapter that runs a demo against `poliklinika` |
 | [0002](0002-audit-log-vs-definer-identity.md) | 19 (audit, pre-chapter) | No free audit plugin loads on this server (nothing to install); general query log records the connecting account, never the `SQL SECURITY DEFINER` view's effective account | Audit logging (19), any mention of `USER()` vs `CURRENT_USER()` |
 | [0003](0003-klasicni-modeli-kontrole-pristupa.md) | 15 (klasični modeli) | The whole DAC → Trojan horse → MAC/BLP → RBAC → least-privilege chain, taught by derivation; MySQL's `REVOKE` does not cascade, unlike the SQL standard | Writing ch. 2; any chapter that judges MySQL against a model (3, 4, 7); anything invoking least privilege |
+| [0004](0004-privilegije-i-uloge.md) | 16 (privilegije i uloge) | Everything derived from "a privilege is a row in an ordinary table": level count, OR-composition, static=column/dynamic=row, `partial_revokes`, roles as locked accounts, the RBAC verdict | Writing ch. 3; any chapter using roles, `SET ROLE`, grant tables or the RBAC verdict (4, 5, 7) |
 
 ## Standing constraints these records impose on every later chapter
 
@@ -44,6 +45,28 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
 - Saltzer & Schroeder 1975 supplies **two** citable principles for this paper, not one: least
   privilege (f) and fail-safe defaults (b, *"Base access decisions on permission rather than
   exclusion"*), the latter describing MySQL's grant-only model exactly. Memo 07 cites only (f). (0003)
+- **Privilege levels compose by `OR`, never by intersection**: `(global − restrictions) OR db OR
+  table OR column OR routine`, quoted verbatim from 8.4 refman 8.2.7. A narrower grant therefore
+  **never** narrows a wider one — least privilege is achieved by not granting the wider one at all.
+  Never write that a column privilege "restricts" an account that also holds a db- or global-level
+  privilege. (0004)
+- **Static privilege = a column in `mysql.user`; dynamic privilege = a row in
+  `mysql.global_grants`.** Consequences to reuse rather than re-derive: the static list is frozen
+  per server version, dynamic privileges exist **only** at global scope, and dynamic global
+  privileges take effect on already-open sessions while static global ones apply only to new
+  connections (8.2.13). (0004)
+- **`partial_revokes` is the only deny-shaped thing, and it is narrow**: schema level only, stored
+  as JSON in `mysql.user.User_attributes`, and it subtracts **only from the global term** of the OR
+  chain — a table-level grant inside the restricted schema still works. Its schema-only limit is a
+  design decision, not a consequence of the model. (0004)
+- **A role is a locked row in `mysql.user`** — the same object as an account, differing only in the
+  lock. `GRANT role TO x` writes an edge in `mysql.role_edges` and copies **no** privilege; the
+  server resolves by walking the graph at check time. (0004)
+- **The chapter-3 RBAC verdict, final wording**: RBAC₀ yes (`SET ROLE` is a real session), RBAC₁
+  only partially (edges exist, but `role_edges` is a plain digraph, not the partial order NIST
+  requires — cycles are nowhere prohibited), RBAC₂ no (no SoD mechanism, structurally: nothing to
+  attach a constraint to). **Never write that MySQL lacks `SET ROLE` or role inheritance** — that
+  common claim is two-thirds false, and memo 07's deleted paragraph is where it comes from. (0004)
 - No third-party audit plugin (Percona `audit_log`, MariaDB `server_audit`) is installed or
   installable on this server: `SHOW PLUGINS` shows no `AUDIT`-class plugin beyond the two
   built-in cache cleaners, and the plugin directory has no such `.dll` to attempt loading.

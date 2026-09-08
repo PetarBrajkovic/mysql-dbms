@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referentna kartica 02 — Privilegije i uloge u MySQL-u</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica 02 · Poglavlje 3</p>
+<h1>Privilegije i uloge u MySQL-u — sažetak za odbranu</h1>
+<p class="subtitle">Sve što se iz Poglavlja 3 poziva u kasnijim poglavljima, na jednoj strani.
+Puno izvođenje je u <a href="../lessons/0002-privilegije-i-uloge.html">Lekciji 02</a>.</p>
+
+<h2>Polazna istina</h2>
+<table class="exp">
+  <tr><td><b>gde stoje prava</b></td><td>u deset običnih tabela sistemske baze <code>mysql</code>
+    („grant tabele"); nema zasebnog registra ni zapisa uz štićenu tabelu</td></tr>
+  <tr><td><b>posledica</b></td><td>sve što se o pravima može reći mora da stane u oblik reda; što ne
+    stane, MySQL ne ume da izrazi</td></tr>
+  <tr><td><b>Faza 1</b></td><td>provera veze — identitet, kredencijali, zaključanost naloga; jednom
+    po vezi</td></tr>
+  <tr><td><b>Faza 2</b></td><td>provera zahteva — jesu li privilegije dovoljne; <b>za svaki upit</b>,
+    pa promena važi od sledećeg zahteva</td></tr>
+</table>
+
+<h2>Grant tabele po nivou opsega</h2>
+<table class="exp">
+  <tr><td><code>mysql.user</code></td><td>globalno, <b>statičke</b> privilegije kao kolone
+    <code>ENUM('N','Y')</code>; tu je i <code>User_attributes</code> (JSON)</td></tr>
+  <tr><td><code>mysql.global_grants</code></td><td>globalno, <b>dinamičke</b> privilegije kao redovi
+    <code>USER</code>/<code>HOST</code>/<code>PRIV</code></td></tr>
+  <tr><td><code>mysql.db</code></td><td>nivo baze — kolona imenovanja <code>Db</code></td></tr>
+  <tr><td><code>mysql.tables_priv</code></td><td>nivo tabele — <code>Db</code>, <code>Table_name</code>;
+    prava kao <code>SET</code>, pa više prava staje u jedan red</td></tr>
+  <tr><td><code>mysql.columns_priv</code></td><td>nivo kolone — plus <code>Column_name</code></td></tr>
+  <tr><td><code>mysql.procs_priv</code></td><td>rutine — <code>Routine_name</code>,
+    <code>Routine_type</code></td></tr>
+  <tr><td><code>mysql.role_edges</code></td><td>graf uloga: <code>FROM_*</code> prima,
+    <code>TO_*</code> je dodeljena uloga, plus <code>WITH_ADMIN_OPTION</code></td></tr>
+  <tr><td><code>mysql.default_roles</code></td><td>uloge aktivne pri prijavi, po nalogu</td></tr>
+</table>
+<p><b>Zašto baš toliko:</b> imenovanje objekta traži različit broj kolona po nivou preciznosti;
+različita arnost daje različit oblik reda, a različit oblik reda traži zasebnu tabelu.
+<b>Zašto nema nivoa reda:</b> kolone imenovanja su nazivi, a uslov nad sadržajem nije naziv.</p>
+
+<h2>Sastavljanje nivoa</h2>
+<div class="slide">
+  globalne privilegije ILI privilegije baze ILI privilegije tabele ILI privilegije kolone ILI
+  privilegije rutine
+  <span class="src">MySQL 8.4 Reference Manual, 8.2.7 — sa restrikcijama:
+    <code>(global − restrictions) OR db OR table OR column OR routine</code></span>
+</div>
+<table class="exp">
+  <tr><td><b>pravilo</b></td><td>dovoljan je jedan nivo koji dodeljuje pravo; preseka nema</td></tr>
+  <tr><td><b>posledica</b></td><td><span class="hi">uža privilegija nikad ne sužava širu</span></td></tr>
+  <tr><td><b>za least privilege</b></td><td>ne postiže se dodavanjem uže, nego time što se šira nikad
+    ne dodeli</td></tr>
+  <tr><td><b>redosled dodele</b></td><td>ne igra ulogu — ne pamti se</td></tr>
+</table>
+
+<h2>Statičke naspram dinamičkih privilegija</h2>
+<table class="exp">
+  <tr><td><b>statička</b></td><td><b>kolona</b> u <code>mysql.user</code>/<code>mysql.db</code>; spisak
+    zaključan u verziji servera; sve tabelske, kolonske i rutinske privilegije su statičke</td></tr>
+  <tr><td><b>dinamička</b></td><td><b>red</b> u <code>mysql.global_grants</code>; spisak proširiv u
+    toku rada, komponenta registruje svoju privilegiju</td></tr>
+  <tr><td><b>samo globalno</b></td><td>nijedna grant tabela ne drži par (ime dinamičke privilegije,
+    uži opseg)</td></tr>
+  <tr><td><b>dejstvo</b></td><td>dinamičke globalne odmah i na otvorene sesije; statičke globalne tek
+    na nove veze (8.2.13)</td></tr>
+  <tr><td><code>SUPER</code></td><td>zastareo od 8.0, razložen na <code>SYSTEM_VARIABLES_ADMIN</code>,
+    <code>BINLOG_ADMIN</code>, <code>CONNECTION_ADMIN</code>, <code>BACKUP_ADMIN</code>,
+    <code>ROLE_ADMIN</code> … — princip najmanjih privilegija</td></tr>
+</table>
+
+<h2><code>partial_revokes</code> — jedini oblik zabrane</h2>
+<table class="exp">
+  <tr><td><b>šta rešava</b></td><td>„sve baze osim jedne" — neizrazivo u ILI-modelu</td></tr>
+  <tr><td><b>gde se piše</b></td><td>ne kao grant, nego kao JSON u <code>mysql.user.User_attributes</code>:
+    <code>{"Restrictions":[{"Database":"…","Privileges":["…"]}]}</code></td></tr>
+  <tr><td><b>šta menja</b></td><td>samo član <b>global</b> u ILI-lancu; niži nivoi prolaze netaknuti,
+    pa se posle restrikcije sme vratiti jedna tabela u toj šemi</td></tr>
+  <tr><td><b>prikaz</b></td><td><code>SHOW GRANTS</code> je ispisuje kao <code>REVOKE</code>, iako
+    „negativan grant" ne postoji</td></tr>
+  <tr><td><b>domet</b></td><td>samo nivo šeme; ne za čisto globalne privilegije, ni za tabelu, kolonu
+    ili rutinu — <b>odluka, ne posledica modela</b></td></tr>
+  <tr><td><b>zamke</b></td><td>ne isključuje se dok postoji nalog sa restrikcijom; dok je uključena,
+    <code>_</code> i <code>%</code> u nazivima šema su doslovni</td></tr>
+</table>
+
+<h2>Uloge</h2>
+<table class="exp">
+  <tr><td><b>šta je uloga</b></td><td>red u <code>mysql.user</code>, isti kao nalog; razlika je samo
+    u tome što je <code>CREATE ROLE</code> pravi <b>zaključanu</b></td></tr>
+  <tr><td><b>dva GRANT-a</b></td><td><code>GRANT priv ON obj TO X</code> → red u
+    <code>tables_priv</code>; <code>GRANT role TO X</code> → ivica u <code>role_edges</code>,
+    <b>bez ijedne privilegije</b></td></tr>
+  <tr><td><b>razrešavanje</b></td><td>od naloga se obiđe graf i skupe privilegije zatečene na
+    dosegnutim čvorovima; ništa se ne kopira, pa <code>REVOKE</code> nad ulogom odmah pogađa sve</td></tr>
+  <tr><td><b>uloga ulozi</b></td><td>dozvoljeno — obe strane su ID-jevi autorizacije; tako se gradi
+    hijerarhija</td></tr>
+  <tr><td><code>SET ROLE</code></td><td><b>postavlja</b> aktivan skup, ne dodaje u njega;
+    <code>NONE</code> ga prazni, <code>DEFAULT</code> vraća podrazumevani</td></tr>
+  <tr><td><code>CURRENT_ROLE()</code></td><td>aktivne uloge sesije, ili <code>NONE</code></td></tr>
+  <tr><td><code>SET DEFAULT ROLE</code></td><td>upis u <code>mysql.default_roles</code>; aktivira se
+    pri prijavi</td></tr>
+  <tr><td><code>activate_all_roles_on_login</code></td><td>aktivira sve dodeljene uloge pri prijavi i
+    ima prednost nad podrazumevanim; <b><code>OFF</code> na ovom serveru</b></td></tr>
+  <tr><td><code>mandatory_roles</code></td><td>uloge tretirane kao dodeljene svima, mimo grant tabela;
+    ne mogu da se oduzmu ni obrišu dok su navedene</td></tr>
+</table>
+<p><b>Zapamti:</b> <span class="hi">dodeljena uloga nije aktivna uloga</span> — privilegije neaktivne
+uloge ne ulaze u proveru.</p>
+
+<h2>Presuda po RBAC modelu (poglavlje 2)</h2>
+<table class="exp">
+  <tr><td><b>RBAC₀</b> sesije</td><td><b>ima</b> — <code>SET ROLE</code>, <code>CURRENT_ROLE()</code>,
+    podrazumevane uloge</td></tr>
+  <tr><td><b>RBAC₁</b> hijerarhija</td><td><b>delimično</b> — ivice postoje u <code>role_edges</code>,
+    ali graf nije parcijalno uređenje; ciklus nigde nije zabranjen</td></tr>
+  <tr><td><b>RBAC₂</b> ograničenja</td><td><span class="hi">nema</span> — nijedan mehanizam
+    razdvajanja dužnosti</td></tr>
+  <tr><td><b>RBAC₃</b></td><td>nema, kao posledica</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Tvrdnja koju rad nosi</span>
+  MySQL ima aktivaciju uloga i grantove uloge ulozi, ali su uloga i korisnik <b>isti objekat</b> u
+  grant tabelama, nema ograničenja razdvajanja dužnosti, i nema ograničene RBAC sesije mimo skupa
+  aktivnih uloga. Ukratko: <span class="hi">DAC sa ukusom uloga</span>. <b>Ne pisati</b> da MySQL
+  nema <code>SET ROLE</code> ili nasleđivanje uloga — ta česta tvrdnja je netačna.
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor:</strong>
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/access-control.html">MySQL 8.4 Reference Manual,
+  8.2</a> — 8.2.3 grant tabele, 8.2.7 Faza 2, 8.2.10 uloge, 8.2.12 partial revokes, 8.2.13 dejstvo
+  izmena. ·
+  <strong>Vidi još:</strong> <a href="../lessons/0002-privilegije-i-uloge.html">Lekcija 02</a>,
+  <a href="01-modeli-kontrole-pristupa.html">Referentna kartica 01</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §1. ·
+  <strong>Primeri:</strong> <code>examples/03-privilegije-i-uloge/</code>.
+</p>
+
+</body>
+</html>

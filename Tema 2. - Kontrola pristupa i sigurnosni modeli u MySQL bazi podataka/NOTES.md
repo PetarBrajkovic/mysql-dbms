@@ -10,8 +10,17 @@ a stale claim; correct it in place.**
 
 ## Subject quirks
 
-- {Things about this subject's tooling, dataset, or environment that would otherwise be silently
-  "fixed" wrong later.}
+- **Live teaching runs in Serbian** for this topic (chosen at ch. 3): the defense is in Serbian, so
+  terminology should lock in the language he will use. MySQL keywords, system variable names and
+  error codes stay English per `GLOSSARY.md` §1. Workspace bookkeeping stays English as usual.
+- **He derives, and will over-derive.** Teaching by derivation works very well on him (records 0003
+  and 0004), but the side effect is that he assumes every fact must follow from something. When a
+  fact is an arbitrary design decision — e.g. `partial_revokes` being schema-level only — say so
+  explicitly, or he will invent a derivation for it.
+- **Restate the sandbox state inside any question that depends on it.** He correctly objected that
+  a quiz about `role_doctor`'s privileges was unanswerable from the four statements shown, because
+  the relevant `GRANT` lived in `00-setup/04-roles-and-accounts.sql`. Prior setup is not shared
+  context unless it is on screen.
 
 ## Chapter planning
 

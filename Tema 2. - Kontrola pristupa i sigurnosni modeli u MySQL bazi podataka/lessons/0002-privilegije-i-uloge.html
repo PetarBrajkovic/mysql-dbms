@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 02 — Privilegija je red u tabeli</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 02 · Poglavlje 3 (Sistem privilegija i uloga u MySQL-u)</p>
+<h1>Privilegija je red u običnoj tabeli — i skoro sve ostalo sledi iz toga</h1>
+<p class="subtitle">Prethodna lekcija je ostavila modele: DAC, MAC, RBAC i princip najmanjih
+privilegija. Ova pokazuje kako MySQL to zaista zapisuje, i sudi njegovim ulogama po RBAC modelu,
+stavku po stavku.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Poglavlje 3 rada mora da izdrži tri pitanja bez podsetnika: <strong>(1)</strong> gde MySQL drži
+  prava i zašto nivoa ima baš toliko, <strong>(2)</strong> zašto se nivoi sastavljaju logičkim ILI
+  i šta je zato <code>partial_revokes</code>, i <strong>(3)</strong> koji deo RBAC-a MySQL uloge
+  zaista imaju, a koji nemaju — jer je uobičajena tvrdnja iz literature dobrim delom netačna.
+</div>
+
+<h2>1 · Sve stoji u grant tabelama</h2>
+
+<p>Bezuslovna istina od koje kreće celo poglavlje: <strong>sve što MySQL zna o pravima pristupa
+zapisano je u običnim tabelama u sistemskoj bazi <code>mysql</code></strong>. Nema posebnog
+registra, nema zasebnog fajla, nema ničega uz samu zaštićenu tabelu. Deset običnih tabela, koje se
+zovu <a href="https://dev.mysql.com/doc/refman/8.4/en/grant-tables.html">grant tabele</a>.</p>
+
+<p>Posledica koja se provlači kroz celu lekciju: pošto je pravo <strong>podatak</strong>, sve što se
+o pravima može reći mora da stane u <span class="hi">oblik reda u tabeli</span>. Što se u taj oblik
+ne uklapa, MySQL ne ume da izrazi.</p>
+
+<h2>2 · Provera se dešava u dve faze</h2>
+
+<table class="exp">
+  <tr><td>Faza 1</td><td>provera veze: identitet, kredencijali, da li je nalog zaključan — to je
+    <strong>autentifikacija</strong>, i dešava se jednom
+    (<a href="https://dev.mysql.com/doc/refman/8.4/en/connection-access.html">8.2.6</a>)</td></tr>
+  <tr><td>Faza 2</td><td>provera zahteva: da li su privilegije dovoljne za traženu operaciju — to je
+    <strong>autorizacija</strong>, i dešava se za svaki upit
+    (<a href="https://dev.mysql.com/doc/refman/8.4/en/request-access.html">8.2.7</a>)</td></tr>
+</table>
+
+<div class="slide">
+  Nakon što server prihvati vezu, ulazi u Fazu 2 kontrole pristupa. <strong>Za svaki zahtev koji
+  pošaljete kroz tu vezu</strong>, server utvrđuje koju operaciju želite da izvedete, pa proverava
+  da li su vaše privilegije dovoljne.
+  <span class="src">MySQL 8.4 Reference Manual, 8.2.7 Access Control, Stage 2: Request Verification</span>
+</div>
+
+<p>Ključna reč je <strong>svaki</strong>. Prava se ne razrešavaju jednom pri prijavi pa pamte. Zato
+oduzeta tabelska privilegija važi već od sledećeg upita, bez ponovne prijave — i zato uloga uopšte
+može da se menja usred sesije.</p>
+
+<h2>3 · Zašto nivoa ima baš toliko</h2>
+
+<p>Broj grant tabela nije spisak za učenje napamet — izvodi se. Red mora da odgovori na tri stvari:
+<strong>ko</strong> (nalog), <strong>šta sme</strong> (privilegija) i <strong>nad čim</strong>. Prve
+dve su svuda iste. Treća nije: da imenuješ objekat, treba ti različit broj kolona, zavisno od
+preciznosti.</p>
+
+<table class="exp">
+  <tr><td>globalno</td><td>nijedna kolona imenovanja — <code>mysql.user</code> (statičke) i
+    <code>mysql.global_grants</code> (dinamičke)</td></tr>
+  <tr><td>baza</td><td><code>Db</code> — <code>mysql.db</code></td></tr>
+  <tr><td>tabela</td><td><code>Db</code>, <code>Table_name</code> — <code>mysql.tables_priv</code></td></tr>
+  <tr><td>kolona</td><td><code>Db</code>, <code>Table_name</code>, <code>Column_name</code> —
+    <code>mysql.columns_priv</code></td></tr>
+  <tr><td>rutina</td><td><code>Db</code>, <code>Routine_name</code>, <code>Routine_type</code> —
+    <code>mysql.procs_priv</code></td></tr>
+</table>
+
+<p>Različita arnost imenovanja daje različit oblik reda, a različit oblik reda traži zasebnu tabelu.
+Podela nije proizvoljna: ona je posledica toga što je pravo podatak u relacionoj tabeli. Otuda i
+detalj koji se lako promaši — <code>GRANT SELECT, INSERT ON poliklinika.visits</code> upisuje
+<strong>jedan</strong> red u <code>tables_priv</code>, jer je kolona prava tipa <code>SET</code>,
+dakle skup, a ne pojedinačna zastavica.</p>
+
+<div class="note">
+  <span class="lbl">Zašto ovo rešava i poglavlje 4</span>
+  Sve kolone imenovanja su <strong>nazivi</strong>. Uslov nad sadržajem podatka — „redovi u kojima je
+  <code>tenant_id = 2</code>" — nije naziv i nema kolone u koju bi stao. Zato red-level security nije
+  nešto što MySQL nije stigao da doda, nego nešto što se u ovaj oblik zapisa <span class="hi">ne
+  uklapa</span>. Ista granica koju je poglavlje 2 izvelo preko trojke (subjekat, objekat, operacija).
+</div>
+
+<h2>4 · Nivoi se sastavljaju logičkim ILI, nikada presekom</h2>
+
+<p>Jedan nalog može istovremeno imati redove u više ovih tabela, pa ih server mora nekako spojiti.
+Intuicija govori da uža privilegija sužava širu. Ta intuicija je pogrešna, i to se izvodi.</p>
+
+<p>Iz poglavlja 2: model poznaje <strong>samo dodelu prava</strong>. Svaki red grant tabele je,
+dakle, tvrdnja oblika „ovaj nalog sme ovo nad ovim". Nijedan red nije tvrdnja „ne sme". Da bi
+kolonski red <code>SELECT (icd_code)</code> sužavao globalni <code>SELECT</code>, morao bi da se
+čita kao „sme <code>icd_code</code> i ništa drugo" — a to „i ništa drugo" nigde ne piše. Ostaje
+jedina konzistentna operacija nad skupom tvrdnji „smem":</p>
+
+<div class="slide">
+  Izraženo logički, prethodni opis načina na koji se računaju korisnikove privilegije može se
+  sažeti ovako: <strong>globalne privilegije ILI privilegije baze ILI privilegije tabele ILI
+  privilegije kolone ILI privilegije rutine</strong>.
+  <span class="src">MySQL 8.4 Reference Manual, 8.2.7 Access Control, Stage 2: Request Verification</span>
+</div>
+
+<p>Odatle rečenica koju vredi znati napamet: <span class="hi">uža privilegija nikad ne sužava
+širu</span>. Najmanje privilegije se u MySQL-u ne postižu time što se nešto uže <strong>doda</strong>,
+nego time što se šire <strong>nikad ne dodeli</strong>.</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> sandbox <code>poliklinika</code> iz
+      <code>examples/00-setup/</code>. Priprema i čišćenje idu kao <code>dbadmin</code>, provera kao
+      dva privremena naloga. Ceo skript je
+      <code>examples/03-privilegije-i-uloge/01-nivoi-i-ili-sastavljanje.sql</code>.</p>
+
+    <h3 class="lab">Pokreni ovo — kao <code>dbadmin</code></h3>
+<pre class="sql run"><span class="k">CREATE USER</span> <span class="s">'probe_wide'</span>@<span class="s">'localhost'</span>   <span class="k">IDENTIFIED BY</span> <span class="s">'Demo#2026'</span>;
+<span class="k">CREATE USER</span> <span class="s">'probe_narrow'</span>@<span class="s">'localhost'</span> <span class="k">IDENTIFIED BY</span> <span class="s">'Demo#2026'</span>;
+
+<span class="c">-- oba naloga dobijaju ISTU kolonsku privilegiju</span>
+<span class="k">GRANT SELECT</span> (icd_code) <span class="k">ON</span> poliklinika.diagnoses <span class="k">TO</span> <span class="s">'probe_wide'</span>@<span class="s">'localhost'</span>;
+<span class="k">GRANT SELECT</span> (icd_code) <span class="k">ON</span> poliklinika.diagnoses <span class="k">TO</span> <span class="s">'probe_narrow'</span>@<span class="s">'localhost'</span>;
+
+<span class="c">-- samo probe_wide dobija jos i siri clan ILI-lanca</span>
+<span class="k">GRANT SELECT</span> <span class="k">ON</span> poliklinika.* <span class="k">TO</span> <span class="s">'probe_wide'</span>@<span class="s">'localhost'</span>;</pre>
+
+    <h3 class="lab">Zatim, u dve odvojene konekcije</h3>
+<pre class="sql run"><span class="c">-- kao probe_wide</span>
+<span class="k">SELECT</span> diagnosis_id, diagnosis_text <span class="k">FROM</span> poliklinika.diagnoses <span class="k">LIMIT</span> 5;
+
+<span class="c">-- kao probe_narrow</span>
+<span class="k">SELECT</span> diagnosis_id, diagnosis_text <span class="k">FROM</span> poliklinika.diagnoses <span class="k">LIMIT</span> 5;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">probe_wide   -> prolazi i vraca diagnosis_text
+probe_narrow -> ERROR 1143 (42000): SELECT command denied ... for column 'diagnosis_text'</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> kolonska privilegija je u oba naloga
+      <strong>identična</strong>. Razlika je isključivo u tome što <code>probe_wide</code> ima jedan
+      član ILI-lanca više. Kolonska privilegija ništa nije suzila — ona je kod
+      <code>probe_narrow</code> jedino što uopšte postoji, pa tamo i deluje kao ograničenje.</p>
+  </div>
+</div>
+
+<h2>5 · Statičko je kolona, dinamičko je red</h2>
+
+<p>Podela na statičke i dinamičke privilegije zvuči kao administrativna klasifikacija koju treba
+zapamtiti. Nije — to je razlika u obliku zapisa, i sve ostalo iz nje sledi.</p>
+
+<table class="exp">
+  <tr><td>statičke</td><td><strong>kolone</strong> tabele <code>mysql.user</code>, tipa
+    <code>ENUM('N','Y')</code>: <code>Select_priv</code>, <code>Drop_priv</code>, …</td></tr>
+  <tr><td>dinamičke</td><td><strong>redovi</strong> tabele <code>mysql.global_grants</code>, sa
+    kolonama <code>USER</code>, <code>HOST</code>, <code>PRIV</code> (običan <code>VARCHAR</code>)</td></tr>
+</table>
+
+<p>Zamisli da se serveru u toku rada učita komponenta koja donosi novu sposobnost. Pravo na nju bi
+kao statička privilegija tražilo novu kolonu, dakle <code>ALTER TABLE</code> nad sistemskom tabelom
+u letu. Neizvodljivo. Kao dinamička privilegija, to je samo <strong>nov podatak</strong>. Otuda dve
+posledice, obe izvedene a ne zapamćene:</p>
+
+<ul>
+  <li>skup statičkih privilegija zaključan je u verziji servera, a skup dinamičkih je proširiv u
+    toku rada;</li>
+  <li>dinamičke privilegije postoje <strong>samo na globalnom opsegu</strong> — nijedna postojeća
+    grant tabela ne može da drži par (ime dinamičke privilegije, uži opseg): tabela sa
+    <code>VARCHAR</code> imenom nema kolone opsega, a tabele sa kolonama opsega nemaju
+    <code>VARCHAR</code> ime.</li>
+</ul>
+
+<div class="note">
+  <span class="lbl">Naziv zavarava</span>
+  „Dinamički" se ne odnosi na trajanje privilegije, nego na to što je <strong>sam spisak
+  privilegija</strong> proširiv. Zasebna činjenica, koja se ne izvodi iz oblika zapisa i vredi je
+  zapamtiti: dinamičke globalne privilegije deluju odmah i na već otvorene sesije, a statičke
+  globalne tek na nove veze
+  (<a href="https://dev.mysql.com/doc/refman/8.4/en/privilege-changes.html">8.2.13</a>).
+</div>
+
+<h3>Zašto je <code>SUPER</code> razložen</h3>
+
+<p><code>SUPER</code> je bio statička privilegija — dakle jedan prekidač <code>Y</code>/<code>N</code>
+— a pokrivao je menjanje sistemskih promenljivih, gašenje servera, binlog, replikaciju i prekidanje
+tuđih sesija. Ko je smeo jedno, smeo je sve. To je udžbenički prekršaj <strong>principa najmanjih
+privilegija</strong>: „svaki program i svaki korisnik sistema treba da radi sa najmanjim skupom
+privilegija dovoljnim za obavljanje posla" (Saltzer i Schroeder, 1975).</p>
+
+<p>Popravka nije mogla da bude „dodajmo dvadeset novih kolona", pa je od MySQL-a 8.0
+<code>SUPER</code> proglašen zastarelim i razložen na desetine imenovanih <strong>dinamičkih</strong>
+privilegija: <code>SYSTEM_VARIABLES_ADMIN</code>, <code>BINLOG_ADMIN</code>,
+<code>CONNECTION_ADMIN</code>, <code>BACKUP_ADMIN</code>, <code>ROLE_ADMIN</code>
+(<a href="https://dev.mysql.com/doc/refman/8.4/en/privileges-provided.html">8.2.2</a>).</p>
+
+<p>U tvom sandboxu je to opipljivo: <code>dbadmin</code> ima <code>ROLE_ADMIN</code> i
+<code>CREATE USER</code>, ali nema <code>RELOAD</code> — zato u <code>04-roles-and-accounts.sql</code>
+nema <code>FLUSH PRIVILEGES</code>. Nalog koji administrira naloge ne mora da sme da dira server.</p>
+
+<h2>6 · <code>partial_revokes</code> — jedina stvar oblika zabrane</h2>
+
+<p>Postoji stvaran zahtev koji ILI-model ne može da izrazi: nalog kome treba <code>SELECT</code> nad
+svim bazama <strong>osim</strong> nad jednom osetljivom. Nabrajanje svih ostalih baza se raspada čim
+neko napravi novu. MySQL to ipak može — od 8.0.16, ako se uključi sistemska promenljiva
+<code>partial_revokes</code>
+(<a href="https://dev.mysql.com/doc/refman/8.4/en/partial-revokes.html">8.2.12</a>). Način na koji to
+radi je poučniji od same mogućnosti: <span class="hi">zabrana se ne zapisuje kao grant</span>.</p>
+
+<pre class="out">{"Restrictions": [{"Database": "poliklinika", "Privileges": ["SELECT"]}]}</pre>
+
+<p>To je sadržaj kolone <code>User_attributes</code> u <code>mysql.user</code> — slobodan JSON
+dokument prikačen nalogu, van oblika grant tabele. <code>SHOW GRANTS</code> ga ipak prikazuje kao
+<code>REVOKE</code> naredbu, iako nikakav „negativan grant" ne postoji.</p>
+
+<p>Najvažnije je razumeti <strong>šta tačno</strong> restrikcija menja. Faza 2 sastavlja ovako:</p>
+
+<pre class="out">(global - restrictions) OR db OR table OR column OR routine</pre>
+
+<p>Restrikcija je <strong>oduzimanje unutar prvog člana</strong>, ne množenje celog izraza nulom. Ona
+ne kaže „nad ovom šemom se ne sme ništa", nego „ova globalna privilegija ne važi nad ovom šemom".
+Ostali članovi lanca je ne vide — pa se posle restrikcije može dodeliti
+<code>SELECT</code> nad jednom tabelom u toj istoj šemi i on će raditi. Priručnik taj obrazac i
+navodi: oduzmi široko nad šemom, pa vrati tačno ono što treba.</p>
+
+<table class="exp">
+  <tr><td>domet</td><td>samo nivo šeme — ne za privilegije koje postoje isključivo globalno
+    (<code>FILE</code>, <code>BINLOG_ADMIN</code>), niti na nivou tabele, kolone ili rutine</td></tr>
+  <tr><td>povratak</td><td>dok postoji ijedan nalog sa restrikcijom, <code>partial_revokes</code> se
+    ne može isključiti</td></tr>
+  <tr><td>džokeri</td><td>dok je uključena, <code>_</code> i <code>%</code> u nazivima šema tumače se
+    doslovno, kao da su escape-ovani</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Nije sve izvedivo</span>
+  Da <code>partial_revokes</code> ne postoji i na nivou tabele nije posledica modela — JSON je
+  prikačen <strong>nalogu</strong>, pa bi tu stalo i ograničenje nad tabelom bez ikakve prepreke. To
+  je <strong>odluka</strong>, ne posledica. I baš zato je za rad korisna: <code>partial_revokes</code>
+  je izuzetak urezan u model, sa granicama koje su autori povukli.
+</div>
+
+<div class="scope">
+  <span class="lbl">Van obima</span>
+  Skript <code>examples/03-privilegije-i-uloge/03-partial-revokes.sql</code> traži
+  <strong>root</strong>: <code>SET PERSIST partial_revokes</code> traži
+  <code>SYSTEM_VARIABLES_ADMIN</code>, a demo traži globalni <code>SELECT ON *.*</code> koji
+  <code>dbadmin</code> ne može dodeliti jer ga ni sam nema. To što je <code>dbadmin</code> tu blokiran
+  jeste ilustracija razloženog <code>SUPER</code>-a, a ne prepreka.
+</div>
+
+<h2>7 · Uloga je zaključan nalog u istoj tabeli</h2>
+
+<p>Ako je sve red u grant tabeli, gde živi uloga? Ako je uloga nova vrsta stvari, mora da ima svoju
+tabelu. Nema je — <strong>uloga je red u <code>mysql.user</code></strong>, u istoj tabeli u kojoj su
+i nalozi. Razlika je jedna kolona: <code>CREATE ROLE</code> pravi ID autorizacije koji je
+<strong>zaključan</strong>, <code>CREATE USER</code> otključan.</p>
+
+<div class="slide">
+  Dok je zaključana, uloga ne može da se koristi za prijavljivanje na server. Ako se otključa, uloga
+  može da se koristi za prijavljivanje. To je zato što su <strong>uloge i korisnici oba ID-jevi
+  autorizacije, sa mnogo zajedničkog i malo toga što ih razlikuje</strong>.
+  <span class="src">MySQL 8.4 Reference Manual, 8.2.10 Using Roles</span>
+</div>
+
+<p>Otključaj ulogu i ona postaje nalog; zaključaj nalog i on postaje uloga. Nema dve vrste objekta —
+ima jedne, sa prekidačem. Iz toga slede tri stvari odjednom:</p>
+
+<ul>
+  <li>uloga prima privilegije potpuno isto kao nalog, uključujući statičke — <code>GRANT SELECT ON
+    poliklinika.visits TO role_receptionist</code> upisuje red u <code>tables_priv</code> koji se
+    ničim ne razlikuje od reda za nalog;</li>
+  <li><strong>grant uloge ulozi mora da bude dozvoljen</strong>, jer sintaksa ne bi ni umela da razlikuje
+    strane: priručnik nabraja sva četiri smera — korisnik korisniku, uloga korisniku, korisnik ulozi,
+    uloga ulozi. Taj graf stoji u <code>mysql.role_edges</code>;</li>
+  <li>ne postoji zaseban entitet „uloga" na koji bi se zakačilo ograničenje o ulogama. Ovo je razlog
+    za sve što nedostaje u odeljku 9.</li>
+</ul>
+
+<h3>Dva različita <code>GRANT</code>-a</h3>
+
+<p>Ista ključna reč znači dve različite stvari, zavisno od toga šta stoji ispred <code>TO</code>:</p>
+
+<table class="exp">
+  <tr><td><code>GRANT SELECT ON t TO X</code></td><td>red u <code>mysql.tables_priv</code> —
+    privilegija nad objektom</td></tr>
+  <tr><td><code>GRANT role_doctor TO X</code></td><td>red u <code>mysql.role_edges</code> — ivica
+    grafa, <strong>bez ijedne privilegije</strong></td></tr>
+</table>
+
+<p>Druga naredba ništa ne kopira na <code>X</code>; ona samo povezuje <code>X</code> sa čvorom.
+Privilegija ostaje zapisana kod svog nosioca, a server u Fazi 2 kreće od naloga, obiđe ivice i skupi
+privilegije zatečene na svim dosegnutim čvorovima. Zato <code>REVOKE</code> nad ulogom trenutno
+pogađa svakoga ko tu ulogu doseže — nema ničega što bi preživelo, jer se ništa nije ni kopiralo.</p>
+
+<h2>8 · Aktivacija uloga je RBAC₀ sesija</h2>
+
+<p><strong>Dodeljena uloga nije aktivna uloga.</strong> Privilegije uloge koja je dodeljena ali nije
+aktivirana u sesiji jednostavno ne važe. <code>SET ROLE</code> menja efektivne privilegije trenutnog
+korisnika unutar tekuće sesije, navodeći koje su od dodeljenih uloga aktivne
+(<a href="https://dev.mysql.com/doc/refman/8.4/en/set-role.html">15.7.1.11</a>); aktivan skup se čita
+sa <code>CURRENT_ROLE()</code>, a <code>NONE</code> znači nijedna.</p>
+
+<p>To je, po definiciji, <strong>sesija u smislu RBAC₀</strong> — mesto na kom se bira podskup
+dodeljenih uloga koji je trenutno na snazi. Tu se zatvara nit iz poglavlja 2: Saltzer i Schroeder
+kažu „treba da <strong>radi sa</strong>", ne „treba da <strong>sme</strong>". Bez sesije princip
+najmanjih privilegija nema gde da se primeni.</p>
+
+<table class="exp">
+  <tr><td><code>SET DEFAULT ROLE</code></td><td>upisuje red u <code>mysql.default_roles</code>; te
+    uloge se aktiviraju pri prijavi — tako su podešeni svi demo nalozi u sandboxu</td></tr>
+  <tr><td><code>activate_all_roles_on_login</code></td><td>ako je uključena, server pri prijavi
+    aktivira <strong>sve</strong> dodeljene uloge i ima prednost nad podrazumevanim ulogama; na ovom
+    serveru je <code>OFF</code></td></tr>
+  <tr><td><code>mandatory_roles</code></td><td>server navedene uloge tretira kao dodeljene
+    <strong>svim</strong> korisnicima, bez ijednog <code>GRANT</code>-a; takva uloga se ne može ni
+    oduzeti ni obrisati dok je navedena</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Isti obrazac, drugi put</span>
+  <code>mandatory_roles</code> je privilegija koja svakom nalogu stiže <strong>mimo grant
+  tabela</strong>, iz konfiguracije servera — tačno kao što je <code>partial_revokes</code> zabrana
+  zapisana mimo grant tabela. Kad model nešto ne može da izrazi, MySQL to zapiše
+  <span class="hi">van modela</span>.
+</div>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> sandbox iz <code>examples/00-setup/</code>, sa nalogom
+      <code>doc_bar</code> i ulogom <code>role_doctor</code>. Priprema i čišćenje kao
+      <code>dbadmin</code>, provera kao <code>doc_bar</code>. Ceo skript je
+      <code>examples/03-privilegije-i-uloge/02-uloge-hijerarhija-i-aktivacija.sql</code>.</p>
+
+    <h3 class="lab">Pokreni ovo — kao <code>dbadmin</code></h3>
+<pre class="sql run"><span class="k">CREATE ROLE</span> role_senior_doctor;
+<span class="k">GRANT</span> role_doctor <span class="k">TO</span> role_senior_doctor;                       <span class="c">-- uloga ulozi</span>
+<span class="k">GRANT SELECT</span> <span class="k">ON</span> poliklinika.invoices <span class="k">TO</span> role_senior_doctor;
+<span class="k">GRANT</span> role_senior_doctor <span class="k">TO</span> <span class="s">'doc_bar'</span>@<span class="s">'localhost'</span>;</pre>
+
+    <h3 class="lab">Zatim, u svežoj konekciji kao <code>doc_bar</code></h3>
+<pre class="sql run"><span class="k">SELECT</span> <span class="fn">CURRENT_ROLE</span>();
+<span class="k">SELECT</span> invoice_id <span class="k">FROM</span> poliklinika.invoices <span class="k">LIMIT</span> 5;
+
+<span class="k">SET ROLE</span> role_senior_doctor;
+<span class="k">SELECT</span> invoice_id <span class="k">FROM</span> poliklinika.invoices <span class="k">LIMIT</span> 5;
+<span class="k">SELECT</span> diagnosis_id <span class="k">FROM</span> poliklinika.diagnoses <span class="k">LIMIT</span> 5;
+
+<span class="k">SET ROLE</span> <span class="k">NONE</span>;
+<span class="k">SELECT</span> diagnosis_id <span class="k">FROM</span> poliklinika.diagnoses <span class="k">LIMIT</span> 5;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">CURRENT_ROLE()  -> role_doctor        (role_senior_doctor je dodeljena, ali nije aktivna)
+invoices        -> ERROR 1142
+SET ROLE ...    -> CURRENT_ROLE() postaje role_senior_doctor, role_doctor vise nije u skupu
+invoices        -> prolazi
+diagnoses       -> prolazi i dalje: doc_bar -> role_senior_doctor -> role_doctor
+SET ROLE NONE   -> CURRENT_ROLE() je NONE, diagnoses pada sa ERROR 1142</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> ista sesija, isti nalog, isti upit, tri različita
+      ishoda — jedino što se menja je <strong>aktivan skup uloga</strong>. Da MySQL nema sesiju u
+      RBAC₀ smislu, ova tri ishoda ne bi bila moguća. A to što <code>diagnoses</code> prolazi i kad
+      <code>role_doctor</code> nije direktno aktivna dokazuje nasleđivanje kroz dve ivice.</p>
+  </div>
+</div>
+
+<h2>9 · Presuda: MySQL uloge naspram RBAC modela</h2>
+
+<p>Ovde rad mora da bude precizan, jer u literaturi kruži tvrdnja da MySQL ulogama nedostaju sesije,
+hijerarhija <strong>i</strong> razdvajanje dužnosti. <span class="hi">Dve od te tri su netačne.</span></p>
+
+<table class="exp">
+  <tr><td><strong>RBAC₀</strong> — korisnici, uloge, privilegije, sesije</td><td><strong>ima</strong>:
+    <code>SET ROLE</code>, <code>CURRENT_ROLE()</code>, <code>SET DEFAULT ROLE</code>,
+    <code>activate_all_roles_on_login</code></td></tr>
+  <tr><td><strong>RBAC₁</strong> — hijerarhija i nasleđivanje</td><td><strong>delimično</strong>:
+    <code>GRANT role TO role</code> radi i graf stoji u <code>mysql.role_edges</code>, ali graf nije
+    parcijalno uređenje koje standard traži — ciklus nigde nije zabranjen</td></tr>
+  <tr><td><strong>RBAC₂</strong> — ograničenja, razdvajanje dužnosti</td><td><strong>nema</strong>:
+    nijedan mehanizam u priručniku</td></tr>
+  <tr><td><strong>RBAC₃</strong> — oba</td><td><strong>nema</strong>, kao posledica prethodnog</td></tr>
+</table>
+
+<p>Odsustvo razdvajanja dužnosti nije propust nego <strong>struktura</strong>: ograničenje „ove dve
+uloge se međusobno isključuju" traži da uloga bude entitet o kome se nešto može tvrditi, a uloga je
+samo zaključan red u <code>mysql.user</code>. Nema mesta gde bi takva izjava stajala — isti razlog
+zbog kog nije bilo mesta za uslov nad sadržajem reda u odeljku 3.</p>
+
+<p>Formulacija koju rad treba da nosi: MySQL ima aktivaciju uloga i grantove uloge ulozi, ali su
+uloga i korisnik <strong>isti objekat</strong> u grant tabelama, nema ograničenja razdvajanja
+dužnosti, i nema pojma ograničene RBAC sesije mimo skupa aktivnih uloga. Ukratko —
+<span class="hi">DAC sa ukusom uloga</span>: uloge su pogodnost za grupisanje privilegija nad
+postojećim diskrecionim modelom, a ne novi model. Priručnik ih tako i opisuje, kao „zgodnu
+alternativu dodeljivanju pojedinačnih privilegija", i nigde ne tvrdi usaglašenost sa RBAC
+standardom.</p>
+
+<h2>10 · Provera</h2>
+<div class="quiz">
+  <p>Po jedno pitanje na svaku netrivijalnu tvrdnju lekcije. Odgovaraj iz glave, bez vraćanja gore —
+     napor pri prisećanju je ono što gradi trajno znanje.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. <code>GRANT UPDATE, DELETE ON poliklinika.invoices TO role_billing</code> —
+      šta server upiše?</p>
+    <label><input type="radio"> Dva reda u <code>mysql.global_grants</code></label>
+    <label><input type="radio"> Dva reda u <code>mysql.tables_priv</code></label>
+    <label><input type="radio"> Jedan red u <code>mysql.tables_priv</code></label>
+    <label><input type="radio"> Jedan red u <code>mysql.db</code></label>
+    <p class="why">Dve kolone imenovanja (<code>Db</code>, <code>Table_name</code>) vode u
+      <code>tables_priv</code>, a kolona prava je tipa <code>SET</code>, pa oba prava staju u isti red.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">2. Zašto ne postoji grant tabela za pravo „SELECT nad redovima čiji je
+      <code>tenant_id = 2</code>"?</p>
+    <label><input type="radio"> Red grant tabele imenuje objekat nazivom, a ne uslovom nad sadržajem</label>
+    <label><input type="radio"> Provera takvog prava bila bi prespora da se izvodi za svaki zahtev</label>
+    <label><input type="radio"> Takvo pravo postaje moguće tek uključivanjem <code>partial_revokes</code></label>
+    <label><input type="radio"> Takva prava se ne čuvaju u grant tabelama nego u rečniku podataka</label>
+    <p class="why">Sve kolone imenovanja su nazivi; uslov nad vrednošću nema kolone u koju bi stao.
+      Odatle i nepostojanje red-level security-ja u poglavlju 4.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Nalog ima <code>SELECT ON poliklinika.*</code> i
+      <code>UPDATE (paid_status) ON poliklinika.invoices</code>. Šta sme nad <code>diagnoses</code>?</p>
+    <label><input type="radio"> Ništa, jer ga kolonska privilegija ograničava na <code>invoices</code></label>
+    <label><input type="radio"> Da čita samo kolone poklopljene sa kolonskom privilegijom</label>
+    <label><input type="radio"> Da čita i menja ceo sadržaj te tabele</label>
+    <label><input type="radio"> Da čita ceo sadržaj te tabele</label>
+    <p class="why">Član „db" u ILI-lancu je sam dovoljan za <code>SELECT</code>. Kolonska privilegija
+      ništa ne sužava; <code>UPDATE</code> nad <code>diagnoses</code> nijedan nivo ne dodeljuje.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">4. Šta sledi iz toga što su dinamičke privilegije redovi, a statičke kolone?</p>
+    <label><input type="radio"> Statičke privilegije se proveravaju brže od dinamičkih</label>
+    <label><input type="radio"> Spisak statičkih privilegija vezan je za verziju servera, dinamičkih nije</label>
+    <label><input type="radio"> Statičke privilegije važe trajno, a dinamičke do kraja sesije</label>
+    <label><input type="radio"> Statička privilegija se nalogu može dodeliti samo jednom</label>
+    <p class="why">Nova kolona traži izmenu šeme sistemske tabele; nov red ne traži ništa, pa
+      komponenta može da registruje svoju privilegiju u toku rada.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">5. Zašto se <code>SUPER</code> nije popravio dodavanjem novih statičkih privilegija?</p>
+    <label><input type="radio"> Statičke privilegije se ne mogu dodeliti ulozi, nego samo nalogu</label>
+    <label><input type="radio"> Statičke privilegije ne postoje na globalnom opsegu, koji je bio potreban</label>
+    <label><input type="radio"> Svaka nova statička privilegija traži novu kolonu u <code>mysql.user</code></label>
+    <label><input type="radio"> Statičke privilegije bi se morale dodeljivati sve zajedno, u paketu</label>
+    <p class="why">Komponente koje donose nove sposobnosti treba da donesu i svoje privilegije, a to
+      kroz izmenu šeme sistemske tabele nije izvodljivo.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">6. Šta restrikcija iz <code>partial_revokes</code> zapravo modifikuje?</p>
+    <label><input type="radio"> Pristup imenovanoj šemi, bez obzira odakle privilegija dolazi</label>
+    <label><input type="radio"> Doseg jedne globalne privilegije, izuzimajući imenovanu šemu iz nje</label>
+    <label><input type="radio"> Ishod cele Faze 2 za taj nalog nad objektima imenovane šeme</label>
+    <label><input type="radio"> Redosled kojim se članovi ILI-lanca proveravaju za taj nalog</label>
+    <p class="why">Restrikcija pogađa isključivo član „global" u izrazu
+      <code>(global - restrictions) OR db OR table OR …</code>; niži nivoi prolaze netaknuti.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">7. Koja je najjača posledica toga što su uloga i nalog isti objekat u
+      <code>mysql.user</code>?</p>
+    <label><input type="radio"> Uloga se ne može dodeliti drugoj ulozi, jer bi nalog dobio nalog</label>
+    <label><input type="radio"> Broj uloga ograničen je istim limitom kao broj naloga na serveru</label>
+    <label><input type="radio"> Uloga mora da ima lozinku i metod autentifikacije kao svaki nalog</label>
+    <label><input type="radio"> Ne postoji zaseban entitet na koji bi se zakačilo ograničenje nad ulogama</label>
+    <p class="why">Razdvajanje dužnosti traži izjavu o ulogama, a nema entiteta o kome bi se
+      izjavljivala. Lančanje uloga je, naprotiv, tom istovetnošću omogućeno.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">8. Nalog ima dodeljenu <code>role_doctor</code>, nema podrazumevanu ulogu, a
+      <code>activate_all_roles_on_login</code> je isključena. Prvi upit posle prijave?</p>
+    <label><input type="radio"> Greška — nijedna uloga nije aktivna, pa nijedna privilegija ne važi</label>
+    <label><input type="radio"> Prolazi — dodela uloge je dovoljna, aktivacija samo bira između njih</label>
+    <label><input type="radio"> Greška — nalog bez podrazumevane uloge server odbija već u Fazi 1</label>
+    <label><input type="radio"> Prolazi — kad je dodeljena tačno jedna uloga, server je aktivira sam</label>
+    <p class="why"><code>CURRENT_ROLE()</code> je <code>NONE</code> dok se ne izvrši
+      <code>SET ROLE</code>. Prijava ipak uspeva, jer je Faza 1 samo provera identiteta.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong>
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/access-control.html">MySQL 8.4 Reference Manual,
+  poglavlje 8.2 „Access Control and Account Management"</a> — počni od 8.2.3 (Grant Tables) i 8.2.7
+  (Stage 2), pa 8.2.10 (Using Roles) i 8.2.12 (Partial Revokes). ·
+  <strong>Vidi još:</strong> <a href="../reference/02-privilegije-i-uloge.html">referentna kartica
+  02</a>, <a href="0001-klasicni-modeli-kontrole-pristupa.html">lekcija 01</a>,
+  <a href="../reference/01-modeli-kontrole-pristupa.html">referentna kartica 01</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §1 i §2a. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu — lekcija je početak, ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>
