@@ -103,7 +103,9 @@ različita arnost daje različit oblik reda, a različit oblik reda traži zaseb
     hijerarhija</td></tr>
   <tr><td><code>SET ROLE</code></td><td><b>postavlja</b> aktivan skup, ne dodaje u njega;
     <code>NONE</code> ga prazni, <code>DEFAULT</code> vraća podrazumevani</td></tr>
-  <tr><td><code>CURRENT_ROLE()</code></td><td>aktivne uloge sesije, ili <code>NONE</code></td></tr>
+  <tr><td><code>CURRENT_ROLE()</code></td><td>aktivan skup sesije (npr. <code>`role_doctor`@`%`</code>)
+    ili <code>NONE</code> — <b>ne</b> i nasleđene uloge: one su na snazi, ali nevidljive
+    <b>(izmereno, 8.4.11)</b></td></tr>
   <tr><td><code>SET DEFAULT ROLE</code></td><td>upis u <code>mysql.default_roles</code>; aktivira se
     pri prijavi</td></tr>
   <tr><td><code>activate_all_roles_on_login</code></td><td>aktivira sve dodeljene uloge pri prijavi i
@@ -112,7 +114,8 @@ različita arnost daje različit oblik reda, a različit oblik reda traži zaseb
     ne mogu da se oduzmu ni obrišu dok su navedene</td></tr>
 </table>
 <p><b>Zapamti:</b> <span class="hi">dodeljena uloga nije aktivna uloga</span> — privilegije neaktivne
-uloge ne ulaze u proveru.</p>
+uloge ne ulaze u proveru. I: <code>ERROR 1143</code> imenuje <b>prvu</b> kolonu bez privilegije u
+listi, ne onu zbog koje je upit pisan — poruka nije spisak svega što nedostaje (izmereno).</p>
 
 <h2>Presuda po RBAC modelu (poglavlje 2)</h2>
 <table class="exp">

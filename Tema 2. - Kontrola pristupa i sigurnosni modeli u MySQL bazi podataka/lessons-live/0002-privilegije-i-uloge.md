@@ -841,3 +841,153 @@ Tvoj `/teach` prompt je slučajno zalepljen u taj SQL fajl. Vraćam ga:
 > [!abstract] PI
 
 Obsidian je napravio `.obsidian/` u `lessons-live/` — to ne treba u repo:
+
+
+> [!abstract] PI
+
+Gotovo. Rezime sesije:
+
+## Šta je naučeno
+
+Ceo graf je izveden iz **jedne** bezuslovne istine — *privilegija je red u običnoj tabeli* — umesto da bude spisak osobina. Odatle: broj nivoa iz arnosti imenovanja → ILI-sastavljanje iz grant-only modela → „uža nikad ne sužava širu" → statičko/dinamičko kao razlika kolone i reda → `SUPER` razložen → `partial_revokes` zapisan van oblika grant tabele → uloga kao zaključan red u `mysql.user` → aktivacija kao RBAC₀ sesija → presuda.
+
+Pet zabluda uhvaćeno i ispravljeno, sve sa čistim prisećanjem posle ispravke. Najvrednija je bila ona koju si sam prijavio kao nagađanje („uža sužava širu") — centralni čvor poglavlja.
+
+## Artefakti
+
+| Putanja | Šta je |
+|---|---|
+| `lessons/0002-privilegije-i-uloge.html` | lekcija (otvorena u pregledaču), 8 pitanja za prisećanje |
+| `reference/02-privilegije-i-uloge.html` | referentna kartica za odbranu |
+| `examples/03-privilegije-i-uloge/` | tri skripta + `README.md` |
+| `learning-records/0004-privilegije-i-uloge.md` | zapis + nova ograničenja u `README.md` |
+| `.scratch/kontrola-pristupa/measurements/0004-…` | čeklista za živu proveru |
+| `NOTES.md` | tri nove trajne beleške o načinu učenja |
+
+Sve komitovano (`8b3827f`). Usput sam vratio `examples/00-setup/04-roles-and-accounts.sql` — na njegov kraj je bio slučajno zalepljen tvoj `/teach` prompt.
+
+## Sledeći korak — nije opcion
+
+Ticket 16, DoD stavka 4, traži **živu proveru semantike aktivacije uloga** pre nego što se poglavlje piše. Skriptovi su napisani ali **nisu pokrenuti** — svako „očekivano" u njima je iz priručnika, ne iz merenja.
+
+Redosled: pokreni `01` i `02` (dovoljni su `dbadmin` i `doc_bar`), zatim `03` kao root. Vrati mi izlaz i upisaću merenja, pa pravimo figuru grafa uloga iz stvarnog sadržaja `mysql.role_edges`.
+
+
+> [!quote] YOU
+
+1    Nalaz za posetu #1: blaga infekcija gornjih disajnih puteva, preporucen odmor
+2    Nalaz za posetu #2: sumnja na migrenu, propisana terapija
+3    Nalaz za posetu #3: kontrola bez patoloskog nalaza
+4    Nalaz za posetu #4: kontrola bez patoloskog nalaza
+5    Nalaz za posetu #5: sumnja na migrenu, propisana terapija
+    23:52:32    SELECT diagnosis_id, diagnosis_text FROM poliklinika.diagnoses LIMIT 5    Error Code: 1143. SELECT command denied to user 'probe_narrow'@'localhost' for column 'diagnosis_id' in table 'diagnoses'    0.000 sec
+`role_doctor`@`%`23:57:10    SELECT invoice_id FROM poliklinika.invoices LIMIT 5    Error Code: 1142. SELECT command denied to user 'doc_bar'@'localhost' for table 'invoices'    0.000 sec
+1
+2
+3
+4
+51
+2
+3
+4
+5
+0    7    23:57:39    SELECT diagnosis_id FROM poliklinika.diagnoses LIMIT 5    Error Code: 1142. SELECT command denied to user 'doc_bar'@'localhost' for table 'diagnoses'    0.000 sec
+
+
+> [!abstract] PI
+
+Odlično — dva ključna nalaza, i jedan koji ispravlja moj skript.
+
+## Šta je potvrđeno
+
+**01 — ILI-sastavljanje.** `probe_wide` je vratio `diagnosis_text` u celosti, iako mu kolonska privilegija pokriva samo `icd_code`. `probe_narrow`, sa **identičnom** kolonskom privilegijom i bez šireg člana, pada. Tvrdnja „uža privilegija ne sužava širu" je izmerena, ne samo citirana.
+
+**Ispravka mog skripta:** greška glasi `for column 'diagnosis_id'`, a ne `'diagnosis_text'`. Server prijavljuje **prvu** kolonu na koju naiđe bez privilegije, a ne onu koja je „poenta" upita. Sitnica, ali skript je tvrdio pogrešnu kolonu.
+
+**02 — uloge.** `CURRENT_ROLE()` je vratio `` `role_doctor`@`%` `` — dakle `role_senior_doctor` je bila **dodeljena, ali neaktivna**, i `invoices` je pao sa `ERROR 1142`. Posle `SET ROLE role_senior_doctor` prošlo je i `invoices` i `diagnoses` — a `diagnoses` je dokaz **nasleđivanja kroz dve ivice**, jer `role_doctor` više nije bila direktno aktivna. Posle `SET ROLE NONE` `diagnoses` ponovo pada. RBAC₀ sesija, izmerena.
+
+Ispravljam skript i lekciju:
+
+
+> [!abstract] PI
+
+Merenja su upisana. Ostaje **jedan** izlaz koji nedostaje, i to baš onaj koji je mapa označila kao nužno proveriti uživo.
+
+U tvom ispisu vidim `CURRENT_ROLE()` samo za prvi slučaj (`` `role_doctor`@`%` ``). Nedostaje mi šta vraća **odmah posle** `SET ROLE role_senior_doctor` — to je jedini dokaz da `SET ROLE` **postavlja** aktivan skup, a ne dodaje u njega.
+
+Pre nego što pokreneš, predvidi:
+
+
+> [!question] Quiz
+> Šta će `SELECT CURRENT_ROLE()` vratiti odmah posle `SET ROLE role_senior_doctor`, ako je pre toga vraćao `` `role_doctor`@`%` ``?
+>
+> 1. `role_senior_doctor`@`%`, a posle prvog upita i `role_doctor`@`%`
+> 2. Sve tri, uključujući i nasleđenu ulogu kroz ivicu grafa
+> 3. Obe uloge, `role_doctor`@`%` i `role_senior_doctor`@`%`
+> 4. Samo `role_senior_doctor`@`%`
+
+
+> [!question] Quiz — I don't know
+> Your answer: I don't know
+> Correct answer: 4
+>
+> Note: Kazi mi kako da resetujem ceo flow, sad je poremeceno
+>
+> `SET ROLE` postavlja aktivan skup na tačno ono što je navedeno — podrazumevana uloga ispada iz skupa. Zato je bitno što je `diagnoses` i dalje prolazio: privilegija nije dolazila od `role_doctor` kao aktivne uloge, nego obilaskom grafa od `role_senior_doctor`. Nasleđene uloge se ne prikazuju u `CURRENT_ROLE()` — funkcija vraća aktivan skup, ne njegovo tranzitivno zatvorenje.
+
+
+> [!abstract] PI
+
+Ništa nije trajno poremećeno — oba skripta samo **dodaju** objekte, ništa iz `00-setup/` nisu dirala. Dve odvojene stvari treba vratiti.
+
+**1. Stanje sesije** — nije ni trajno. Aktivan skup uloga živi samo u konekciji; zatvori je i otvori novu i `doc_bar` je opet na `role_doctor`. Bez zatvaranja, dovoljno je:
+
+```sql
+SET ROLE DEFAULT;
+```
+
+**2. Objekti koje su skriptovi napravili.** Pišem ti jedan fajl za to:
+
+
+> [!abstract] PI
+
+`examples/03-privilegije-i-uloge/00-reset.sql` — pokreni kao `dbadmin`, pa si na čistom.
+
+## Redosled za ponovno hvatanje izlaza
+
+Treba mi samo `02`, i to sa `CURRENT_ROLE()` posle **svakog** koraka. Minimalna verzija:
+
+**Kao `dbadmin`:**
+```sql
+CREATE ROLE role_senior_doctor;
+GRANT role_doctor TO role_senior_doctor;
+GRANT SELECT ON poliklinika.invoices TO role_senior_doctor;
+GRANT role_senior_doctor TO 'doc_bar'@'localhost';
+```
+
+**Zatim sveža konekcija kao `doc_bar`** (bitno je da je sveža — stara sesija nosi zatečen aktivan skup):
+```sql
+SELECT CURRENT_ROLE();                  -- 1
+SET ROLE role_senior_doctor;
+SELECT CURRENT_ROLE();                  -- 2  <- ovo mi nedostaje
+SET ROLE NONE;
+SELECT CURRENT_ROLE();                  -- 3
+SET ROLE DEFAULT;
+SELECT CURRENT_ROLE();                  -- 4
+```
+
+Četiri reda teksta, ništa više. Red **2** je jedini koji zaista nedostaje — on razdvaja „`SET ROLE` postavlja skup" od „`SET ROLE` dodaje u skup", a od toga zavisi kako se u radu formuliše RBAC₀ sesija.
+
+Na tvoje „ne znam" iz kviza, da stoji zapisano pre nego što izmeriš: očekujem **samo** `` `role_senior_doctor`@`%` ``. Ako se pojavi i `role_doctor`, moje objašnjenje je pogrešno i menjamo i lekciju i karticu — zato se i meri.
+
+
+> [!quote] YOU
+
+'`role_senior_doctor`@`%`'
+
+
+> [!abstract] PI
+
+Potvrđeno — `SET ROLE` **postavlja** aktivan skup, ne dodaje u njega. Time je i poslednji nesigurni deo poglavlja izmeren.
+
+To ujedno zatvara i suptilnu stvar: `role_doctor` je nestala iz `CURRENT_ROLE()`, a `diagnoses` je i dalje prolazio. Dakle `CURRENT_ROLE()` vraća **aktivan skup**, ne njegovo tranzitivno zatvorenje — nasleđene uloge rade, ali se ne prikazuju. Za odbranu je to dobra rečenica: ono što vidiš u `CURRENT_ROLE()` nije spisak svega odakle ti prava dolaze.

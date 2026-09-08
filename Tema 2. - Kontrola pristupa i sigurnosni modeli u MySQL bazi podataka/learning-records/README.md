@@ -59,6 +59,14 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   as JSON in `mysql.user.User_attributes`, and it subtracts **only from the global term** of the OR
   chain — a table-level grant inside the restricted schema still works. Its schema-only limit is a
   design decision, not a consequence of the model. (0004)
+- **`SET ROLE` sets the active set, it does not add to it**, and **`CURRENT_ROLE()` returns that
+  active set, not its transitive closure**. Measured on 8.4.11: after `SET ROLE role_senior_doctor`
+  the default `role_doctor` dropped out of `CURRENT_ROLE()`, yet a privilege belonging to
+  `role_doctor` still worked through the role graph. Inherited roles are in force but invisible —
+  reusable in ch. 6, since `CURRENT_ROLE()` alone understates a session's reach. (0004)
+- **`ERROR 1143` names the first ungranted column in the select list**, not the column the query was
+  written to test. Measured. Do not present an `ERROR 1143` message as an inventory of what an
+  account is missing. (0004)
 - **A role is a locked row in `mysql.user`** — the same object as an account, differing only in the
   lock. `GRANT role TO x` writes an edge in `mysql.role_edges` and copies **no** privilege; the
   server resolves by walking the graph at check time. (0004)

@@ -42,8 +42,11 @@ SELECT icd_code FROM poliklinika.diagnoses LIMIT 5;
 -- Ocekivano: PROLAZI. Kolonska privilegija radi ono za sta je dodeljena.
 
 SELECT diagnosis_id, diagnosis_text FROM poliklinika.diagnoses LIMIT 5;
--- Ocekivano: ERROR 1143 (42000): SELECT command denied to user 'probe_narrow'@'localhost'
--- for column 'diagnosis_text' in table 'diagnoses'.
+-- Izmereno (8.4.11): ERROR 1143 (42000): SELECT command denied to user 'probe_narrow'@'localhost'
+-- for column 'diagnosis_id' in table 'diagnoses'.
+-- Paznja: server imenuje PRVU kolonu bez privilegije na koju naidje, ne onu koja je poenta upita.
+-- Ovde je to diagnosis_id, iako je upit pisan zbog diagnosis_text. Poruka greske, dakle, ne
+-- nabraja sve sto nedostaje - ona staje na prvom problemu.
 --
 -- Poredjenje B i C je cela poenta: kolonska privilegija je identicna u oba naloga. Razlika
 -- je iskljucivo u tome sto probe_wide ima jos jedan, siri clan ILI-lanca. Najmanje privilegije

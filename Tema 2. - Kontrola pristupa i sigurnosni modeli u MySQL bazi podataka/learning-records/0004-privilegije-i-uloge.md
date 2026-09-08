@@ -78,16 +78,31 @@ would otherwise "helpfully" restore.
 
 `.scratch/kontrola-pristupa/measurements/0004-privilegije-i-uloge.md`.
 
-**Not yet run live.** Unlike record 0003, the three example scripts were written but not executed
-in this session. Ticket 16's DoD explicitly requires verifying the role-activation semantics
-against the live server before the chapter is written. That verification is the next action, not
-an optional extra.
+`01` and `02` **were run by the user in the same session**, on 8.4.11, Workbench, two connections.
+The map's flagged claim — role-activation semantics — is now **measured, not sourced**:
+`CURRENT_ROLE()` showed only the default role while `role_senior_doctor` was granted, `invoices`
+failed with `ERROR 1142` until `SET ROLE`, `diagnoses` stayed readable across two `role_edges` hops,
+and `SET ROLE NONE` took it away again.
+
+Two findings the scripts were not written for:
+
+1. **`ERROR 1143` names the first ungranted column, not the intended one.** The probe queried
+   `diagnosis_text` but the server reported `diagnosis_id`. An `ERROR 1143` message is not an
+   inventory of what is missing. Script and lesson corrected.
+2. **`CURRENT_ROLE()` returns the active set, not its transitive closure.** After
+   `SET ROLE role_senior_doctor` it printed that role alone — `SET ROLE` *sets* rather than *adds* —
+   yet `diagnoses`, whose privilege belongs to the inherited `role_doctor`, still worked. Inherited
+   roles are in force but invisible. Reusable in ch. 6: an auditor reading `CURRENT_ROLE()` alone
+   underestimates a session's reach.
+
+`03` (partial revokes) still unrun — needs root.
 
 ## What comes next
 
-1. **Run all three scripts** and record actual output — especially `02`'s `SET ROLE` sequence
-   (`CURRENT_ROLE()` before/after, `ERROR 1142` on `invoices`, inheritance through two edges) and
-   `03`'s `User_attributes` JSON. `03` needs **root**.
+1. **Run `03-partial-revokes.sql` as root** and capture the `User_attributes` JSON, the
+   `SHOW GRANTS` rendering of the restriction, and the key claim: a table-level grant inside the
+   restricted schema still works. `01` and `02` are done; `00-reset.sql` returns the sandbox to a
+   clean state when needed.
 2. **The figure**: a role-graph diagram (`doc_bar → role_senior_doctor → role_doctor` with the
    privilege rows hanging off the nodes), per ticket 12's strategy, built from live
    `mysql.role_edges` content once `02` has been run.

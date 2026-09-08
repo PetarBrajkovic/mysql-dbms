@@ -136,8 +136,13 @@ nego time što se šire <strong>nikad ne dodeli</strong>.</p>
 <span class="k">SELECT</span> diagnosis_id, diagnosis_text <span class="k">FROM</span> poliklinika.diagnoses <span class="k">LIMIT</span> 5;</pre>
 
     <h3 class="lab">Šta treba da vidiš</h3>
-<pre class="out">probe_wide   -> prolazi i vraca diagnosis_text
-probe_narrow -> ERROR 1143 (42000): SELECT command denied ... for column 'diagnosis_text'</pre>
+<pre class="out">probe_wide   -> prolazi i vraca diagnosis_text za svih 5 redova
+probe_narrow -> ERROR 1143 (42000): SELECT command denied ... for column 'diagnosis_id'</pre>
+
+    <p class="interpret"><b>Detalj iz izmerenog izlaza:</b> greška imenuje
+      <code>diagnosis_id</code>, a ne <code>diagnosis_text</code> zbog koga je upit i pisan. Server
+      staje na <strong>prvoj</strong> koloni bez privilegije na koju naiđe; poruka greške nije
+      spisak svega što nedostaje.</p>
 
     <p class="interpret"><b>Kako se ovo čita:</b> kolonska privilegija je u oba naloga
       <strong>identična</strong>. Razlika je isključivo u tome što <code>probe_wide</code> ima jedan
@@ -352,17 +357,27 @@ najmanjih privilegija nema gde da se primeni.</p>
 <span class="k">SELECT</span> diagnosis_id <span class="k">FROM</span> poliklinika.diagnoses <span class="k">LIMIT</span> 5;</pre>
 
     <h3 class="lab">Šta treba da vidiš</h3>
-<pre class="out">CURRENT_ROLE()  -> role_doctor        (role_senior_doctor je dodeljena, ali nije aktivna)
-invoices        -> ERROR 1142
-SET ROLE ...    -> CURRENT_ROLE() postaje role_senior_doctor, role_doctor vise nije u skupu
-invoices        -> prolazi
-diagnoses       -> prolazi i dalje: doc_bar -> role_senior_doctor -> role_doctor
-SET ROLE NONE   -> CURRENT_ROLE() je NONE, diagnoses pada sa ERROR 1142</pre>
+<pre class="out">CURRENT_ROLE()  -> `role_doctor`@`%`          (role_senior_doctor je dodeljena, ali nije aktivna)
+invoices        -> ERROR 1142 ... for table 'invoices'
+SET ROLE ...    -> CURRENT_ROLE() -> `role_senior_doctor`@`%`   i nista vise
+invoices        -> prolazi, redovi 1-5
+diagnoses       -> prolazi, redovi 1-5: doc_bar -> role_senior_doctor -> role_doctor
+SET ROLE NONE   -> diagnoses pada sa ERROR 1142 ... for table 'diagnoses'</pre>
 
     <p class="interpret"><b>Kako se ovo čita:</b> ista sesija, isti nalog, isti upit, tri različita
       ishoda — jedino što se menja je <strong>aktivan skup uloga</strong>. Da MySQL nema sesiju u
       RBAC₀ smislu, ova tri ishoda ne bi bila moguća. A to što <code>diagnoses</code> prolazi i kad
       <code>role_doctor</code> nije direktno aktivna dokazuje nasleđivanje kroz dve ivice.</p>
+
+    <div class="note">
+      <span class="lbl">Izmereno — dve stvari koje skript nije tražio</span>
+      <strong>(1)</strong> <code>SET ROLE</code> <strong>postavlja</strong> aktivan skup, ne dodaje u
+      njega: podrazumevana <code>role_doctor</code> je ispala iz <code>CURRENT_ROLE()</code>.
+      <strong>(2)</strong> Ipak je <code>diagnoses</code> i dalje prolazio — a ta privilegija pripada
+      baš <code>role_doctor</code>. Dakle <span class="hi"><code>CURRENT_ROLE()</code> vraća aktivan
+      skup, a ne njegovo tranzitivno zatvorenje</span>: nasleđene uloge su na snazi, ali se ne
+      prikazuju. Ono što vidiš u <code>CURRENT_ROLE()</code> nije spisak svega odakle ti prava dolaze.
+    </div>
   </div>
 </div>
 

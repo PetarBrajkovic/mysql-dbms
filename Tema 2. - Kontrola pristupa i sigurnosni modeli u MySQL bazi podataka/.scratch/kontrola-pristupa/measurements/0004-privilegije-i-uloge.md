@@ -2,9 +2,8 @@
 
 ## Status
 
-**Nothing measured yet.** The three example scripts were authored in the teaching session but not
-executed. Every "expected" line in them is sourced from the MySQL 8.4 manual, not observed. Do not
-cite any of it as measured until this file records real output.
+`01` and `02` **run by the user on 8.4.11**, same session, Workbench, two connections. `03` not yet
+run (needs root). Everything below marked measured is real output; the rest is still manual-sourced.
 
 ## Artifacts produced
 
@@ -21,18 +20,52 @@ cite any of it as measured until this file records real output.
 
 Fill in observed output under each heading as it is run.
 
-### 01 — OR-composition
-- [ ] `probe_wide` reads `diagnosis_text` despite holding only `SELECT (icd_code)` at column level
-- [ ] `probe_narrow` fails with `ERROR 1143` on the same statement
-- [ ] `SHOW GRANTS` for `probe_wide` lists the db-level and column-level lines as separate entries
+### 01 — OR-composition — MEASURED
+- [x] `probe_wide` returned all five `diagnosis_text` values ("Nalaz za posetu #1" … "#5") while
+      holding only `SELECT (icd_code)` at column level. The db-level grant alone carried it.
+- [x] `probe_narrow`, with the **identical** column privilege and nothing wider, failed:
+      `ERROR 1143. SELECT command denied to user 'probe_narrow'@'localhost' for column
+      'diagnosis_id' in table 'diagnoses'`
+- [ ] `SHOW GRANTS` output for `probe_wide` not captured
 
-### 02 — roles (the claim the map flagged as needing the live server)
-- [ ] `CURRENT_ROLE()` on fresh login shows `role_doctor` only, not the newly granted `role_senior_doctor`
-- [ ] `SELECT` on `invoices` fails before `SET ROLE`, succeeds after
-- [ ] `SET ROLE role_senior_doctor` **replaces** the active set (i.e. `role_doctor` disappears from `CURRENT_ROLE()`)
-- [ ] `diagnoses` still readable after that, proving inheritance across two `role_edges` hops
-- [ ] `SET ROLE NONE` → `CURRENT_ROLE()` = `NONE`, `diagnoses` fails with `ERROR 1142`
-- [ ] `SHOW GRANTS FOR CURRENT_USER() USING role_senior_doctor` resolves the graph
+**Finding, and a correction to the script as first written.** The error names **`diagnosis_id`**, not
+`diagnosis_text`. The server stops at the *first* ungranted column in the select list rather than the
+one the query was written to test, so an `ERROR 1143` message is not an inventory of what is
+missing. Script and lesson both corrected to say so. Minor but citable: it is the kind of detail
+that makes a chapter read as measured rather than paraphrased.
+
+### 02 — roles — MEASURED (this is the claim the map flagged as needing the live server)
+- [x] `CURRENT_ROLE()` on fresh login returned `` `role_doctor`@`%` `` — **only** the default role.
+      `role_senior_doctor` was granted in the same session and did **not** appear. Granted ≠ active,
+      confirmed on this server, with `activate_all_roles_on_login` `OFF` (record 0001).
+- [x] `SELECT invoice_id FROM poliklinika.invoices` before `SET ROLE`:
+      `ERROR 1142. SELECT command denied to user 'doc_bar'@'localhost' for table 'invoices'` — the
+      privilege existed in `tables_priv` under `role_senior_doctor`, but an inactive holder does not
+      enter the check at all.
+- [x] after `SET ROLE role_senior_doctor`: `invoices` returned rows 1–5.
+- [x] `diagnoses` **also** returned rows 1–5 at that point, although `role_doctor` was no longer
+      directly active — inheritance across two `role_edges` hops
+      (`doc_bar` → `role_senior_doctor` → `role_doctor`), measured.
+- [x] after `SET ROLE NONE`: `ERROR 1142 … for table 'diagnoses'`. Same account, same session, same
+      statement that had just succeeded.
+- [x] `CURRENT_ROLE()` immediately after `SET ROLE role_senior_doctor` returned
+      `` `role_senior_doctor`@`%` `` and **nothing else**. `SET ROLE` therefore *sets* the active
+      set rather than adding to it — the default role drops out. This was the claim the map flagged
+      as needing the live server before it went into a chapter; it is now measured, not sourced.
+- [ ] `CURRENT_ROLE()` after `SET ROLE NONE` not captured cleanly (expected literal `NONE`).
+
+**The sharpest consequence, and it was not predicted in advance.** At the moment `CURRENT_ROLE()`
+read `` `role_senior_doctor`@`%` `` alone, `SELECT` on `diagnoses` still succeeded — and that
+privilege belongs to `role_doctor`, which was no longer in the active set. So `CURRENT_ROLE()`
+returns the **active set**, not its transitive closure: inherited roles are in force but invisible.
+Good chapter sentence — what `CURRENT_ROLE()` shows is not the list of everywhere your privileges
+come from. It also means an auditor reading `CURRENT_ROLE()` alone underestimates a session's
+reach, which ch. 6 can reuse.
+- [ ] `SHOW GRANTS FOR CURRENT_USER() USING role_senior_doctor` not captured.
+
+**Note for the chapter:** roles are created at host `%` (`` `role_doctor`@`%` ``), so `CURRENT_ROLE()`
+prints a fully qualified authorization ID, not a bare name — further evidence that a role is the same
+kind of object as an account.
 
 ### 03 — partial revokes (root)
 - [ ] `REVOKE SELECT ON poliklinika.* ` fails with `ERROR 1141` while `partial_revokes` is `OFF`
