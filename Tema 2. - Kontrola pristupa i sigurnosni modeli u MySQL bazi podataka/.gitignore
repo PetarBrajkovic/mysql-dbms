@@ -14,3 +14,6 @@ figures/teach/
 
 # Word owner/lock files, created whenever rad.docx is open
 ~$*
+
+# Obsidian vault state for the live session log
+lessons-live/.obsidian/

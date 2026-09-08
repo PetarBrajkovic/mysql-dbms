@@ -836,3 +836,8 @@ Jedna stvar zahteva pažnju — `04-roles-and-accounts.sql` je izmenjen:
 > [!abstract] PI
 
 Tvoj `/teach` prompt je slučajno zalepljen u taj SQL fajl. Vraćam ga:
+
+
+> [!abstract] PI
+
+Obsidian je napravio `.obsidian/` u `lessons-live/` — to ne treba u repo:
