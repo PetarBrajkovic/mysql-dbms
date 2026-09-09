@@ -991,3 +991,68 @@ Na tvoje „ne znam" iz kviza, da stoji zapisano pre nego što izmeriš: očekuj
 Potvrđeno — `SET ROLE` **postavlja** aktivan skup, ne dodaje u njega. Time je i poslednji nesigurni deo poglavlja izmeren.
 
 To ujedno zatvara i suptilnu stvar: `role_doctor` je nestala iz `CURRENT_ROLE()`, a `diagnoses` je i dalje prolazio. Dakle `CURRENT_ROLE()` vraća **aktivan skup**, ne njegovo tranzitivno zatvorenje — nasleđene uloge rade, ali se ne prikazuju. Za odbranu je to dobra rečenica: ono što vidiš u `CURRENT_ROLE()` nije spisak svega odakle ti prava dolaze.
+
+
+> [!abstract] PI
+
+Lekcija je zatvorena i izmerena.
+
+## Stanje poglavlja 3 (ticket 16)
+
+| DoD stavka | Status |
+|---|---|
+| 1. Naučeno preko `/teach`, lekcija postoji | ✅ `lessons/0002-privilegije-i-uloge.html` |
+| 2. Izvršiv SQL u `examples/` | ✅ četiri skripta; `01` i `02` **pokrenuti uživo**, `03` čeka root |
+| 2. Figura u `figures/` | ⬜ graf uloga — sada može, jer postoje stvarni podaci |
+| 3. Srpska proza u `rad.md` | ⬜ zasebna sesija, `academic-research-writer` |
+| 4. Zapis o učenju + komit | ✅ `0004` + dva komita |
+| 4. **Živa provera semantike aktivacije uloga** | ✅ **izmereno**, ne više samo citirano |
+
+## Šta je merenje dalo preko očekivanog
+
+Dva nalaza kojih nije bilo ni u memou 03 ni u priručniku na tom mestu, oba sada u standing constraints:
+
+1. **`ERROR 1143` imenuje prvu kolonu bez privilegije**, ne onu zbog koje si pisao upit. Poruka nije spisak onoga što nedostaje.
+2. **`CURRENT_ROLE()` vraća aktivan skup, ne tranzitivno zatvorenje.** Nasleđene uloge rade, a ne vide se. To poglavlje 6 nasleđuje besplatno: revizor koji čita samo `CURRENT_ROLE()` **potcenjuje** domet sesije.
+
+## Sledeći put
+
+Redosled je: `03-partial-revokes.sql` kao **root** (traži `SYSTEM_VARIABLES_ADMIN` i globalni `SELECT`, `dbadmin` ne može — što je i samo po sebi ilustracija razloženog `SUPER`-a), pa figura grafa uloga iz živog `mysql.role_edges`, pa tek onda pisanje.
+
+Kad ti se vrati, `examples/03-privilegije-i-uloge/00-reset.sql` vraća sandbox na čisto — jednim pokretanjem, kao `dbadmin`.
+
+
+> [!quote] YOU
+
+Odradio sam 03-partial-revokes.sql
+
+
+> [!abstract] PI
+
+Odlično — ali treba mi izlaz da bih upisao merenja. Bez njega ništa iz `03` ne smem da tvrdim kao izmereno, jer je sve u tom skriptu i dalje samo prepis iz priručnika.
+
+Četiri stvari, po važnosti:
+
+1. **`User_attributes` JSON** posle `REVOKE SELECT ON poliklinika.*` — tačan sadržaj kolone. Ovo je jedini direktan dokaz da zabrana **nije** red u grant tabeli.
+2. **`SHOW GRANTS FOR 'backup_op'@'localhost'`** — kako server ispisuje restrikciju (očekujem red koji počinje sa `REVOKE`).
+3. **Ključna tvrdnja:** posle `GRANT SELECT ON poliklinika.diagnoses TO backup_op`, da li `SELECT COUNT(*) FROM poliklinika.diagnoses` **prolazi**, dok `poliklinika.patients` i dalje pada sa `ERROR 1142`. To je jedina provera da restrikcija umanjuje **samo** globalni član ILI-lanca, a ne ceo pristup šemi — čvor koji ti je u lekciji dvaput pukao pre nego što je legao.
+4. **`SET PERSIST partial_revokes = OFF`** dok `backup_op` još postoji — da li padne, i sa kojom porukom.
+
+Zanima me i jedna stvar koju skript nije tražio: da li je `REVOKE SELECT ON poliklinika.*` pri **isključenoj** promenljivoj zaista pao sa `ERROR 1141`, ako si to uhvatio pre `SET PERSIST ... = ON`.
+
+Zalepi sirov izlaz kao i prošli put, ne moraš da ga sređuješ.
+
+
+> [!quote] YOU
+
+Vec sam sve odradio i zavrsio, bilo je kao ocekivano
+
+
+> [!quote] YOU
+
+try again
+
+
+> [!abstract] PI
+
+Prihvatam — upisujem kao **potvrđeno od tebe**, ne kao uhvaćen izlaz. Razlika je bitna samo na jednom mestu: rad ne sme da tvrdi „izmereno je da JSON glasi ovako" ako tačan string nije snimljen. Za oblik JSON-a citiraćemo priručnik, a tvoju potvrdu koristimo za ponašanje.

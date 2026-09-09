@@ -2,8 +2,14 @@
 
 ## Status
 
-`01` and `02` **run by the user on 8.4.11**, same session, Workbench, two connections. `03` not yet
-run (needs root). Everything below marked measured is real output; the rest is still manual-sourced.
+`01` and `02` **run by the user on 8.4.11**, same session, Workbench, two connections, with raw
+output pasted back and recorded verbatim below.
+
+`03` **run by the user as root, reported as matching expectations in full, but the output was not
+captured.** Treat this as testimony, not as a measurement: the behaviour is confirmed, the exact
+strings are not. Consequence for `rad.md` — cite 8.4 refman 8.2.12 for the shape of the
+`Restrictions` JSON and for the `SHOW GRANTS` rendering, and do **not** present either as this
+paper's own captured output. The behavioural claims below may be stated as verified on 8.4.11.
 
 ## Artifacts produced
 
@@ -67,12 +73,21 @@ reach, which ch. 6 can reuse.
 prints a fully qualified authorization ID, not a bare name — further evidence that a role is the same
 kind of object as an account.
 
-### 03 — partial revokes (root)
-- [ ] `REVOKE SELECT ON poliklinika.* ` fails with `ERROR 1141` while `partial_revokes` is `OFF`
-- [ ] exact `User_attributes` JSON after the revoke
-- [ ] exact `SHOW GRANTS` rendering of the restriction
-- [ ] table-level grant inside the restricted schema still works (the key claim)
-- [ ] `SET PERSIST partial_revokes = OFF` fails while the restricted account still exists
+### 03 — partial revokes (root) — CONFIRMED BY USER, OUTPUT NOT CAPTURED
+- [x] behaviour reported as matching the script's expectations throughout, including the key claim:
+      after the schema-wide restriction, a table-level `GRANT` inside that same schema still works,
+      while other tables in it stay denied. This is the one that matters — it is what makes the
+      restriction an subtraction from the **global term** of the OR chain rather than a schema-wide
+      deny, and it is the node the user missed twice during the lesson before it landed.
+- [ ] exact `User_attributes` JSON string — not captured; quote the manual instead
+- [ ] exact `SHOW GRANTS` rendering — not captured; quote the manual instead
+- [ ] `ERROR 1141` on revoke while `partial_revokes` is `OFF` — not separately confirmed
+- [ ] failure of `SET PERSIST partial_revokes = OFF` while the restricted account exists — not
+      separately confirmed
+
+**If a captured artifact is wanted later**, it is a two-minute re-run as root; `00-reset.sql` plus
+the commented root block at its bottom restores the server first. Not blocking: the chapter's claim
+rests on the manual, and the manual is unambiguous here.
 
 ## Figure to build afterwards
 

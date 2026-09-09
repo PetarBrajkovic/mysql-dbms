@@ -95,14 +95,16 @@ Two findings the scripts were not written for:
    roles are in force but invisible. Reusable in ch. 6: an auditor reading `CURRENT_ROLE()` alone
    underestimates a session's reach.
 
-`03` (partial revokes) still unrun — needs root.
+`03` (partial revokes) **was run as root and reported as matching expectations in full**, but its
+output was not captured. Recorded as testimony rather than measurement: the behaviour is verified,
+the exact strings are not, so the chapter cites 8.2.12 for the `Restrictions` JSON shape and the
+`SHOW GRANTS` rendering instead of presenting them as this paper's own capture.
 
 ## What comes next
 
-1. **Run `03-partial-revokes.sql` as root** and capture the `User_attributes` JSON, the
-   `SHOW GRANTS` rendering of the restriction, and the key claim: a table-level grant inside the
-   restricted schema still works. `01` and `02` are done; `00-reset.sql` returns the sandbox to a
-   clean state when needed.
+1. Optional, two minutes: re-run `03` as root and actually capture the `User_attributes` JSON and
+   the `SHOW GRANTS` rendering, if the chapter ends up wanting them as own output rather than as
+   manual quotes. Not blocking.
 2. **The figure**: a role-graph diagram (`doc_bar → role_senior_doctor → role_doctor` with the
    privilege rows hanging off the nodes), per ticket 12's strategy, built from live
    `mysql.role_edges` content once `02` has been run.
