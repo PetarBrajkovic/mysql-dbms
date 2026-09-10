@@ -1056,3 +1056,86 @@ try again
 > [!abstract] PI
 
 Prihvatam — upisujem kao **potvrđeno od tebe**, ne kao uhvaćen izlaz. Razlika je bitna samo na jednom mestu: rad ne sme da tvrdi „izmereno je da JSON glasi ovako" ako tačan string nije snimljen. Za oblik JSON-a citiraćemo priručnik, a tvoju potvrdu koristimo za ponašanje.
+
+
+> [!abstract] PI
+
+Sve je komitovano. Poglavlje 3 sada stoji ovako:
+
+| DoD | |
+|---|---|
+| lekcija naučena i sačuvana | ✅ |
+| izvršiv SQL, pokrenut uživo | ✅ sva četiri skripta |
+| figura u `figures/` | ⬜ jedino što fali pre pisanja |
+| proza u `rad.md` | ⬜ **zasebna sesija** (`MISSION.md`: lekcija i poglavlje se ne pišu isti put) |
+| zapis o učenju + komit | ✅ |
+
+
+> [!question] Question
+> Da napravim figuru sada ili da stanemo ovde?
+>
+> Figura je graf uloga: `doc_bar` → `role_senior_doctor` → `role_doctor`, sa redovima iz `tables_priv` okačenim o čvorove uloga i nijednim na nalogu. Podaci se povlače iz živog `mysql.role_edges` preko `mysql-credentials.cnf`, po `tools/FIGURES.md`.
+>
+> 1. Stanimo ovde (Recommended)
+> 2. Napravi figuru sada
+> 3. Nešto iz lekcije mi još nije jasno
+
+
+> [!example] Answer
+> 1. Stanimo ovde (Recommended)
+
+
+> [!abstract] PI
+
+Stajemo. Sažetak sesije:
+
+## Šta je danas naučeno
+
+Poglavlje 3 u celini, izvedeno iz **jedne** rečenice — *privilegija je red u običnoj tabeli* — umesto naučeno kao spisak osobina. Iz nje su ispali: broj nivoa, ILI-sastavljanje, razlika statičko/dinamičko, razlog za razlaganje `SUPER`-a, mesto `partial_revokes`-a, priroda uloge i cela RBAC presuda.
+
+Pet zabluda uhvaćeno i razrešeno, svaka sa čistim prisećanjem posle ispravke. Najkorisnija je bila ona koju si sam prijavio kao nagađanje na početku — „uža privilegija sužava širu" — jer je to tačno onaj čvor od kog zavisi ostatak poglavlja.
+
+Vredi zabeležiti i dve stvari koje si ti ispravio meni: da pitanje o `role_doctor` nije bilo rešivo iz prikazanih naredbi, i da si tražio reset kad se stanje sandboxa zapetljalo. Oba su ušla u `NOTES.md` kao trajna pravila za sledeće lekcije.
+
+## Šta ostaje za sledeći put
+
+Redosled je fiksiran u zapisu `0004`:
+
+1. **Figura** — graf uloga iz živog `mysql.role_edges`.
+2. **Pisanje poglavlja** sa `academic-research-writer`, ~4 strane. `references.bib` treba da dobije sekcije priručnika 8.2.3, 8.2.7, 8.2.10, 8.2.12, 8.2.13 i 15.7.1.11.
+
+Jedno upozorenje je namerno zapisano na tri mesta, jer je to tvrdnja koju bi neko „uslužno" vratio u pogrešnom obliku: **nikad ne napisati da MySQL nema `SET ROLE` ili nasleđivanje uloga.** Ta česta tvrdnja je dvotrećinski netačna, i ti si je danas i izmerio.
+
+Ako se vratiš za nedelju dana i želiš proveru pre pisanja — reci, pa ću ti postaviti nekoliko pitanja iz lekcije bez prethodnog čitanja. Odloženo prisećanje je ono što ovo pretvara u znanje koje se brani, a ne prepoznaje.
+
+
+> [!quote] YOU
+
+Sta treba da uradim da napravim figure
+
+
+> [!abstract] PI
+
+Kratak odgovor: **ti ne radiš ništa.** Figure u ovom radu pravi agent od početka do kraja — `figures/README.md` to izričito zaključava: *„No screenshots anywhere in this paper"*, nijedna figura se ne hvata rukom, ni greške iz Workbench-a.
+
+## Šta poglavlje 3 dobija
+
+Budžet je već odlučen (ticket 12), dve figure, **obe crtane dijagrame preko Mermaid-a**:
+
+| Figura | Šta pokazuje |
+|---|---|
+| `03-privilegije-01-role-graph.png` | graf uloga: `doc_bar` → `role_senior_doctor` → `role_doctor`, sa redovima iz `tables_priv` okačenim o uloge i **nijednim** na nalogu |
+| `03-privilegije-02-provera-pristupa.png` | dvostepena provera i ILI-lanac `(global − restrictions) ∨ db ∨ table ∨ column` |
+
+Bitno za tvoje pitanje: **nijedna od te dve ne traži server.** To su konceptualni dijagrami, ne merenja — nema plana upita da se crta, nema rezultata koji je poenta. Znači ni `mysql-credentials.cnf`, ni pokretanje skripta, ni stanje sandboxa. Pravilo iz `FIGURES.md` je prvo potražiti postojeći zvanični dijagram koji bi se preuzeo i citirao; MySQL-ov priručnik nema ni dijagram grafa uloga ni dijagram putanje provere, pa se crta original.
+
+Server bi trebao tek za **treći** tip figure — „result-and-error pair", isti upit kao dva naloga, jedan prolazi, drugi baca `ERROR 1142`. Taj tip je predviđen za poglavlje 4, ne za ovo.
+
+## Šta se od tebe traži
+
+Samo dve stvari, i obe su odluke, ne posao:
+
+1. Da kažeš „napravi ih" — u sesiji u kojoj pišemo poglavlje, jer se tek tamo vidi šta tekst zaista treba da prikaže.
+2. Da **pogledaš gotov PNG** pre nego što uđe u `rad.md`. To je jedina ručna kontrola koju `FIGURES.md` traži, i s razlogom: skriptovi proveravaju brojeve prema živom serveru, ali *„text in figures has no automated guard"* — pogrešno napisan srpski naslov u figuri ništa neće uhvatiti osim oka.
+
+Ako hoćeš da ih napravim odmah, reci — traje nekoliko minuta i ne dira ni bazu ni `rad.md`. Ali pošto sam maločas predložio da stanemo, ostajem pri tome: prirodno mesto im je početak pisaće sesije.

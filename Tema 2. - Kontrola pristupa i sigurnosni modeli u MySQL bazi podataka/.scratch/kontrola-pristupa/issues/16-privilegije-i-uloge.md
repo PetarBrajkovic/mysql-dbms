@@ -1,7 +1,7 @@
 # Chapter 3. Sistem privilegija i uloga u MySQL-u
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 03, 09, 10
 
 ## Question

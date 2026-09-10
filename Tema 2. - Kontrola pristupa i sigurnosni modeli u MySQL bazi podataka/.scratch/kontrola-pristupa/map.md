@@ -195,6 +195,20 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   least privilege in Saltzer & Schroeder's exact 1975 wording plus their fail-safe-defaults
   principle. Four new `references.bib` entries. Every deck-backed claim cites R&G, never the deck.
 
+- [Chapter 3. Sistem privilegija i uloga u MySQL-u](issues/16-privilegije-i-uloge.md): lesson
+  already taught (learning record 0004), so this session wrote ~1400 words into `rad.md` §3 with
+  `academic-research-writer`: the grant tables as a data model (level count derived from column
+  naming arity), the two-stage check, the OR-composition chain illustrated by the live
+  `probe_wide`/`probe_narrow` measurement, static vs. dynamic privileges and `SUPER`'s decomposition,
+  `partial_revokes` and `mandatory_roles` framed together as written outside the model, roles as
+  locked `mysql.user` rows resolved via the `mysql.role_edges` graph, then the live-measured
+  `SET ROLE`/`CURRENT_ROLE()` activation semantics, closing with the RBAC verdict (RBAC0 full,
+  RBAC1 partial because the graph is not a partial order, RBAC2 absent and structural). Two new
+  Mermaid figures (`figures/03-privilegije-01-provera-ili.png`, `figures/03-privilegije-02-role-graf.png`),
+  both verified by rendering before saving. No new `references.bib` entries needed, every claim
+  cites `mysql84refman`, `sandhu1996`, `incits2004` or `saltzerschroeder1975`, all already seeded.
+  Export re-verified clean.
+
 ## Not yet specified
 
 - **Whether the paper needs a comparison system at all.** *Partly settled*: ticket 04 fixes
