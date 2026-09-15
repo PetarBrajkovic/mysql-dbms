@@ -442,18 +442,18 @@ unazad, do autentifikacije, provere samog identiteta, i pita odakle ta provera d
 nju, odlučuje sme li se veza uopšte održati [@mysql84refman]. Prvi korak provere prava, uveden u
 trećem poglavlju kao korak koji se odigrava jednom po sesiji, jeste upravo taj trenutak: po hostu se
 bira tačno jedan red tabele `mysql.user`, od najužeg poklapanja ka najširem, bez vraćanja na širi red
-ako uži ne zadovolji lozinku [@mysql84refman]. Taj izabrani red
-imenuje, u sopstvenoj koloni `plugin`, autentifikacioni modul koji proverava akreditiv: podrazumevano
-`caching_sha2_password`, naslednik ranijeg `mysql_native_password`, obeleženog kao zastarelog od
-verzije 8.0.34 i isključenog po podrazumevanoj vrednosti od verzije 8.4 [@mysql84refman]. Plugin je,
-dakle, zamenljiv modul vezan za pojedinačan nalog, ne za server u celini, a njegov posao je uzak: prima
-akreditiv i sadržaj kolone `authentication_string`, i vraća jedan bit, da ili ne [@mysql84refman].
+ako uži ne zadovolji lozinku [@mysql84refman]. Taj izabrani red imenuje, u sopstvenoj koloni
+`plugin`, autentifikacioni modul koji proverava akreditiv: podrazumevano `caching_sha2_password`,
+naslednik ranijeg `mysql_native_password`, obeleženog kao zastarelog od verzije 8.0.34 i
+podrazumevano isključenog od verzije 8.4 [@mysql84refman]. Plugin je, dakle, zamenljiv modul vezan
+za pojedinačan nalog, ne za server u celini, a njegov posao je uzak: prima akreditiv i sadržaj
+kolone `authentication_string`, i vraća jedan bit, da ili ne [@mysql84refman].
 Svaka druga odluka, stanje naloga, isticanje lozinke, broj promašenih prijava, zahtev za šifrovanom
 vezom, ograničenje resursa, donosi se u jezgru servera, posle plugina i nezavisno od njega
 [@mysql84refman]. Ovo poglavlje sledi tačno tu podelu: **plugin proverava akreditiv, jezgro sprovodi
 politiku**, i skoro svaki mehanizam opisan dalje je samo primena ove jedne razlike na drugi deo naloga.
 
-Politika o jačini lozinke ne stiže u ovaj obrazac na očekivan način. Plugin je pri prijavi nemoćan da
+Politika jačine lozinke ne stiže u ovaj obrazac na očekivan način. Plugin je pri prijavi nemoćan da
 je sprovede, jer u tom trenutku vidi samo otisak, hešovanu vrednost, nikada čist tekst lozinke; sama
 politika ima smisla jedino u trenutku kada se lozinka postavlja, `CREATE USER`, `ALTER USER` ili
 `SET PASSWORD`, kada čist tekst kratko postoji u serveru [@mysql84refman]. MySQL zato otvara treće
@@ -462,7 +462,8 @@ jezgro poziva nad prosleđenom lozinkom i čiji je odgovor, kao i pluginov, samo
 [@mysql84refman]. Razlika prema pluginu je u tome što komponenta nikada sama ne čita `mysql.user` ili
 `mysql.password_history`; svaka vrednost nad kojom odlučuje, dužina, sastav znakova, procenat
 promenjenih znakova u odnosu na prethodnu lozinku, prosleđuje joj se izvana, iz jezgra
-[@mysql84refman]. Prekidač `validate_password.policy` određuje koliko se od toga uopšte primenjuje:
+[@mysql84refman]. Promenljiva `validate_password.policy` određuje koliko se od toga uopšte
+primenjuje:
 `LOW` proverava samo dužinu, `MEDIUM` dodaje sastav znakova (velika i mala slova, cifru, poseban
 znak), `STRONG` dodaje proveru prema rečniku [@mysql84refman]. Na serveru rada (verzija 8.4.11), uz
 `validate_password.policy = MEDIUM` kao izmerenu podrazumevanu vrednost, pokušaj `CREATE USER ...
@@ -473,51 +474,51 @@ Nalog nosi, van komponente, i sopstvenu politiku zaključavanja posle uzastopnih
 klauzule `FAILED_LOGIN_ATTEMPTS n` i `PASSWORD_LOCK_TIME {n|UNBOUNDED}` uz `CREATE USER` ili
 `ALTER USER` [@mysql84refman]. Ova politika nije nova kolona grant tabele, nego JSON zapis unutar
 postojeće kolone `mysql.user.User_attributes`, na putanji `$.Password_locking`
-[@mysql84refman] — četvrti primer u ovom radu istog obrasca: kada oblik grant tabela ne ume da izrazi
-pravilo, MySQL ga ne uvodi kao novi mehanizam, nego ga dopisuje van te šeme (`partial_revokes` iz
-trećeg poglavlja i pogled kao imenovan predikat iz četvrtog poglavlja su ranija dva primera istog
+[@mysql84refman]. To je četvrti primer istog obrasca u ovom radu: kada oblik grant tabela ne ume da
+izrazi pravilo, MySQL ga ne uvodi kao novi mehanizam, nego ga dopisuje van te šeme (`partial_revokes`
+iz trećeg poglavlja i pogled kao imenovan predikat iz četvrtog poglavlja su ranija dva primera istog
 poteza). Slika 5.1 pokazuje posledicu ove politike izmerenu na serveru rada: nalogu `kljucar` je pri
 kreiranju dodeljeno `FAILED_LOGIN_ATTEMPTS 3 PASSWORD_LOCK_TIME 1`; posle tri uzastopne prijave sa
 pogrešnom lozinkom, četvrti pokušaj, ovog puta sa **tačnom** lozinkom, i dalje pada, sa
-`ERROR 3955 (HY000)`, tekstom koji imenuje brojač promašaja, ne lozinku [@mysql84refman]. Levo je, radi
-kontrasta, ista vrsta upita kroz običan, nezaključan nalog. Poruka na serveru rada glasi `3955`; primer
-u samom priručniku, uveden rečima „greška nalik ovoj“, ilustracija a ne specifikacija, prikazuje broj
-`3957` [@mysql84refman] — razlika je zabeležena ovde upravo zato što se u rad prenosi izmerena vrednost,
-ne primer iz priručnika. Ova greška je, uz to, različita od `ER_ACCOUNT_HAS_BEEN_LOCKED`, koja se
-vraća za ručno zaključan nalog (`ACCOUNT LOCK`) i glasi samo „Account is locked.“ [@mysql84refman] —
-dva odvojena puta do istog ishoda, zaključan nalog, zaslužuju dve različite poruke jer jezgro pamti i
-zašto je nalog zaključan.
+`ERROR 3955 (HY000)`, tekstom koji imenuje brojač promašaja, ne lozinku [@mysql84refman]. Levo je,
+radi kontrasta, ista vrsta upita kroz običan, nezaključan nalog. Poruka na serveru rada glasi `3955`;
+primer u samom priručniku, uveden rečima „greška nalik ovoj“, ilustracija a ne specifikacija,
+prikazuje broj `3957` [@mysql84refman]. Razlika je zabeležena ovde upravo zato što se u rad prenosi
+izmerena vrednost, ne primer iz priručnika. Ova greška je, uz to, različita od
+`ER_ACCOUNT_HAS_BEEN_LOCKED`, koja se vraća za ručno zaključan nalog (`ACCOUNT LOCK`) i glasi samo
+„Account is locked.“ [@mysql84refman]: dva odvojena puta do istog ishoda, zaključan nalog, zaslužuju
+dve različite poruke jer jezgro pamti i zašto je nalog zaključan.
 
 ![Slika 5.1: Nalog kljucar, ispravna lozinka posle tri promašaja, i dalje odbijen](figures/05-sprovodjenje-01-zakljucavanje.png){width=90%}
 
-Ovo je poglavljev najjasniji primer sopstvene teze: plugin je, u četvrtom pokušaju, akreditiv proverio
+Ovo je najjasniji primer teze ovog poglavlja: plugin je, u četvrtom pokušaju, akreditiv proverio
 ispravno i vratio potvrdan bit, pošto se ništa u vezi sa lozinkom nije promenilo između trećeg i
 četvrtog pokušaja; vezu je, ipak, prekinulo jezgro, jer čita stanje, brojač promašaja upisan na sam
 nalog, koje plugin nikada ne vidi.
 
-Isticanje lozinke sledi istu podelu nadležnosti, ali sa drugačijim ishodom: `default_password_lifetime`
-podrazumevano iznosi `0`, isticanje je globalno isključeno, a po nalogu se uključuje klauzulama
-`PASSWORD EXPIRE INTERVAL n DAY` ili `PASSWORD EXPIRE NEVER` [@mysql84refman]. Kada lozinka istekne,
-veza se ne odbija, nego se prijava završava u ograničenom režimu u kome svaka naredba osim same promene
-lozinke pada sa `ERROR 1820`, `ER_MUST_CHANGE_PASSWORD` [@mysql84refman] — jezgro, dakle, ne bira uvek
-između odbijanja i dozvole, nego ume i da nalog primi u sopstvenu, suženu sesiju. Istom porodicom
-odluka jezgra pripadaju i istorija lozinki, `PASSWORD HISTORY n` uz proveru prema
-`mysql.password_history` pre prihvatanja nove vrednosti, dvostruke lozinke, `RETAIN CURRENT PASSWORD`
-koje čuvaju staru uz novu radi bezbedne rotacije akreditiva u sistemima sa više povezanih servisa, i
-ograničenje resursa po nalogu, `MAX_QUERIES_PER_HOUR` i srodne klauzule, posle čijeg prekoračenja
-sledeći upit u istom satu pada sa `ERROR 1226` [@mysql84refman]. Nijedna od ovih odluka ne prolazi kroz plugin niti kroz
-`validate_password`; sve čita ili upisuje jezgro, nad kolonama ili brojačima vezanim za sam nalog.
+Isticanje lozinke sledi istu podelu nadležnosti, ali sa drugačijim ishodom:
+`default_password_lifetime` podrazumevano iznosi `0`, isticanje je globalno isključeno, a po nalogu se
+uključuje klauzulama `PASSWORD EXPIRE INTERVAL n DAY` ili `PASSWORD EXPIRE NEVER` [@mysql84refman].
+Kada lozinka istekne, veza se ne odbija, nego se prijava završava u ograničenom režimu u kome svaka
+naredba osim same promene lozinke pada sa `ERROR 1820`, `ER_MUST_CHANGE_PASSWORD` [@mysql84refman]:
+jezgro, dakle, ne bira uvek između odbijanja i dozvole, nego ume i da nalog primi u sopstvenu, suženu
+sesiju. Istoj porodici odluka jezgra pripadaju i istorija lozinki, `PASSWORD HISTORY n` uz proveru
+prema `mysql.password_history` pre prihvatanja nove vrednosti, dvostruke lozinke, `RETAIN CURRENT
+PASSWORD` koje čuvaju staru uz novu radi bezbedne rotacije akreditiva u sistemima sa više povezanih
+servisa, i ograničenje resursa po nalogu, `MAX_QUERIES_PER_HOUR` i srodne klauzule, posle čijeg
+prekoračenja sledeći upit u istom satu pada sa `ERROR 1226` [@mysql84refman]. Nijedna od ovih odluka
+ne prolazi kroz plugin niti kroz `validate_password`; sve čita ili upisuje jezgro, nad kolonama ili
+brojačima vezanim za sam nalog.
 
 Klauzula `REQUIRE`, kojom se nalog vezuje za zahtev da veza bude šifrovana (`REQUIRE SSL`) ili da
 klijentski sertifikat zadovolji dati izdavalac ili predmet (`REQUIRE X509`, `SUBJECT`, `ISSUER`),
-često se opisuje kao provera koja prethodi samom izboru naloga, tokom TLS razmene pre nego što je
-red `mysql.user` uopšte izabran. To nije tačno: pošto je `REQUIRE` svojstvo naloga, upisano u onom istom redu koji prvi korak bira, ne može se proveriti pre nego što je taj red izabran — TLS razmena
-se dešava ranije, ali odluku „sme li baš ovaj nalog da se poveže bez šifrovanog kanala“ jezgro donosi
-tek pošto je red već poznat, u okviru istog prvog koraka u kome se proverava i stanje zaključavanja
-[@mysql84refman]. Poređenje hostova, kojim se, kod naloga sa istim imenom a različitim hostom, bira
-najuže poklapanje, radi po istom redosledu prioriteta: doslovan host ili IP adresa, zatim CIDR zapis,
-zatim mrežna maska, zatim džoker `%`, zatim prazan niz, uz neanonimne naloge ispred anonimnih na istom
-nivou [@mysql84refman].
+svojstvo je samog naloga, upisano u onom istom redu koji prvi korak bira, pa se ne može proveriti pre
+nego što je taj red izabran. TLS razmena se dešava ranije, ali odluku „sme li baš ovaj nalog da se
+poveže bez šifrovanog kanala“ jezgro donosi tek pošto je red već poznat, u okviru istog prvog koraka
+u kome se proverava i stanje zaključavanja [@mysql84refman]. Poređenje hostova, kojim se, kod naloga
+sa istim imenom a različitim hostom, bira najuže poklapanje, sledi isti redosled prioriteta: doslovan
+host ili IP adresa, zatim CIDR zapis, zatim mrežna maska, zatim džoker `%`, zatim prazan niz, uz
+neanonimne naloge ispred anonimnih na istom nivou [@mysql84refman].
 
 Ovaj izbor jednog reda, međutim, važi samo za autentifikaciju i za privilegije na globalnom nivou;
 privilegije nad bazom i nad tabelom traže se nezavisno, u `mysql.db` i `mysql.tables_priv`, gde se
@@ -525,23 +526,24 @@ kolona `Host` poredi sa hostom klijenta koji se povezuje i sme da sadrži džoke
 je red izabran u prvom koraku [@mysql84refman]. Posledica je merljiva i, u ovom radu, izmerena: nalogu
 `'probni'@'%'` dodeljeno je `SELECT` nad `poliklinika.*`; kada se sa hosta `localhost` poveže korisnik
 imena `probni`, prvi korak bira uži red, `'probni'@'localhost'`, koji sam po sebi ne nosi nijednu
-privilegiju, pa `CURRENT_USER()` u toj sesiji vraća `probni@localhost` — a `SELECT` nad tabelom
+privilegiju, pa `CURRENT_USER()` u toj sesiji vraća `probni@localhost`; `SELECT` nad tabelom
 `patients` ipak uspeva, jer red `mysql.db` sa `Host='%'` poredi taj isti klijentski host nezavisno od
 toga koji je red izabran za autentifikaciju [@mysql84refman]. Provera je isključila alternativna
 objašnjenja: `mandatory_roles` je prazno, `activate_all_roles_on_login` je isključeno, a red u
-`mysql.db` (`% | poliklinika | probni | Y`) je pregledan neposredno. Posledica za rad je
-načelna: `CURRENT_USER()` imenuje red izabran u prvom koraku, ali ne ograničava domet same sesije, isti
-oblik zaključka do kog je treće poglavlje došlo za `CURRENT_ROLE()`, koja takođe ne opisuje pun domet
+`mysql.db` (`% | poliklinika | probni | Y`) je pregledan neposredno. Posledica za rad je načelna:
+`CURRENT_USER()` imenuje red izabran u prvom koraku, ali ne ograničava domet same sesije, isti oblik
+zaključka do kog je treće poglavlje došlo za `CURRENT_ROLE()`, koja takođe ne opisuje pun domet
 aktivnih uloga.
 
-Svih trinaest mehanizama opisanih u ovom poglavlju sprovodi se na besplatnom MySQL Community izdanju
-[@mysql84refman]. Jedini izuzetak, MySQL Enterprise Firewall, radi po drugačijem kriterijumu od
-celog ostatka poglavlja: ne proverava ni identitet naloga ni imenovani objekat, nego oblik same SQL
-naredbe, upoređujući ga sa naučenim, dozvoljenim obrascem upita za dati nalog. Baš zato je ovaj
-mehanizam, iako komercijalan i u ovom radu pokriven samo u teoriji, najbolji argument za granicu
-diskrecionog modela iz drugog poglavlja: SQL injekcija ne krši nijednu privilegiju, subjekat i
-objekat upita su oba legitimna, menja se isključivo oblik naredbe, pa je model zasnovan isključivo na
-podatku (subjekat, objekat) strukturno slep za nju. Sprovođenje bezbednosnih politika opisanih u ovom
-poglavlju uopšte ne pripada sistemu privilegija iz drugog i trećeg poglavlja: ono ne dodeljuje pravo
-nad objektom, nego ograničava samo pravo naloga da se poveže i da vezu održi. Autentifikacija je u
+Trinaest od četrnaest mehanizama opisanih u ovom poglavlju radi na besplatnom MySQL Community izdanju
+[@mysql84refman]. Četrnaesti, MySQL Enterprise Firewall, dostupan je samo u komercijalnom izdanju i
+radi po drugačijem kriterijumu od celog ostatka poglavlja: ne proverava ni identitet naloga ni
+imenovani objekat, nego oblik same SQL naredbe, upoređujući ga sa naučenim, dozvoljenim obrascem
+upita za dati nalog [@mysql84refman]. Baš zato je ovaj mehanizam, iako u ovom radu pokriven samo u
+teoriji, najbolji argument za granicu diskrecionog modela iz drugog poglavlja: SQL injekcija ne krši
+nijednu privilegiju, subjekat i objekat upita su oba legitimna, menja se isključivo oblik naredbe, pa
+je model zasnovan isključivo na podatku (subjekat, objekat) strukturno slep za nju. Sprovođenje
+bezbednosnih politika opisanih u ovom poglavlju uopšte ne pripada sistemu privilegija iz trećeg
+poglavlja: ono ne dodeljuje pravo nad objektom, nego ograničava samo pravo naloga da se poveže i da
+vezu održi. Autentifikacija je u
 MySQL-u zamenljiva; sprovođenje politike nije.
