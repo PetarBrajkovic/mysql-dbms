@@ -294,3 +294,142 @@ istim, diskrecionim redovima. RBAC0 se time sastavlja u potpunosti, RBAC1 delimi
 van dometa samog sistema privilegija i mora se, ako je organizaciji potreban, sprovesti izvan same
 baze podataka, na primer procesom koji pre svakog `GRANT`-a proverava da li nalogu već pripada
 sukobljena uloga.
+
+# 4. Fino-granularna kontrola pristupa i red-level security
+
+Privilegija u MySQL-u može imenovati najviše kolonu; ništa iznad tog nivoa arnosti u šemi tabela
+dodele prava ne postoji [@mysql84refman]. `mysql.columns_priv` dodaje koloni `Column_name` uz
+`Table_name`, pa dozvoljava dodelu tačno određenih tipova prava, `SELECT`, `INSERT`, `UPDATE` i
+`REFERENCES`, nad pojedinačnom kolonom [@mysql84refman]. To je, kao što je prethodno poglavlje
+pokazalo za nivo tabele, direktna posledica raspoloživih kolona identifikacije u grant tabelama, ne
+proizvoljno ograničenje: sistem privilegija nema nijedno mesto na kome bi upisao predikat, vremenski
+prozor ili izračunati izraz, pa granularnost staje tačno na koloni. Kolona je, drugim rečima, plafon
+fino-granularne kontrole pristupa koju MySQL sprovodi izvorno, ne jedan nivo među više njih.
+
+Server pri odbijanju kolonske privilegije baca grešku `ERROR 1143`, koja se razlikuje od `ERROR 1142`
+za odbijenu tabelsku privilegiju ne samo brojem nego i sadržajem poruke: obe greške imenuju tabelu nad
+kojom je zahtev odbijen, ali `1143` uz to imenuje i tačan naziv kolone [@mysql84refman]. Ta razlika
+nosi bezbednosnu posledicu, jer poruka greške sama po sebi otkriva da tražena kolona postoji u šemi,
+čak i nalogu koji na nju nema pravo. Na serveru rada (verzija 8.4.11) ovo je izmereno na nalogu `nurse_podgorica` iz sandbox okruženja
+rada, kome je dodeljeno `SELECT` nad kolonama `diagnosis_id`, `visit_id`, `tenant_id` i
+`icd_code` tabele `diagnoses`, ali ne i nad kolonom `diagnosis_text`. Upit koji čita samo dodeljene
+kolone prolazi bez greške; upit koji čita `diagnosis_text` pada sa `ERROR 1143`, uz tačan naziv kolone
+u tekstu poruke. Slika 4.1 prikazuje oba ishoda iz iste sesije, kao dokaz sprovođenja, ne kao
+konfiguraciju.
+
+![Slika 4.1: Kolonska privilegija naloga nurse_podgorica, dozvoljena i odbijena kolona](figures/04-fgac-01-kolonska-privilegija.png){width=85%}
+
+Ranija prijava greške iz 2009. godine tvrdila je da `SELECT *` zaobilazi kolonsku privilegiju i vraća
+sve kolone tabele, uključujući one koje nalogu nikada nisu dodeljene [@mysqlbug41354]. Na serveru rada
+ovo nije reprodukovano: `SELECT *` nad tabelom `diagnoses` kao `nurse_podgorica` ne vraća nedodeljene
+kolone, nego pada sa `ERROR 1142`, jer nalog nema privilegiju nad tabelom kao celinom, samo nad
+navedenim podskupom njenih kolona. Ovo tvrđenje se, dakle, ne prenosi u ovaj rad bez ograde na verziju:
+ono što je 2009. godine bilo tiho curenje podataka, na MySQL-u 8.4 je otvoreno odbijanje pristupa,
+verovatno posledica prepravke provere pristupa po zahtevu opisane u prethodnom poglavlju.
+
+## Pogledi kao mehanizam fino-granularne kontrole
+
+Pošto privilegija ne može imenovati predikat, jedini objekat u MySQL-u koji predikat uopšte može da
+nosi jeste pogled: `WHERE` klauzula u definiciji pogleda je predikat kome je dat naziv, i taj naziv se
+potom može dodeliti kao objekat na koji se privilegija odnosi [@mysql84refman]. Ova osobina čini
+pogled jedinim mostom između sistema privilegija, koji radi isključivo sa imenovanim objektima, i
+bilo kakvog filtriranja po vrednosti reda.
+
+Karakteristika `SQL SECURITY`, podrazumevano `DEFINER`, određuje čije se privilegije proveravaju kada
+se pogled izvrši, ne kada je definisan [@mysql84refman]. Pod `SQL SECURITY DEFINER`, korisniku koji
+poziva pogled potrebna je samo privilegija da referencira sam pogled, `SELECT` nad njim; osnovne
+tabele proverava se isključivo protiv privilegija naloga navedenog u atributu `DEFINER`, pa nalog
+kome je pogled dodeljen nikada ne mora imati direktan pristup osnovnim tabelama. Pod
+`SQL SECURITY INVOKER`, naprotiv, izvršava se sa privilegijama pozivaoca, pa pozivalac mora sam imati
+sve privilegije koje telo pogleda zahteva, uključujući i tabele koje pogled koristi samo za sopstvenu
+filtrsku logiku, ne samo one koje se vraćaju u rezultatu [@mysql84refman]. Upravo je ova druga
+osobina izmerena pri izgradnji sandbox pogleda `v_my_branch_diagnoses`: pogled je definisan sa
+`SQL SECURITY INVOKER` i u svojoj filtrskoj logici spaja tabelu `staff` da bi razrešio podružnicu
+kojoj pozivalac pripada, pa je uloga `role_doctor`, iako nikada direktno ne čita `staff` u svom rezultatu,
+morala dobiti kolonsku privilegiju nad tri kolone te tabele da bi pogled uopšte proradio. `INVOKER`
+bezbednost, drugim rečima, nije besplatna: ona premešta zahtev za privilegijom na svaki nalog koji
+pogled koristi, ne samo na njegovog kreatora.
+
+Funkcija `CURRENT_USER()` prati ovu istu razliku i menja vrednost prema kontekstu izvršavanja: unutar
+pogleda pod `SQL SECURITY DEFINER`, `CURRENT_USER()` vraća nalog naveden kao `DEFINER`, dok
+`USER()` uvek vraća nalog kojim se klijent stvarno povezao, zamrznut u trenutku prijavljivanja
+[@mysql84refman]. Na serveru rada ovo je izmereno pogledom čiji rezultat u jednom redu nosi obe
+vrednosti: nalog `doc_podgorica`, povezan kao `role_doctor`, vidi `USER() = 'doc_podgorica@localhost'`
+naspram `CURRENT_USER() = 'dbadmin@localhost'`, iako se nikada nije prijavio pod nalogom `dbadmin`.
+Posledica je precizna i lako se previdi: filter oblika `WHERE tenant_id = f(CURRENT_USER())` upisan u
+`DEFINER` pogled ne filtrira po nalogu koji je upit zaista poslao, nego po samom definer nalogu, isto
+za svakog pozivaoca, pa izolacija po pozivaocu tim putem tiho nestaje.
+
+Ako se nalog naveden kao `DEFINER` obriše, `DROP USER` po podrazumevanom ponašanju odbija zahtev
+greškom, upravo da spreči da pogled ili rutina ostanu bez definer naloga [@mysql84refman]; ako do
+takvog stanja ipak dođe, pogled pod `SQL SECURITY DEFINER` pri sledećem pozivu baca grešku umesto da
+vrati rezultat. MySQL, dakle, tretira definer identitet kao deo integriteta samog objekta, ne kao
+puku metapodatku.
+
+Poslednji deo ove slike jeste putanja upisa. `WHERE` klauzula pogleda sama po sebi ne ograničava
+`INSERT` ni `UPDATE`: bez klauzule `WITH CHECK OPTION`, red koji upis kroz pogled unese, a koji ne
+zadovoljava uslov pogleda, jednostavno postane nevidljiv kroz taj isti pogled posle upisa, ne odbijen
+pri upisu [@mysql84refman]. Ovo je izmereno na probnoj tabeli: upis vrednosti koja pripada drugoj
+podružnici kroz pogled bez klauzule prijavljuje uspeh, `1 row(s) affected`, dok isti upit nad bazom
+pokazuje da je red zaista upisan, a pogled ga posle upisa uopšte ne prikazuje. `WITH CHECK OPTION`,
+podrazumevano `CASCADED` kada je klauzula prisutna, menja ovo ponašanje tako što proverava uslov
+pogleda i pri samom upisu, a `CASCADED` tu proveru dodatno prenosi i na svaki pogled ispod njega
+[@mysql84refman]; isti upis kroz pogled sa ovom klauzulom pada sa `ERROR 1369`. Razlika nije u tome
+da li je uslov moguće proveriti pre upisa, buduće vrednosti reda server već drži u trenutku upisa,
+nego u tome da li se ta provera podrazumevano sprovodi; klauzula postoji upravo zato što se ne
+sprovodi automatski.
+
+## Emulacija bezbednosti na nivou reda
+
+MySQL nema mehanizam koji bi na nivou samog mehanizma za obradu upita filtrirao redove prema
+identitetu naloga; nijedna naredba oblika koji bi dodelio predikat direktno tabeli ne postoji
+[@mysql84refman]. Sve što je opisano u prethodnom odeljku, dakle, ne uvodi bezbednost na nivou reda
+(RLS) kao novi mehanizam, nego to čini emulacija: pogled sa `WHERE` klauzulom, imenovan i dodeljen kao
+objekat sistemu privilegija koji inače radi isključivo sa imenima. Iz ove osnove proizlaze tri obrasca
+emulacije, prikazana na Slici 4.2, koji se razlikuju po tome odakle filter uzima identitet pozivaoca,
+i upravo tu tačku svaki od njih na svoj način gubi.
+
+![Slika 4.2: Tri obrasca emulacije RLS-a i njihova tačka otkaza](figures/04-fgac-02-rls-obrasci.png){width=95%}
+
+Prvi obrazac filtrira preko `CURRENT_USER()` unutar `DEFINER` pogleda, isti mehanizam demonstriran
+gore za razrešavanje podružnice u `v_my_branch_diagnoses`. On je jedini od tri obrasca čiji identitet
+sprovodi sam server, jer `CURRENT_USER()` ne može biti falsifikovan sa strane klijenta, ali upravo
+zbog toga zahteva poseban MySQL nalog po zakupcu, engl. tenant, jedinici izolacije kojoj u ovom radu
+konkretno odgovara podružnica klinike, ne po korisničkoj sesiji aplikacije; u okruženju sa zajedničkim
+skupom konekcija (connection pooling), gde više krajnjih korisnika deli manji broj serverskih naloga,
+ovaj obrazac se jednostavno ne primenjuje. Drugi obrazac filtrira preko
+sesijske promenljive koju aplikacija postavlja pri povezivanju, na primer `SET @tenant_id = ...`; on
+skalira se bolje, jer ne zahteva poseban nalog po zakupcu, ali njegovu vrednost može promeniti bilo
+koji nalog kome je dozvoljeno da izvrši `SET`, pa je sprovođenje u potpunosti preneto na aplikaciju,
+ne na server. Treći obrazac izlaže pristup isključivo kroz uskladištenu proceduru sa `EXECUTE`
+privilegijom, bez ijedne direktne privilegije nad osnovnim tabelama; on sprečava zaobilaženje
+direktnim upitom, ali pomera tačku otkaza na ispravnost validacije parametra unutar tela procedure i
+na integritet samog definer naloga procedure.
+
+Sva tri obrasca dele jedan zajednički uslov: filtriranje nije autorizacija. Provera privilegije i
+`WHERE` klauzula pogleda žive u dva odvojena podsistema servera i otkazuju na različite načine, prva
+odbijanjem sa jasnom greškom, druga tihim izostankom reda iz rezultata [@mysql84refman]. Ono što se u
+ovom poglavlju naziva bezbednošću na nivou reda jeste, dakle, svojstvo putanje pristupa, konkretnog
+pogleda ili procedure kroz koju se do podataka dolazi, a ne svojstvo same tabele; direktan upit nad
+osnovnom tabelom, ako nalog ima privilegiju da ga izvrši, zaobilazi svaki od tri opisana obrasca u
+potpunosti.
+
+PostgreSQL i Oracle ovu razliku rešavaju na nivou samog mehanizma za obradu upita, ne kroz imenovan
+objekat sistema privilegija. PostgreSQL naredbom `CREATE POLICY`, uz `ALTER TABLE ... ENABLE ROW LEVEL
+SECURITY`, vezuje predikat direktno za tabelu; server taj predikat sam dodaje u svaki upit nad njom,
+bez obzira na to da li upit dolazi kroz pogled ili direktno, i bez posebne privilegije `BYPASSRLS`
+nijedan nalog tu proveru ne može zaobići [@postgresrls2024]. Oracle-ova Virtual Private Database (VPD)
+postiže isto dinamičkim ubacivanjem `WHERE` predikata koji vraća funkcija na jeziku PL/SQL, vezana za
+tabelu preko bezbednosne politike, tako da se predikat izračunava u trenutku izvršavanja i primenjuje
+nad svakim pristupom toj tabeli [@oraclevpd2024]. Ono što oba sistema imaju, a MySQL nema, jeste tačka
+sprovođenja unutar samog mehanizma za obradu upita, koja se ne može zaobići izborom putanje pristupa;
+sva tri MySQL-ova obrasca su, u različitom stepenu, sprovođenje van tog mehanizma, oslonjeno na
+disciplinu kojom su pogled, aplikacija ili procedura napisani.
+
+Ovo poglavlje na sopstvenom terenu ponavlja obrazac koji je treće poglavlje već ustanovilo za uloge:
+kada model sistema privilegija ne može da izrazi neko pravilo, MySQL ga ne uvodi kao novi mehanizam,
+nego ga dopisuje van osnovne šeme, ovde kao imenovan objekat u samoj bazi, pogled ili proceduru, čije
+telo nosi ono što tabela dodele prava ne ume da zapiše. Fino-granularna kontrola pristupa ostaje,
+dakle, sastavljena isključivo iz diskrecionih elemenata opisanih u drugom poglavlju, dodela nazvanog
+objekta, dok red-level security, u smislu u kome ga sprovode PostgreSQL i Oracle, u MySQL-u
+strukturno odsustvuje i mora se, kao takva, izgraditi izvan same baze podataka.

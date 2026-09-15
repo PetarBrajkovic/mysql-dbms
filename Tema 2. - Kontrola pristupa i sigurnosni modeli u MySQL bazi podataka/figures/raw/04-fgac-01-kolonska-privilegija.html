@@ -1,0 +1,21 @@
+﻿<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  html, body { background: #ffffff; margin: 0; }
+  body { font-family: Consolas, 'Courier New', monospace; padding: 24px; }
+  .row { display: flex; flex-direction: row; align-items: flex-start; }
+  .panel { flex: 0 0 auto; margin-right: 40px; }
+  .panel h3 { font-family: Segoe UI, Arial, sans-serif; font-size: 16px; margin: 0 0 10px 0;
+              white-space: nowrap; }
+  .ok h3 { color: #1a7f37; }
+  .err h3 { color: #b3261e; }
+  table { border-collapse: collapse; font-size: 15px; }
+  th, td { border: 1px solid #999; padding: 6px 14px; text-align: left; white-space: nowrap; }
+  th { background: #f0f0f0; }
+  .errbox { border: 1px solid #b3261e; background: #fdecea; color: #7a1a12; padding: 14px 18px;
+            font-size: 15px; width: 480px; white-space: pre-wrap; }
+</style></head><body>
+<div class="row">
+<div class="panel ok"><h3>nurse_podgorica - SELECT icd_code (dozvoljeno)</h3><TABLE BORDER=1><TR><TH>diagnosis_id</TH><TH>icd_code</TH></TR><TR><TD>1</TD><TD>J06.9</TD></TR><TR><TD>2</TD><TD>M54.5</TD></TR><TR><TD>3</TD><TD>R51</TD></TR></TABLE></div>
+<div class="panel err"><h3>nurse_podgorica - SELECT diagnosis_text (odbijeno, ERROR 1143)</h3><div class="errbox">ERROR 1143 (42000) at line 1: SELECT command denied to user &#39;nurse_podgorica&#39;@&#39;localhost&#39; for column &#39;diagnosis_text&#39; in table &#39;diagnoses&#39;</div></div>
+</div>
+</body></html>

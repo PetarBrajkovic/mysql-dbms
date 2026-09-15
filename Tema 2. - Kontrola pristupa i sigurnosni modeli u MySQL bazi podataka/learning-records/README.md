@@ -16,6 +16,7 @@ checking a chapter, never when planning a lesson.
 | [0002](0002-audit-log-vs-definer-identity.md) | 19 (audit, pre-chapter) | No free audit plugin loads on this server (nothing to install); general query log records the connecting account, never the `SQL SECURITY DEFINER` view's effective account | Audit logging (19), any mention of `USER()` vs `CURRENT_USER()` |
 | [0003](0003-klasicni-modeli-kontrole-pristupa.md) | 15 (klasični modeli) | The whole DAC → Trojan horse → MAC/BLP → RBAC → least-privilege chain, taught by derivation; MySQL's `REVOKE` does not cascade, unlike the SQL standard | Writing ch. 2; any chapter that judges MySQL against a model (3, 4, 7); anything invoking least privilege |
 | [0004](0004-privilegije-i-uloge.md) | 16 (privilegije i uloge) | Everything derived from "a privilege is a row in an ordinary table": level count, OR-composition, static=column/dynamic=row, `partial_revokes`, roles as locked accounts, the RBAC verdict | Writing ch. 3; any chapter using roles, `SET ROLE`, grant tables or the RBAC verdict (4, 5, 7) |
+| [0005](0005-fgac-i-rls.md) | 17 (FGAC i RLS) | Column is the granularity ceiling because a row has no name; a view is a name for a predicate; filtering is not authorization; the three RLS emulation patterns and how each breaks | Writing ch. 4; any chapter using views, `DEFINER`/`INVOKER`, `USER()` vs `CURRENT_USER()`, or tenant isolation (5, 6, 7) |
 
 ## Standing constraints these records impose on every later chapter
 
@@ -75,6 +76,27 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   requires — cycles are nowhere prohibited), RBAC₂ no (no SoD mechanism, structurally: nothing to
   attach a constraint to). **Never write that MySQL lacks `SET ROLE` or role inheritance** — that
   common claim is two-thirds false, and memo 07's deleted paragraph is where it comes from. (0004)
+- **Filtering is not authorization.** A view's `WHERE` is run by the query executor, not the privilege
+  subsystem: a failed privilege check gives `ERROR 1142`, a failed predicate gives an empty result. A
+  view therefore isolates **only** if the account has no access to the base table — grants compose by
+  `OR`, so a direct query bypasses it. Never write that a view adds a row-level privilege check. (0005)
+- **`SQL SECURITY` selects *whose* privileges are checked, not *when* or *at what level*.** Checking
+  stays in Stage 2, per request. Only `DEFINER` can form a security boundary; `INVOKER` requires the
+  caller to hold the base-table grants anyway. In definer context only the definer's **default** roles
+  are active unless `activate_all_roles_on_login` is on — it is `OFF` here (0001). (0005)
+- **`USER()` is frozen at login and can never be the definer**; `CURRENT_USER()` is the matched
+  `mysql.user` row and becomes the definer inside definer context. **Measured on 8.4.11** in one
+  result row: `doc_podgorica@localhost` (connected) next to `dbadmin@localhost` (checked). The two
+  also differ without any view, through wildcard host matching — but that part is *not* what the
+  capture shows, so do not cite it as such. (0005)
+- **A view's `WHERE` does not constrain writes** unless `WITH CHECK OPTION` is present (defaults to
+  `CASCADED` when the clause is given, to no checking when absent — refman 27.5.4). **Measured**: the
+  unguarded `INSERT` of another tenant's row reported `1 row(s) affected`, the guarded one failed with
+  `Error Code: 1369. CHECK OPTION failed 'poliklinika.v_sa_proverom'`, and the row was then visible in
+  the base table (`1 row`) but not through the view that accepted it (`0 rows`). This is a default,
+  not a limitation: the candidate row's values are available before the write. (0005)
+- **MySQL Enterprise Data Masking is not an RLS substitute** — it hides values, it does not prevent
+  row access, and it is commercial. (0005)
 - No third-party audit plugin (Percona `audit_log`, MariaDB `server_audit`) is installed or
   installable on this server: `SHOW PLUGINS` shows no `AUDIT`-class plugin beyond the two
   built-in cache cleaners, and the plugin directory has no such `.dll` to attempt loading.

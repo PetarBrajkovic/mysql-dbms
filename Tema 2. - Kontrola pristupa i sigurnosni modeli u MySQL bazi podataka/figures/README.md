@@ -67,5 +67,5 @@ lean side is the default to reach for, not the generous one.
 
 | Script | Figures it builds | What it asserts |
 |---|---|---|
-| `tools/make-pair-figure.ps1` | result/error pairs, chs. 3–5 | *(written at first use — asserts the success account's statement actually succeeds and the restricted account's actually throws the declared error, not a different one)* |
+| `tools/make-pair-figure.ps1` | result/error pairs, chs. 3–5 (first built and used at ch. 4, Figure 4.1) | Runs a success statement and a fail statement (same account by default, or two named accounts) via `mysql --html`, asserts the success side returns rows and the fail side throws the declared error code, stitches both into one side-by-side PNG via headless Edge. Strips the client's own `[Warning] Using a password...` line before rendering. |
 | `tools/make-log-figure.ps1` (or `make-table-figure.ps1 -Raw`) | ch. 6 log extract | *(decided at ch. 6, shape TBD between the two options above)* |

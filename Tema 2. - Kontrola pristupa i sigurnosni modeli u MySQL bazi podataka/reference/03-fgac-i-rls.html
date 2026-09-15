@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referentna kartica 03 — FGAC i red-level security</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica 03 · Poglavlje 4</p>
+<h1>Fino-granularna kontrola pristupa i RLS — sažetak za odbranu</h1>
+<p class="subtitle">Sve što se iz Poglavlja 4 poziva u kasnijim poglavljima, na jednoj strani.
+Puno izvođenje je u <a href="../lessons/0003-fgac-i-rls.html">Lekciji 03</a>.</p>
+
+<h2>Polazna istina</h2>
+<table class="exp">
+  <tr><td><b>šta grant tabela ume</b></td><td>da zapiše <b>ime</b> objekta: baza, tabela, kolona
+    (plus globalno i rutine); imena su obične <code>VARCHAR</code> kolone</td></tr>
+  <tr><td><b>plafon granularnosti</b></td><td><code>mysql.columns_priv</code> — kolona; dozvoljeni
+    tipovi <code>SELECT</code>, <code>INSERT</code>, <code>UPDATE</code>, <code>REFERENCES</code></td></tr>
+  <tr><td><b>zašto red ispada</b></td><td>red se ne zna po imenu nego po <b>predikatu</b>
+    (<code>tenant_id = 2</code>); predikat nema gde da se upiše</td></tr>
+  <tr><td><b>ista forma kao RBAC₂</b></td><td>SoD nema za šta da zakači ograničenje, RLS nema za šta
+    da zakači privilegiju — jedan uzrok, dve rupe</td></tr>
+</table>
+
+<h2>Pogled: ime za predikat</h2>
+<table class="exp">
+  <tr><td><b>šta pogled jeste</b></td><td>imenovan objekat u šemi čija definicija nosi uslov; u
+    <code>mysql.tables_priv</code> je red kao za bilo koju tabelu</td></tr>
+  <tr><td><b>šta nije</b></td><td>nije nov nivo privilegija; provera se i dalje zaustavlja na
+    kolonama</td></tr>
+  <tr><td><code>ERROR 1142</code></td><td>podsistem privilegija je odbio pristup objektu</td></tr>
+  <tr><td>prazan rezultat</td><td>izvršilac upita je odbacio redove <code>WHERE</code>-om — nije
+    odluka o pristupu</td></tr>
+  <tr><td><b>uslov korišćenja</b></td><td>pogled izoluje <b>samo</b> ako je nalogu zatvoren pristup
+    baznoj tabeli; inače ga direktan upit zaobilazi</td></tr>
+</table>
+
+<h2><code>SQL SECURITY</code></h2>
+<table class="exp">
+  <tr><td><code>DEFINER</code></td><td>podrazumevano; telo se proverava po <code>DEFINER</code>
+    nalogu, pozivaocu treba samo pravo na sam objekat — jedina varijanta koja pravi granicu</td></tr>
+  <tr><td><code>INVOKER</code></td><td>telo se proverava po pozivaocu, kome trebaju prava na svakoj
+    dodirnutoj tabeli; ne izoluje, ali je manual sam preporučuje kad izolacija nije cilj</td></tr>
+  <tr><td><b>šta ne menja</b></td><td>ni kada (Faza 2, po svakom zahtevu) ni na kom nivou; bira samo
+    <b>subjekat</b> provere</td></tr>
+  <tr><td><b>uloge definer-a</b></td><td>aktiviraju se samo <b>podrazumevane</b> uloge definer naloga,
+    osim ako je <code>activate_all_roles_on_login</code> uključen (na ovom serveru nije)</td></tr>
+  <tr><td><b>siroče objekti</b></td><td><code>DROP USER</code>/<code>RENAME USER</code> pada ako je
+    nalog nečiji <code>DEFINER</code>; popravka je <code>ALTER VIEW ... DEFINER =</code></td></tr>
+</table>
+
+<h2>Identitet u sesiji</h2>
+<table class="exp">
+  <tr><td><code>USER()</code></td><td>ko se konektovao: ime + <b>stvarni</b> host; zamrznuto pri
+    loginu, ne menja se nikad — <b>ne može biti definer</b></td></tr>
+  <tr><td><code>CURRENT_USER()</code></td><td>koji red iz <code>mysql.user</code> je uparen i po kom
+    se čitaju prava; u definer kontekstu je to definer</td></tr>
+  <tr><td><b>razlikuju se i bez pogleda</b></td><td>zbog wildcard uparivanja:
+    <code>doc@192.168.1.5</code> naspram <code>doc@%</code></td></tr>
+  <tr><td><b>brza provera</b></td><td>menja li se vrednost usred sesije? ako da →
+    <code>CURRENT_USER()</code></td></tr>
+</table>
+
+<h2>Tri obrasca emulacije RLS-a</h2>
+<table class="exp">
+  <tr><td><b>A · identitet naloga</b></td><td>filter mapira <code>USER()</code> u
+    <code>tenant_id</code>; identitet <b>garantuje server</b>, ali traži nalog po korisniku i ne
+    skalira</td></tr>
+  <tr><td><b>B · sesijska promenljiva</b></td><td>aplikacija postavi <code>SET @tenant_id</code>;
+    klijent sme sam da je promeni, a u pool-u konekcija ostaje tuđa vrednost</td></tr>
+  <tr><td><b>C · parametar procedure</b></td><td>samo <code>EXECUTE</code>, bez prava na tabele;
+    procedura mora sama da proveri sme li pozivalac taj <code>tenant_id</code></td></tr>
+  <tr><td><b>zajednički uzrok B i C</b></td><td>podatak po kome se filtrira stiže <b>od klijenta</b>;
+    zaštita se seli iz baze u aplikaciju</td></tr>
+</table>
+
+<h2>Pisanje kroz pogled</h2>
+<table class="exp">
+  <tr><td><b>podrazumevano</b></td><td>uslov pogleda <b>ne</b> učestvuje u upisu; red ode u baznu
+    tabelu i ispadne iz opsega pogleda</td></tr>
+  <tr><td><code>WITH LOCAL CHECK OPTION</code></td><td>proverava se uslov ovog pogleda</td></tr>
+  <tr><td><code>WITH CASCADED CHECK OPTION</code></td><td>podrazumevano kad se klauzula navede; i
+    uslovi pogleda ispod</td></tr>
+  <tr><td><code>ERROR 1369</code></td><td>upis odbijen zbog <code>CHECK OPTION</code></td></tr>
+  <tr><td><b>dokaz podrazumevanog</b></td><td>da uslov ionako važi za upis, klauzula ne bi imala
+    funkciju</td></tr>
+</table>
+
+<h2>Kontrast i završna formulacija</h2>
+<table class="exp">
+  <tr><td><b>PostgreSQL</b></td><td><code>ENABLE ROW LEVEL SECURITY</code> +
+    <code>CREATE POLICY ... USING (...)</code>; planer dodaje predikat svakom upitu</td></tr>
+  <tr><td><b>Oracle</b></td><td>VPD: PL/SQL funkcija vraća predikat koji se automatski ubacuje; uz to
+    Label Security</td></tr>
+  <tr><td><b>MySQL Enterprise</b></td><td>Data Masking je komercijalan i <b>nije</b> zamena za RLS —
+    krije vrednosti, ne sprečava pristup redu</td></tr>
+  <tr><td><b>rečenica za rad</b></td><td>nativni RLS je <b>svojstvo tabele</b> koje sprovodi izvršni
+    motor; MySQL emulacija je <b>svojstvo pristupnog puta</b> koje sprovodi disciplina u dodeli
+    privilegija</td></tr>
+</table>
+
+<p class="meta">
+  <strong>Primarni izvor:</strong>
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/stored-objects-security.html">MySQL 8.4 Reference
+  Manual, 27.6 Stored Object Access Control</a>; uz to 27.5.4 <code>WITH CHECK OPTION</code>, 27.5.3
+  ažurivi pogledi, 8.2.3 grant tabele. ·
+  <strong>Vidi još:</strong> <a href="../lessons/0003-fgac-i-rls.html">Lekcija 03</a>,
+  <a href="02-privilegije-i-uloge.html">Referentna kartica 02</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §1. ·
+  <strong>Primeri:</strong> <code>examples/00-setup/05-tenant-view.sql</code>.
+</p>
+
+</body>
+</html>

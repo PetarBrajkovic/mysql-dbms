@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 03 — Fino-granularna kontrola pristupa i red-level security</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 03 · Poglavlje 4 (Fino-granularna kontrola pristupa i red-level security)</p>
+<h1>Red nema ime, pa nema ni privilegiju</h1>
+<p class="subtitle">Prethodna lekcija je pokazala da je privilegija red u običnoj tabeli i da se nivoi
+sastavljaju po <code>OR</code>. Ova lekcija ide do dna te slike: pokazuje gde granularnost prestaje,
+zašto tačno tu, i šta se u MySQL-u radi umesto row-level security-ja.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Poglavlje 4 mora da odbrani tvrdnju da MySQL nema RLS, a da pritom ne kaže nešto lako oborivo.
+  Posle ove lekcije treba da umeš, bez podsetnika: <strong>(1)</strong> da izvedeš zašto je kolona
+  dno nativne granularnosti, <strong>(2)</strong> da objasniš šta <code>SQL SECURITY DEFINER</code>
+  menja a šta ne, <strong>(3)</strong> da nabrojiš tri obrasca emulacije RLS-a i način na koji se
+  svaki probija.
+</div>
+
+<h2>1 · Plafon: grant tabela pamti samo ime</h2>
+
+<p>Politika koju poglavlje hoće da izrazi glasi: <span class="hi">doktor sme da vidi samo pacijente
+svoje podružnice</span>. Prvi pokušaj je da se napiše kao <code>GRANT</code>, kao svaka politika do
+sada. Pogledaj šta <code>GRANT</code> ume da imenuje:</p>
+
+<pre class="sql run"><span class="k">GRANT SELECT ON</span> *.*                  <span class="k">TO</span> doc_niksic;  <span class="c">-- globalno</span>
+<span class="k">GRANT SELECT ON</span> poliklinika.*        <span class="k">TO</span> doc_niksic;  <span class="c">-- baza</span>
+<span class="k">GRANT SELECT ON</span> poliklinika.patients <span class="k">TO</span> doc_niksic;  <span class="c">-- tabela</span>
+<span class="k">GRANT SELECT</span> (name, tenant_id) <span class="k">ON</span> poliklinika.patients <span class="k">TO</span> doc_niksic;  <span class="c">-- kolona</span></pre>
+
+<p>Sva četiri oblika rade istu stvar: upisuju red u grant tabelu u kome stoji ime naloga, ime
+objekta i privilegija. <code>mysql.db</code> ima kolonu <code>Db</code>, <code>mysql.tables_priv</code>
+dodaje <code>Table_name</code>, <code>mysql.columns_priv</code> dodaje <code>Column_name</code>. To su
+obična imena, tipa <code>VARCHAR</code>, i ništa više
+(<a href="https://dev.mysql.com/doc/refman/8.4/en/grant-tables.html">MySQL 8.4 refman 8.2.3</a>).</p>
+
+<p>Zato se lista nivoa ne uči napamet nego se izvodi: <strong>nivoi su tačno oni koje dozvoljava
+imenovanje objekta u SQL-u</strong> — <code>baza.tabela.kolona</code>, plus globalno kao „bilo koje
+ime" i rutine kao druga vrsta imenovanog objekta. Petog nivoa nema jer ime nema petu komponentu.</p>
+
+<table class="exp">
+  <tr><td><code>mysql.columns_priv</code></td><td>najuži nivo koji postoji; dozvoljeni tipovi ovde su <code>SELECT</code>, <code>INSERT</code>, <code>UPDATE</code>, <code>REFERENCES</code></td></tr>
+  <tr><td>ćelija, red, vremenski prozor</td><td>nemaju ime, pa nemaju ni red u grant tabeli</td></tr>
+</table>
+
+<h2>2 · Zašto red ispada iz te slike</h2>
+
+<p>Kolona <code>diagnosis_text</code> ima ime — postoji pre podataka, ne menja se kad se podaci menjaju,
+i može se zapisati kao <code>VARCHAR</code>. A red? „Redovi nikšićke podružnice" nije ime nego
+<strong>uslov nad sadržajem</strong>: <code>tenant_id = 2</code>. Predikat, ne identifikator.</p>
+
+<div class="note">
+  <span class="lbl">Rečenica za odbranu</span>
+  Grant tabela ume da zapiše <strong>ime</strong>. Red se zna po <strong>predikatu</strong>. Zato u
+  MySQL-u privilegija na red nema gde da se upiše — to nije propust implementacije nego posledica
+  oblika grant tabele.
+</div>
+
+<p>Primeti da je to ista forma kao verdikt iz poglavlja 3: razdvajanje dužnosti (RBAC₂) ne postoji jer
+se ograničenje nema za šta zakačiti; RLS ne postoji jer se privilegija nema za šta zakačiti.
+<span class="hi">Jedan uzrok, dve rupe.</span></p>
+
+<h2>3 · Obilaznica: pogled daje predikatu ime</h2>
+
+<p>Ako je problem u tome što predikat nema ime, rešenje se samo nameće — daj mu ime. To je pogled:
+uzima upit, dakle uslov nad sadržajem, i pravi od njega imenovan objekat u šemi. Na imenovan objekat
+<code>GRANT</code> ume da se zakači, jer je opet samo red u <code>mysql.tables_priv</code>.</p>
+
+<p>Ovde je najvažnije šta se <strong>ne</strong> dešava. Server pri proveri prava ne zna ni da je to
+pogled — za njega je <code>v_my_branch_diagnoses</code> ime kao i svako drugo. Nikakav „nivo reda"
+nije uveden; provera se i dalje zaustavlja na kolonama. Redovi otpadaju jednim običnim
+<code>WHERE</code>-om, u istom kodu koji izvršava svaki drugi upit.</p>
+
+<table class="exp">
+  <tr><td><code>GRANT SELECT ON v_my_branch_diagnoses</code></td><td>podsistem privilegija, čita grant tabele; ako ne prođe → <code>ERROR 1142</code></td></tr>
+  <tr><td><code>WHERE tenant_id = 2</code> u telu pogleda</td><td>izvršilac upita; ako ne prođe → red se prosto ne pojavi u rezultatu</td></tr>
+</table>
+
+<p>Posledica je presudna za ceo rad: <span class="hi">filtriranje kroz pogled nije provera prava, pa
+samo po sebi ne štiti ništa</span>. Štiti tek ako je nalogu istovremeno zatvoren pristup baznoj
+tabeli.</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> sandbox <code>poliklinika</code> iz
+      <code>examples/00-setup/</code>; konekcija kao <code>doc_podgorica</code>, kome je namerno
+      ostavljen širok grant na <code>diagnoses</code>. Ništa se ne menja, samo se čita.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> poliklinika;
+
+<span class="c">-- Kroz pogled: filtrirano na sopstvenu podruznicu.</span>
+<span class="k">SELECT DISTINCT</span> tenant_id <span class="k">FROM</span> v_my_branch_diagnoses;
+
+<span class="c">-- Direktno nad baznom tabelom: isti nalog, ista sesija.</span>
+<span class="k">SELECT DISTINCT</span> tenant_id <span class="k">FROM</span> diagnoses;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Prvi upit vraca jednu vrednost tenant_id.
+Drugi upit vraca sve podruznice koje uopste postoje u tabeli.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> izolacija koju pogled pravi važi samo dok se ide
+      kroz pogled. Grant na baznoj tabeli je zaseban red u grant tabeli i po <code>OR</code>-kompoziciji
+      stoji sam za sebe — uža dodela nikada ne sužava širu.</p>
+  </div>
+</div>
+
+<h2>4 · <code>SQL SECURITY DEFINER</code>: pozajmljeni identitet</h2>
+
+<p>Iz prethodnog ispada zahtev: nalogu se mora oduzeti pristup baznoj tabeli. Ali pogled čita baš tu
+tabelu — pa kako onda upit kroz pogled uopšte uspeva? Odgovor je razvilica koju je neko morao da
+odluči: <strong>čije privilegije se proveravaju dok se telo pogleda izvršava?</strong></p>
+
+<div class="slide">
+  A stored object that executes in definer security context executes with the privileges of the
+  account named by its <code>DEFINER</code> attribute. […] The invoker must have appropriate
+  privileges to reference the object […] but during object execution, the invoker's privileges are
+  ignored and only the <code>DEFINER</code> account privileges matter.
+  <span class="src">MySQL 8.4 Reference Manual, 27.6 Stored Object Access Control</span>
+</div>
+
+<table class="exp">
+  <tr><td><code>SQL SECURITY DEFINER</code></td><td>podrazumevano; telo se proverava po nalogu iz <code>DEFINER</code> klauzule, pozivaocu treba samo pravo na sam pogled</td></tr>
+  <tr><td><code>SQL SECURITY INVOKER</code></td><td>telo se proverava po pozivaocu, kome trebaju prava na svakoj tabeli koju pogled dodiruje</td></tr>
+</table>
+
+<p>Zato sigurnosnu granicu pravi jedino <code>DEFINER</code>: pozivalac dobija podatak koji sam ne bi
+smeo da uzme, ali isključivo kroz zadati predikat. <code>INVOKER</code> ne izoluje ništa, jer traži da
+pozivalac ionako već ima pravo na tabelu — a čim ga ima, može da je pročita direktno.</p>
+
+<div class="note">
+  <span class="lbl">Šta se ne menja</span>
+  <code>SQL SECURITY</code> ne dira ni <strong>kada</strong> ni <strong>kako</strong> se proverava.
+  Provera je i dalje druga faza, po svakom zahtevu, na istim nivoima. Menja se isključivo
+  <strong>čiji red u grant tabeli</strong> server gleda.
+</div>
+
+<div class="note">
+  <span class="lbl">Uloge u definer kontekstu</span>
+  Manual dodaje kvaku koja se lako previdi: pri izvršavanju u definer kontekstu server aktivira
+  samo <strong>podrazumevane</strong> uloge definer naloga, a ne sve dodeljene — osim ako je
+  <code>activate_all_roles_on_login</code> uključen, što na ovom serveru nije
+  (<a href="https://dev.mysql.com/doc/refman/8.4/en/stored-objects-security.html">refman 27.6</a>).
+  Privilegija koja stiže kroz nedodatnu ulogu neće biti u igri.
+</div>
+
+<h2>5 · Ko pita: <code>CURRENT_USER()</code> naspram <code>USER()</code></h2>
+
+<p>Granica je postavljena, ali je nastao nov problem: pogled treba da filtrira po tome ko pita, a telo
+sada ide pod definer-ovim identitetom. Razliku je najlakše videti bez ijednog pogleda. Nalog upisan kao
+<code>'doc_niksic'@'%'</code> koji se poveže sa mašine <code>192.168.1.5</code> vidi ovo:</p>
+
+<pre class="out">USER()         -> doc_niksic@192.168.1.5
+CURRENT_USER() -> doc_niksic@%</pre>
+
+<table class="exp">
+  <tr><td><code>USER()</code></td><td>šta je klijent doneo pri konekciji: ime i stvarni host; postavlja se pri loginu i posle se <strong>ne menja nikad</strong></td></tr>
+  <tr><td><code>CURRENT_USER()</code></td><td>koji red iz <code>mysql.user</code> je uparen i po kom se čitaju prava; menja se pri ulasku u definer kontekst</td></tr>
+</table>
+
+<p>Otud i pravilo koje se ne može preokrenuti: <span class="hi">definer se pojavljuje tek usred sesije,
+pa nikad ne može biti vrednost koja je zamrznuta pri loginu</span>. <code>USER()</code> ne može da
+bude definer ni u jednom scenariju. Praktična posledica obara naivnu emulaciju: filter
+<code>WHERE tenant_id = f(CURRENT_USER())</code> unutar <code>DEFINER</code> pogleda filtrira po
+definer-u, svima isto, i izolacija tiho nestaje.</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> konekcija kao <code>dbadmin</code> za kreiranje, pa zasebna
+      konekcija kao <code>doc_podgorica</code> za čitanje. Pogled je privremen — obriši ga na kraju.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="c">-- Kao dbadmin:</span>
+<span class="k">CREATE</span> <span class="k">DEFINER</span> = <span class="s">'dbadmin'</span>@<span class="s">'localhost'</span>
+  <span class="k">SQL SECURITY DEFINER</span>
+  <span class="k">VIEW</span> poliklinika.v_ko_pita <span class="k">AS</span>
+  <span class="k">SELECT</span> <span class="fn">USER</span>() <span class="k">AS</span> ko_se_konektovao,
+         <span class="fn">CURRENT_USER</span>() <span class="k">AS</span> cija_se_prava_proveravaju;
+
+<span class="k">GRANT SELECT ON</span> poliklinika.v_ko_pita <span class="k">TO</span> role_doctor;
+
+<span class="c">-- Kao doc_podgorica, u drugoj konekciji:</span>
+<span class="k">SELECT</span> * <span class="k">FROM</span> poliklinika.v_ko_pita;
+
+<span class="c">-- Ciscenje, kao dbadmin:</span>
+<span class="k">DROP VIEW</span> poliklinika.v_ko_pita;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">ko_se_konektovao          | cija_se_prava_proveravaju
+doc_podgorica@localhost   | dbadmin@localhost</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> jedan isti red rezultata nosi oba identiteta
+      istovremeno. Zato se u emulaciji RLS-a filtrira po <code>USER()</code>, a ne po
+      <code>CURRENT_USER()</code> — u <code>DEFINER</code> pogledu ovaj drugi opisuje pogrešnu osobu.</p>
+  </div>
+</div>
+
+<div class="scope">
+  <span class="lbl">Van obima</span>
+  Isti par se pojavljuje u poglavlju 6: opšti log beleži nalog koji se povezao, nikad efektivni
+  definer nalog. Za sada je dovoljno znati da su to dve različite vrednosti.
+</div>
+
+<h2>6 · Tri obrasca emulacije, i zašto ih je baš tri</h2>
+
+<p>Pitanje je usko: odakle filter saznaje ko pita? Mogućnosti se mogu prebrojati.</p>
+
+<table class="exp">
+  <tr><td><b>A · identitet naloga</b></td><td><code>WHERE tenant_id = (SELECT tenant_id FROM staff WHERE db_user = SUBSTRING_INDEX(USER(), '@', 1))</code></td></tr>
+  <tr><td><b>B · sesijska promenljiva</b></td><td>aplikacija po loginu izvrši <code>SET @tenant_id = 2</code>, pogled filtrira po njoj</td></tr>
+  <tr><td><b>C · parametar procedure</b></td><td>nalog ima samo <code>EXECUTE</code>, ulaz je jedino <code>CALL get_branch_diagnoses(2)</code></td></tr>
+</table>
+
+<p>Način na koji se svaki probija:</p>
+
+<table class="exp">
+  <tr><td>A</td><td>traži jedan MySQL nalog po korisniku, što ne skalira i ne postoji kod aplikacija koje sve provlače kroz jedan nalog</td></tr>
+  <tr><td>B</td><td>klijent sme sam da postavi promenljivu; uz to u pool-u konekcija ostaje vrednost prethodnog korisnika</td></tr>
+  <tr><td>C</td><td>procedura mora sama da proveri sme li pozivalac taj <code>tenant_id</code>, inače je parametar puka želja</td></tr>
+</table>
+
+<p><span class="hi">Oblik promašaja je važniji od spiska.</span> Kod A identitet garantuje server, jer
+je nalog autentifikovan i ne može se falsifikovati — ali ne skalira. B i C skaliraju, ali identitet
+stiže <strong>od klijenta</strong>, pa ih čuva samo aplikacijska disciplina. Ista dilema se u poglavlju
+7 vraća kao sudar principa najmanjih privilegija i connection pooling-a.</p>
+
+<h2>7 · Pisanje: <code>WITH CHECK OPTION</code></h2>
+
+<p>Sve dosad je bilo o čitanju. Ali ažuriv pogled prima i upis, a tu <code>WHERE</code> iz definicije
+<strong>uopšte ne učestvuje</strong>: server <code>INSERT</code> kroz pogled prepiše u
+<code>INSERT</code> nad baznom tabelom, a <code>INSERT ... VALUES</code> nema gde da primi
+<code>WHERE</code> klauzulu. Prava se provere po definer-u, upis prođe, i red završi izvan opsega
+pogleda — vidljiv svima ostalima, nevidljiv onome ko ga je uneo.</p>
+
+<p>Nije reč o nemogućnosti: sve vrednosti budućeg reda server drži u ruci pre upisa, pa je poređenje
+sa uslovom trivijalno. Reč je o <strong>podrazumevanoj vrednosti</strong>, i ona se izričito traži:</p>
+
+<div class="slide">
+  The <code>WITH CHECK OPTION</code> clause can be given for an updatable view to prevent inserts to
+  rows for which the <code>WHERE</code> clause in the select_statement is not true. It also prevents
+  updates to rows for which the <code>WHERE</code> clause is true but the update would cause it to be
+  not true (in other words, it prevents visible rows from being updated to nonvisible rows).
+  <span class="src">MySQL 8.4 Reference Manual, 27.5.4 The View WITH CHECK OPTION Clause</span>
+</div>
+
+<table class="exp">
+  <tr><td>bez klauzule</td><td><code>INSERT</code> sa tuđim <code>tenant_id</code> prolazi; <code>UPDATE</code> sme da izgura red iz pogleda</td></tr>
+  <tr><td><code>WITH LOCAL CHECK OPTION</code></td><td>proverava se uslov ovog pogleda</td></tr>
+  <tr><td><code>WITH CASCADED CHECK OPTION</code></td><td>podrazumevano kad se navede klauzula; proveravaju se i uslovi pogleda ispod</td></tr>
+</table>
+
+<p>Najjednostavniji dokaz podrazumevanog ponašanja je samo postojanje klauzule: kad bi uslov pogleda
+ionako važio za upis, <code>WITH CHECK OPTION</code> ne bi imao nikakvu funkciju.</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> konekcija kao <code>dbadmin</code>. Radi se nad zasebnom
+      probnom tabelom da sandbox ostane netaknut; oba objekta se brišu na kraju.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> poliklinika;
+<span class="k">CREATE TABLE</span> t_proba (id <span class="k">INT</span>, tenant_id <span class="k">INT</span>);
+
+<span class="k">CREATE VIEW</span> v_bez_provere <span class="k">AS</span>
+  <span class="k">SELECT</span> * <span class="k">FROM</span> t_proba <span class="k">WHERE</span> tenant_id = 2;
+
+<span class="k">CREATE VIEW</span> v_sa_proverom <span class="k">AS</span>
+  <span class="k">SELECT</span> * <span class="k">FROM</span> t_proba <span class="k">WHERE</span> tenant_id = 2
+  <span class="k">WITH CASCADED CHECK OPTION</span>;
+
+<span class="k">INSERT INTO</span> v_bez_provere <span class="k">VALUES</span> (1, 3);   <span class="c">-- tudja podruznica</span>
+<span class="k">INSERT INTO</span> v_sa_proverom <span class="k">VALUES</span> (2, 3);   <span class="c">-- tudja podruznica</span>
+
+<span class="k">SELECT</span> * <span class="k">FROM</span> t_proba;        <span class="c">-- gde je red zavrsio</span>
+<span class="k">SELECT</span> * <span class="k">FROM</span> v_bez_provere;  <span class="c">-- vidi li ga onaj ko ga je uneo</span>
+
+<span class="k">DROP VIEW</span> v_bez_provere, v_sa_proverom;
+<span class="k">DROP TABLE</span> t_proba;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Prvi INSERT prolazi.
+Drugi INSERT pada sa ERROR 1369 (CHECK OPTION failed).
+t_proba sadrzi red (1, 3); v_bez_provere je prazan.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> filter pogleda ograničava šta se vidi, ne šta se
+      sme napisati. Zato svaka emulacija RLS-a koja dozvoljava upis mora da nosi i
+      <code>WITH CHECK OPTION</code> — što je druga, nezavisna odluka, i lako se zaboravi.</p>
+  </div>
+</div>
+
+<h2>8 · Zašto je ovo emulacija, a ne RLS</h2>
+
+<p>Svi promašaji imaju isti oblik: politika važi samo ako korisnik prođe kroz određena vrata. Direktan
+upit nad tabelom, <code>SET @tenant_id = 3</code>, <code>INSERT</code> bez provere, <code>CALL</code>
+sa tuđim parametrom — sve su to putevi pored pogleda.</p>
+
+<p>PostgreSQL kači politiku o samu tabelu, a planer je dodaje svakom upitu nad njom
+(<a href="https://www.postgresql.org/docs/current/ddl-rowsecurity.html">PostgreSQL, Row Security
+Policies</a>):</p>
+
+<pre class="sql run"><span class="k">ALTER TABLE</span> patients <span class="k">ENABLE ROW LEVEL SECURITY</span>;
+<span class="k">CREATE POLICY</span> p <span class="k">ON</span> patients
+  <span class="k">USING</span> (tenant_id = <span class="fn">current_setting</span>(<span class="s">'app.tenant'</span>)::<span class="k">int</span>);</pre>
+
+<p>Oracle isto postiže kroz Virtual Private Database: PL/SQL funkcija vraća predikat koji se automatski
+ubacuje u upit
+(<a href="https://docs.oracle.com/en/database/oracle/oracle-database/21/dbseg/using-oracle-vpd-to-control-data-access.html">Oracle Database Security Guide, VPD</a>).</p>
+
+<div class="note">
+  <span class="lbl">Završna formulacija za rad</span>
+  Nativni RLS je <strong>svojstvo tabele</strong>, koje sprovodi izvršni motor. MySQL emulacija je
+  <strong>svojstvo pristupnog puta</strong>, koje sprovodi disciplina u dodeli privilegija. Predikat je
+  isti; sprovođenje nije. Tvrdnja rada nije da MySQL ne ume da filtrira redove — ume, trivijalno — nego
+  da <span class="hi">nema gde da zakači politiku za red</span>.
+</div>
+
+<h2>9 · Provera</h2>
+<div class="quiz">
+  <p>Po jedno pitanje na svaku netrivijalnu tvrdnju lekcije. Odgovori napamet, bez vraćanja na tekst.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Zašto MySQL nema nivo privilegija uži od kolone?</p>
+    <label><input type="radio"> Zato što bi provera na užem nivou bila prespora po pojedinačnom upitu</label>
+    <label><input type="radio"> Zato što je uži nivo već pokriven mehanizmom <code>partial_revokes</code></label>
+    <label><input type="radio"> Zato što ništa uže od kolone nema ime koje bi grant tabela zapisala</label>
+    <label><input type="radio"> Zato što bi uži nivo narušio <code>OR</code>-kompoziciju među nivoima</label>
+    <p class="why">Nivoi prate imenovanje objekta: baza, tabela, kolona, plus globalno i rutine. Grant tabela ima kolone za imena i ništa drugo.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">2. Nalog ima <code>SELECT</code> na pogledu koji filtrira <code>tenant_id = 2</code> i, nezavisno, <code>SELECT</code> na baznoj tabeli. Šta može da pročita?</p>
+    <label><input type="radio"> Sve redove bazne tabele, upitom napisanim direktno nad tabelom</label>
+    <label><input type="radio"> Samo redove sa <code>tenant_id = 2</code>, jer filter važi za taj nalog</label>
+    <label><input type="radio"> Sve redove, ali jedino kroz pogled; direktan upit nad tabelom pada</label>
+    <label><input type="radio"> Samo redove sa <code>tenant_id = 2</code>, jer uža dodela ima prednost</label>
+    <p class="why">Filter živi u telu pogleda i radi samo kad se ide kroz pogled. Grant na tabeli po <code>OR</code>-kompoziciji stoji sam za sebe.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Šta menja <code>SQL SECURITY DEFINER</code> u odnosu na <code>SQL SECURITY INVOKER</code>?</p>
+    <label><input type="radio"> U kom trenutku se prava proveravaju, pri kreiranju umesto pri upitu</label>
+    <label><input type="radio"> Da li se prava na bazne tabele uopšte proveravaju pri pristupu</label>
+    <label><input type="radio"> Na kom nivou se prava proveravaju, na nivou reda umesto tabele</label>
+    <label><input type="radio"> Čiji se nalog koristi pri proveri prava na tabele koje telo čita</label>
+    <p class="why">Provera je uvek u drugoj fazi, po svakom zahtevu, na istim nivoima. Bira se isključivo subjekat provere.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">4. Nalog <code>'doc'@'%'</code> sa adrese <code>10.0.0.7</code> čita pogled sa <code>DEFINER = 'dbadmin'@'localhost'</code> i definer bezbednošću. Šta telo dobija?</p>
+    <label><input type="radio"> <code>USER()</code> daje <code>dbadmin@localhost</code>, <code>CURRENT_USER()</code> daje <code>doc@10.0.0.7</code></label>
+    <label><input type="radio"> <code>USER()</code> daje <code>doc@10.0.0.7</code>, <code>CURRENT_USER()</code> daje <code>dbadmin@localhost</code></label>
+    <label><input type="radio"> <code>USER()</code> daje <code>doc@10.0.0.7</code>, <code>CURRENT_USER()</code> daje <code>doc@%</code></label>
+    <label><input type="radio"> <code>USER()</code> daje <code>dbadmin@localhost</code>, <code>CURRENT_USER()</code> daje <code>dbadmin@localhost</code></label>
+    <p class="why"><code>USER()</code> je zamrznut pri loginu, pa ne može biti definer; <code>CURRENT_USER()</code> prati subjekat provere prava.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">5. Ažuriv definer pogled filtrira <code>tenant_id = 2</code> i nema <code>WITH CHECK OPTION</code>. Šta se desi sa upisom reda čiji je <code>tenant_id = 3</code>?</p>
+    <label><input type="radio"> Server odbije upis, jer red ne zadovoljava uslov iz definicije pogleda</label>
+    <label><input type="radio"> Server odbije upis, jer nalog nema <code>INSERT</code> na baznoj tabeli</label>
+    <label><input type="radio"> Red se upiše u baznu tabelu i ostane nevidljiv kroz sam pogled</label>
+    <label><input type="radio"> Red se upiše, ali sa <code>tenant_id</code> postavljenim na vrednost 2</label>
+    <p class="why">Uslov pogleda ne učestvuje u putanji upisa; prava se provere po definer-u i red završi izvan opsega pogleda.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">6. Šta je zajednički uzrok slabosti obrasca sa sesijskom promenljivom i obrasca sa parametrom procedure?</p>
+    <label><input type="radio"> Filter se izvršava pod pozivaočevim privilegijama, pa se može zaobići</label>
+    <label><input type="radio"> Podatak po kome se filtrira stiže od klijenta, a ne od samog servera</label>
+    <label><input type="radio"> Oba zahtevaju zaseban MySQL nalog po korisniku, pa broj naloga raste</label>
+    <label><input type="radio"> Oba se oslanjaju na <code>CURRENT_USER()</code>, koji vraća definer nalog</label>
+    <p class="why">Kod identiteta naloga server garantuje ko je pozivalac. Kod ova dva server prima broj i ne zna da li je zaslužen.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong>
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/stored-objects-security.html">MySQL 8.4 Reference
+  Manual, 27.6 Stored Object Access Control</a> — počni od odeljka „The SQL SECURITY Characteristic",
+  pa nastavi na „Risk-Minimization Guidelines", gde manual sam preporučuje <code>INVOKER</code> kad
+  god je moguć. ·
+  <strong>Vidi još:</strong> <a href="../reference/03-fgac-i-rls.html">referentna kartica 03</a>,
+  <a href="0002-privilegije-i-uloge.html">Lekcija 02</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §1. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu — lekcija je početak, ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>
