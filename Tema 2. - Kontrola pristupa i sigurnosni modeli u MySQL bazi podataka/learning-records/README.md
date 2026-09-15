@@ -17,6 +17,7 @@ checking a chapter, never when planning a lesson.
 | [0003](0003-klasicni-modeli-kontrole-pristupa.md) | 15 (klasični modeli) | The whole DAC → Trojan horse → MAC/BLP → RBAC → least-privilege chain, taught by derivation; MySQL's `REVOKE` does not cascade, unlike the SQL standard | Writing ch. 2; any chapter that judges MySQL against a model (3, 4, 7); anything invoking least privilege |
 | [0004](0004-privilegije-i-uloge.md) | 16 (privilegije i uloge) | Everything derived from "a privilege is a row in an ordinary table": level count, OR-composition, static=column/dynamic=row, `partial_revokes`, roles as locked accounts, the RBAC verdict | Writing ch. 3; any chapter using roles, `SET ROLE`, grant tables or the RBAC verdict (4, 5, 7) |
 | [0005](0005-fgac-i-rls.md) | 17 (FGAC i RLS) | Column is the granularity ceiling because a row has no name; a view is a name for a predicate; filtering is not authorization; the three RLS emulation patterns and how each breaks | Writing ch. 4; any chapter using views, `DEFINER`/`INVOKER`, `USER()` vs `CURRENT_USER()`, or tenant isolation (5, 6, 7) |
+| [0006](0006-sprovodjenje-politika.md) | 18 (sprovođenje politika) | The core is the only thing that reads state — plugin and component judge only values handed to them; Stage 1 selects exactly one row; Enterprise Firewall is the one mechanism outside the criterion | Writing ch. 5; anything about authentication plugins, components, host matching, password/account/connection policy, or the DAC blind spot to SQL injection (6, 7) |
 
 ## Standing constraints these records impose on every later chapter
 
@@ -102,6 +103,36 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   built-in cache cleaners, and the plugin directory has no such `.dll` to attempt loading.
   `dbadmin` cannot toggle `general_log` (needs `SUPER`/`SYSTEM_VARIABLES_ADMIN`); any future
   general-log capture must be run by root, by hand, same as ticket 11. (0002)
+
+- **Stage 1 selects exactly one `mysql.user` row**, narrowest host first (literal host/IP → CIDR →
+  netmask → `%` → `''`), nonanonymous before anonymous, first match wins, **no fallback** to a wider
+  row. That selection governs **authentication and global privileges only**. OR-composition is a
+  separate Stage 2 rule about levels — never write that it combines matching rows. (0006)
+- **A narrow row does NOT shadow a wide row's database- or table-level grants.** `mysql.db` and
+  `mysql.tables_priv` are matched **independently of the Stage-1 row**, with `Host` compared to the
+  **client host** and wildcards allowed (refman 8.2.7: *"The `Host` and `User` columns are matched to
+  the connecting user's host name and MySQL user name."*). **Measured on 8.4.11**: session with
+  `CURRENT_USER() = probni@localhost` (a row holding nothing) successfully read a table granted to
+  `'probni'@'%'`; `mandatory_roles` empty, `mysql.db` row `% | poliklinika | probni | Y` inspected
+  directly. Consequence for the paper: **`CURRENT_USER()` names the authenticated row but does not
+  bound the session's privileges** — same shape as `CURRENT_ROLE()` understating a session (0004).
+  (0006)
+- **The server core is the only component that reads state; the authentication plugin and loadable
+  components judge only values passed to them.** Plugin input is credential +
+  `authentication_string`, output is one bit, and it runs only at login; `validate_password` is a
+  **component** invoked at `CREATE USER`/`ALTER USER`/`SET PASSWORD`. Everything else in ch. 5 —
+  expiration, history, dual passwords, `FAILED_LOGIN_ATTEMPTS`, resource limits, `REQUIRE`, host
+  matching — is server core. (0006)
+- **`REQUIRE` is a Stage-1 server-core check on the matched account row, not a pre-Stage-1 TLS
+  handshake check** (memo 05 finding 11 is wrong on this). Password expiration likewise is not a
+  connection rejection but a restricted mode returning `ERROR 1820`. (0006)
+- **Failed-login locking returns `ERROR 3955` on 8.4.11 (measured)**, text naming the counter rather
+  than the password; the manual's illustrative sample says `3957`. Distinct from
+  `ER_ACCOUNT_HAS_BEEN_LOCKED` (manual `ACCOUNT LOCK`, "Account is locked."). The policy itself lives
+  in `mysql.user.User_attributes -> $.Password_locking` as JSON — the fourth instance of "what the
+  grant-table shape cannot express, MySQL writes outside the shape". (0006)
+- **Enterprise Firewall decides on the statement's shape, not on (subject, object)** — which is why a
+  pure DAC model is structurally blind to SQL injection. Commercial; theory only. (0006)
 
 ## Corrections filed against the research memos
 

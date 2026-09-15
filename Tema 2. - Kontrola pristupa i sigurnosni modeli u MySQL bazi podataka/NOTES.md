@@ -17,6 +17,10 @@ a stale claim; correct it in place.**
   and 0004), but the side effect is that he assumes every fact must follow from something. When a
   fact is an arbitrary design decision — e.g. `partial_revokes` being schema-level only — say so
   explicitly, or he will invent a derivation for it.
+- **Two words he rejected as not Serbian, in live teaching: *spina* and *sondažno*.** Use *okosnica*
+  for a chapter's backbone and *provera znanja* for probing. He corrects the agent's Serbian
+  mid-lesson and expects it to stick — typos in quiz stems get flagged too (*povećati* for
+  *povezati*). Proofread every Serbian sentence before sending, not only lesson HTML.
 - **Restate the sandbox state inside any question that depends on it.** He correctly objected that
   a quiz about `role_doctor`'s privileges was unanswerable from the four statements shown, because
   the relevant `GRANT` lived in `00-setup/04-roles-and-accounts.sql`. Prior setup is not shared

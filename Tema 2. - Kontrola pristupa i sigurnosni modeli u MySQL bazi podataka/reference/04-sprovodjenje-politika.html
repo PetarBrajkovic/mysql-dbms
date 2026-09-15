@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kartica 04 — Tačke sprovođenja bezbednosne politike</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica 04 · Poglavlje 5</p>
+<h1>Tačke sprovođenja politike u MySQL 8.4</h1>
+<p class="subtitle">Jedan kriterijum, tri mesta, četrnaest mehanizama raspoređenih po njima.</p>
+
+<div class="note">
+  <span class="lbl">Kriterijum</span>
+  <span class="hi">Jezgro je jedino koje čita stanje. Plugin i komponenta sude isključivo o
+  vrednostima koje im jezgro preda.</span> Kriterijum govori o potrebnom <strong>stanju</strong>,
+  ne o trenutku odluke.
+</div>
+
+<h2>Tri mesta</h2>
+<table class="exp">
+  <tr><td><strong>plugin</strong></td><td>„da li si ti taj" — kredencijal naspram <code>authentication_string</code>, vraća jedan bit, radi samo pri prijavi, bez pamćenja</td></tr>
+  <tr><td><strong>komponenta</strong></td><td>„da li je ova vrednost prihvatljiva" — sud nad prosleđenim podatkom, pri <code>CREATE USER</code> / <code>ALTER USER</code> / <code>SET PASSWORD</code></td></tr>
+  <tr><td><strong>jezgro</strong></td><td>sve što zahteva stanje: kolone reda naloga, brojači, <code>mysql.password_history</code>, izbor reda, izbor plugina</td></tr>
+</table>
+
+<h2>Faza 1, redom</h2>
+<table class="exp">
+  <tr><td>1. jezgro</td><td>sortira <code>mysql.user</code>, bira <strong>tačno jedan</strong> red</td></tr>
+  <tr><td>2. jezgro</td><td>čita kolonu <code>plugin</code> izabranog reda</td></tr>
+  <tr><td>3. plugin</td><td>provera kredencijala</td></tr>
+  <tr><td>4. jezgro</td><td><code>account_locked</code> („credentials first, then account locking state")</td></tr>
+  <tr><td>5. jezgro</td><td><code>REQUIRE</code> (<code>ssl_type</code>), zatim istek lozinke po uspešnom povezivanju</td></tr>
+</table>
+
+<h2>Sortiranje hostova — od najužeg ka najširem</h2>
+<table class="exp">
+  <tr><td><code>192.168.1.7</code></td><td>literalni IP ili ime hosta</td></tr>
+  <tr><td><code>192.168.1.0/24</code></td><td>CIDR</td></tr>
+  <tr><td><code>192.168.1.0/255.255.255.0</code></td><td>mrežna maska</td></tr>
+  <tr><td><code>%</code></td><td>bilo koji host</td></tr>
+  <tr><td><code>''</code></td><td>bilo koji host, sortira iza <code>%</code></td></tr>
+</table>
+<p>Isti host → neanonimni pre anonimnih. Prvi poklopljeni red se koristi, povratka na širi red nema.</p>
+
+<div class="note">
+  <span class="lbl">Zamka koja bi bila greška u radu</span>
+  Izbor reda u Fazi 1 određuje autentifikaciju i <strong>globalne</strong> privilegije. Privilegije
+  nad bazom i tabelom traže se <strong>nezavisno</strong>, u <code>mysql.db</code> i
+  <code>mysql.tables_priv</code>, gde se <code>Host</code> poredi sa <span class="hi">hostom
+  klijenta</span> i sme da sadrži <code>%</code> i <code>_</code>. Zato grant dat nalogu
+  <code>'u'@'%'</code> važi i za sesiju čiji je <code>CURRENT_USER()</code> jednak
+  <code>'u'@'localhost'</code>. Izmereno na 8.4.11.
+</div>
+
+<table class="exp">
+  <tr><td>jedan red iz Faze 1</td><td>plugin, lozinka, <code>REQUIRE</code>, zaključanost, globalne privilegije</td></tr>
+  <tr><td>sopstveno poklapanje u Fazi 2</td><td>privilegije nad bazom / tabelom / kolonom</td></tr>
+  <tr><td><code>CURRENT_USER()</code></td><td>imenuje samo red iz Faze 1 — <strong>ne</strong> prikazuje domet sesije</td></tr>
+</table>
+
+<p>OR-kompozicija nivoa je zasebno pravilo Faze 2 (kartica 02).</p>
+
+<h2>Sintaksa po porodicama</h2>
+
+<h3 class="lab">Lozinka</h3>
+<pre class="sql run"><span class="k">INSTALL COMPONENT</span> <span class="s">'file://component_validate_password'</span>;
+<span class="k">SHOW VARIABLES</span> <span class="k">LIKE</span> <span class="s">'validate_password%'</span>;
+<span class="c">-- Podrazumevano (8.4.11): policy MEDIUM, length 8, mixed_case 1,</span>
+<span class="c">-- number 1, special_char 1, check_user_name ON, dictionary_file prazno,</span>
+<span class="c">-- changed_characters_percentage 0.</span>
+<span class="c">-- policy je prekidac: LOW = samo duzina, MEDIUM = + sastav, STRONG = + recnik.</span>
+
+<span class="k">SET GLOBAL</span> default_password_lifetime = 90;
+<span class="k">ALTER USER</span> <span class="s">'u'</span>@<span class="s">'localhost'</span> <span class="k">PASSWORD EXPIRE INTERVAL</span> 90 <span class="k">DAY</span>;
+<span class="k">ALTER USER</span> <span class="s">'u'</span>@<span class="s">'localhost'</span> <span class="k">PASSWORD HISTORY</span> 5
+  <span class="k">PASSWORD REUSE INTERVAL</span> 365 <span class="k">DAY</span>;
+
+<span class="k">ALTER USER</span> <span class="s">'u'</span>@<span class="s">'localhost'</span> <span class="k">IDENTIFIED BY</span> <span class="s">'Nova!2345'</span>
+  <span class="k">RETAIN CURRENT PASSWORD</span>;
+<span class="k">ALTER USER</span> <span class="s">'u'</span>@<span class="s">'localhost'</span> <span class="k">DISCARD OLD PASSWORD</span>;
+
+<span class="k">CREATE USER</span> <span class="s">'u2'</span>@<span class="s">'localhost'</span> <span class="k">IDENTIFIED BY RANDOM PASSWORD</span>;</pre>
+
+<h3 class="lab">Nalog</h3>
+<pre class="sql run"><span class="k">ALTER USER</span> <span class="s">'u'</span>@<span class="s">'localhost'</span>
+  <span class="k">FAILED_LOGIN_ATTEMPTS</span> 3 <span class="k">PASSWORD_LOCK_TIME</span> 1;
+<span class="c">-- Politika se cuva kao JSON na samom nalogu:</span>
+<span class="c">--   mysql.user.User_attributes -> $.Password_locking</span>
+<span class="c">--   {"failed_login_attempts": 3, "password_lock_time_days": 1}</span>
+<span class="k">ALTER USER</span> <span class="s">'u'</span>@<span class="s">'localhost'</span> <span class="k">ACCOUNT LOCK</span>;
+<span class="k">ALTER USER</span> <span class="s">'u'</span>@<span class="s">'localhost'</span> <span class="k">ACCOUNT UNLOCK</span>;
+
+<span class="k">ALTER USER</span> <span class="s">'u'</span>@<span class="s">'localhost'</span> <span class="k">WITH</span>
+  <span class="k">MAX_QUERIES_PER_HOUR</span> 1000 <span class="k">MAX_USER_CONNECTIONS</span> 5;
+<span class="k">FLUSH USER_RESOURCES</span>;</pre>
+
+<h3 class="lab">Veza</h3>
+<pre class="sql run"><span class="k">ALTER USER</span> <span class="s">'u'</span>@<span class="s">'localhost'</span> <span class="k">REQUIRE SSL</span>;
+<span class="k">ALTER USER</span> <span class="s">'u'</span>@<span class="s">'localhost'</span> <span class="k">REQUIRE X509</span>;
+<span class="k">ALTER USER</span> <span class="s">'u'</span>@<span class="s">'localhost'</span>
+  <span class="k">REQUIRE SUBJECT</span> <span class="s">'/CN=klijent'</span> <span class="k">AND ISSUER</span> <span class="s">'/CN=ca'</span>;
+<span class="c">-- skip_networking=ON u my.ini iskljucuje TCP/IP potpuno.</span></pre>
+
+<h2>Greške</h2>
+<table class="exp">
+  <tr><td><code>1819 ER_NOT_VALID_PASSWORD</code></td><td>komponenta <code>validate_password</code> odbila lozinku (izmereno na 8.4.11)</td></tr>
+  <tr><td><code>3955</code></td><td>nalog privremeno zaključan posle N promašaja; poruka navodi brojač, ne lozinku (izmereno na 8.4.11; priručnik u primeru prikazuje <code>3957</code>)</td></tr>
+  <tr><td><code>ER_ACCOUNT_HAS_BEEN_LOCKED</code></td><td>nalog zaključan <strong>ručno</strong> (<code>ACCOUNT LOCK</code>); poruka glasi „Account is locked."</td></tr>
+  <tr><td><code>1820 ER_MUST_CHANGE_PASSWORD</code></td><td>lozinka istekla: dozvoljena samo promena lozinke</td></tr>
+  <tr><td><code>1226</code></td><td>prekoračeno resursno ograničenje</td></tr>
+  <tr><td><code>1142</code> / <code>1143</code></td><td>Faza 2: privilegija nad tabelom / kolonom (kartica 03)</td></tr>
+</table>
+
+<h2>Zamke za rad</h2>
+<table class="exp">
+  <tr><td>istek lozinke</td><td>nije odbijanje veze nego ograničeni režim; nalog se poveže</td></tr>
+  <tr><td><code>default_password_lifetime</code></td><td>podrazumevano <code>0</code>, dakle istek je isključen</td></tr>
+  <tr><td><code>REQUIRE</code></td><td>provera jezgra nad izabranim redom u Fazi 1, <strong>ne</strong> „tokom TLS rukovanja pre Faze 1"</td></tr>
+  <tr><td>resursni brojači</td><td>u memoriji, kreću od nule pri pokretanju servera, ne prežive restart</td></tr>
+  <tr><td>dvostruke lozinke</td><td><code>APPLICATION_PASSWORD_ADMIN</code> za sopstveni nalog, <code>CREATE USER</code> za tuđe</td></tr>
+  <tr><td>Enterprise Firewall</td><td>komercijalno izdanje; odlučuje po obliku naredbe, teorija bez demonstracije</td></tr>
+</table>
+
+<p class="meta">
+  <strong>Izvori:</strong>
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/connection-access.html">8.2.4 Stage 1</a> ·
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/request-access.html">8.2.7 Stage 2</a> ·
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/pluggable-authentication.html">8.2.17 Pluggable Authentication</a> ·
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/validate-password.html">8.4.3 Password Validation Component</a> ·
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/password-management.html">8.2.15 Password Management</a> ·
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/user-resources.html">8.2.21 Resource Limits</a> ·
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/firewall.html">8.4.7 Enterprise Firewall</a> ·
+  <strong>Lekcija:</strong> <a href="../lessons/0004-sprovodjenje-politika.html">04</a>
+</p>
+
+<script src="../../assets/copy.js"></script>
+</body>
+</html>

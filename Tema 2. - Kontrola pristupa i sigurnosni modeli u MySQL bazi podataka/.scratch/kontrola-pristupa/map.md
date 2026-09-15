@@ -209,6 +209,35 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   cites `mysql84refman`, `sandhu1996`, `incits2004` or `saltzerschroeder1975`, all already seeded.
   Export re-verified clean.
 
+- [Chapter 4. FGAC i RLS](issues/17-fgac-i-rls.md): lesson already taught (learning record 0005), so
+  this session wrote ~1600 words into `rad.md` §4 with `academic-research-writer`: column privileges
+  as the granularity ceiling, the 1142/1143 message-content distinction corrected against the manual
+  directly (memo 04's claim that 1142 hides the table's existence was checked and found false, so it
+  was dropped rather than carried into the paper), the live-verified `SELECT *` non-bypass with a
+  version caveat on bug #41354, views as the FGAC mechanism (`DEFINER`/`INVOKER`, the measured
+  `USER()`/`CURRENT_USER()` split, orphan-`DEFINER` `DROP USER` behaviour, `WITH CHECK OPTION`
+  `CASCADED` default and `ERROR 1369`), then the three RLS emulation patterns as one section closing
+  on "filtering is not authorization" and the PostgreSQL `CREATE POLICY` / Oracle VPD contrast. Wrote
+  and first-used `tools/make-pair-figure.ps1` (the result/error-pair script promised at ticket 12,
+  self-asserting against the live server) for Figure 4.1, plus a new Mermaid diagram for Figure 4.2.
+  Three new `references.bib` entries (`postgresrls2024`, `oraclevpd2024`, `mysqlbug41354`). Export
+  re-verified clean, all citation keys resolve. Committed and pushed.
+
+- [Chapter 5. Sprovođenje bezbednosnih politika](issues/18-sprovodjenje-politika.md): lesson already
+  taught (learning record 0006, uncommitted from a prior session — its own correction: a narrow
+  `USAGE`-only row does **not** fully shadow a wide row's db/table grants), so this session wrote
+  ~1400 words into `rad.md` §5 with `academic-research-writer`: the criterion (jezgro is the only
+  thing that reads state; plugin and component judge only values handed to them) built from Stage-1
+  row selection, `validate_password` motivated as a third enforcement point (cleartext exists only at
+  password-set time), failed-login locking as the chapter's strongest capture (measured `ERROR 3955`
+  vs. the manual's illustrative `3957`, new Figure 5.1 via `make-pair-figure.ps1`), password
+  expiration as a restricted session rather than a rejection, the `REQUIRE` correction against memo
+  05 finding 11, and the host-matching correction (`CURRENT_USER()` names the Stage-1 row but does
+  not bound the session — same shape as ch. 3's `CURRENT_ROLE()` finding). Closes on Enterprise
+  Firewall as the DAC-blindness argument ch. 7 will reuse. No new `references.bib` entries — every
+  claim cites `mysql84refman`, already seeded. Terminology aligned to ch. 3's "prvi korak"/"drugi
+  korak", not the scratch notes' informal "Faza 1/2". Export re-verified clean. Committed.
+
 ## Not yet specified
 
 - **Whether the paper needs a comparison system at all.** *Partly settled*: ticket 04 fixes

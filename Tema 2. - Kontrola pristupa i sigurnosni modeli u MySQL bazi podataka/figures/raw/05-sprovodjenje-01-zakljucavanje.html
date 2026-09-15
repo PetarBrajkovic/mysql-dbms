@@ -1,0 +1,21 @@
+﻿<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  html, body { background: #ffffff; margin: 0; }
+  body { font-family: Consolas, 'Courier New', monospace; padding: 24px; }
+  .row { display: flex; flex-direction: row; align-items: flex-start; }
+  .panel { flex: 0 0 auto; margin-right: 40px; }
+  .panel h3 { font-family: Segoe UI, Arial, sans-serif; font-size: 16px; margin: 0 0 10px 0;
+              white-space: nowrap; }
+  .ok h3 { color: #1a7f37; }
+  .err h3 { color: #b3261e; }
+  table { border-collapse: collapse; font-size: 15px; }
+  th, td { border: 1px solid #999; padding: 6px 14px; text-align: left; white-space: nowrap; }
+  th { background: #f0f0f0; }
+  .errbox { border: 1px solid #b3261e; background: #fdecea; color: #7a1a12; padding: 14px 18px;
+            font-size: 15px; width: 480px; white-space: pre-wrap; }
+</style></head><body>
+<div class="row">
+<div class="panel ok"><h3>doc_podgorica - obican nalog, ispravna lozinka (uspeva)</h3><TABLE BORDER=1><TR><TH>patient_id</TH><TH>full_name</TH></TR><TR><TD>1</TD><TD>Pacijent 001</TD></TR><TR><TD>2</TD><TD>Pacijent 002</TD></TR></TABLE></div>
+<div class="panel err"><h3>kljucar - ISPRAVNA lozinka, nalog zakljucan posle 3 promasaja (odbijeno)</h3><div class="errbox">ERROR 3955 (HY000): Access denied for user &#39;kljucar&#39;@&#39;localhost&#39;. Account is blocked for 1 day(s) (1 day(s) remaining) due to 3 consecutive failed logins.</div></div>
+</div>
+</body></html>

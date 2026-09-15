@@ -1,7 +1,7 @@
 # Chapter 5. Sprovođenje bezbednosnih politika
 
 Type: task
-Status: open
+Status: closed
 Blocked by: 05, 09, 10
 
 ## Question
@@ -32,3 +32,36 @@ demoed.
 
 **Grounding**: research memo 05 (security policy enforcement), the sandbox (ticket 10), and
 `../../GLOSSARY.md` §1 for the authentication/authorization distinction this chapter depends on.
+
+## Answer
+
+All four Definition-of-Done items closed, across two sessions (lesson taught earlier and
+uncommitted; chapter written this session).
+
+1. Lesson taught earlier (`lessons/0004-sprovodjenje-politika.html`, reference card
+   `reference/04-sprovodjenje-politika.html`, live log `lessons-live/0004-sprovodjenje-politika.md`,
+   learning record `learning-records/0006-sprovodjenje-politika.md`). The lesson's own claim that a
+   narrow `USAGE`-only row fully shadows a wide row's grants was refuted mid-session by the user's own
+   measurement and corrected before being written into the chapter.
+2. `examples/05-sprovodjenje-politika/`: `01-host-sortiranje.sql` (the host-matching correction),
+   `02-validate-password.sql` (`validate_password` as a component, `ERROR 1819`),
+   `03-zakljucavanje-naloga.sql` (`FAILED_LOGIN_ATTEMPTS`/`PASSWORD_LOCK_TIME`, `ERROR 3955`) — all
+   pre-existing from the lesson session. One new figure this session, **Figure 5.1**
+   (`figures/05-sprovodjenje-01-zakljucavanje.png`), built with `tools/make-pair-figure.ps1`: a
+   working account beside `kljucar`, whose *correct* fourth-attempt password is still rejected with
+   `ERROR 3955` because the account is locked — the chapter's core argument (plugin says yes, core
+   reads state the plugin never saw) in one capture.
+3. `rad.md` §5 written with `academic-research-writer` (~1400 words): the criterion (core is the only
+   thing that reads state; plugin and component judge only values handed to them) stated from Stage-1
+   row selection, `validate_password` motivated as a *third* enforcement point tied to the
+   cleartext-only-at-set-time argument, failed-login locking as the chapter's strongest capture with
+   the measured-`3955`-vs-manual's-illustrative-`3957` caveat, password expiration as a restricted
+   session rather than a rejection, the `REQUIRE` correction against memo 05 finding 11, and the
+   host-matching correction (`CURRENT_USER()` names the Stage-1 row but does not bound the session —
+   same shape as ch. 3's `CURRENT_ROLE()` finding). Closes on Enterprise Firewall as the DAC-blindness
+   argument for ch. 7. **No new `references.bib` entries** — every claim cites `mysql84refman`,
+   already seeded. Terminology aligned to ch. 3's established "prvi korak"/"drugi korak", not the
+   scratch notes' informal "Faza 1/2".
+4. This ticket's Answer section is the learning record for the write-up half; the teaching half's
+   record is `learning-records/0006-sprovodjenje-politika.md`. Export re-verified clean, all citation
+   keys resolve. Committed.

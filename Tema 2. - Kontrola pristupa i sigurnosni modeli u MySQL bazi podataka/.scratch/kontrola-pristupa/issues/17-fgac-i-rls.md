@@ -1,7 +1,7 @@
 # Chapter 4. Fino-granularna kontrola pristupa i red-level security
 
 Type: task
-Status: open
+Status: closed
 Blocked by: 04, 09, 10
 
 ## Question
@@ -31,3 +31,29 @@ Oracle VPD contrast: what MySQL cannot do at the engine level.
 
 **Grounding**: research memo 04 (FGAC and RLS), the sandbox and its `diagnoses.diagnosis_text`
 sensitive column (ticket 08/10), and `../../GLOSSARY.md` §1–§2a.
+
+## Answer
+
+All four Definition-of-Done items closed.
+
+1. Lesson taught earlier (`lessons/0003-fgac-i-rls.html`, learning record `0005-fgac-i-rls.md`,
+   live-log `lessons-live/0003-fgac-i-rls.md`).
+2. This session: `examples/04-fgac-i-rls/03-column-privilege-pair.sql` (the `nurse_podgorica`
+   `icd_code`/`diagnosis_text` column-privilege pair, `01-ko-pita.sql` for the `DEFINER`
+   `CURRENT_USER()` RLS pattern against `v_my_branch_diagnoses`'s tenant/branch boundary), plus the
+   pre-existing `02-with-check-option.sql`. Two figures: **Figure 4.1**
+   (`figures/04-fgac-01-kolonska-privilegija.png`), the paper's first real use of the promised
+   `tools/make-pair-figure.ps1`, newly written this session, self-asserting against the live server;
+   **Figure 4.2** (`figures/04-fgac-02-rls-obrasci.png`), a Mermaid diagram of the three RLS emulation
+   patterns and their failure modes.
+3. `rad.md` §4 written with `academic-research-writer` (~1600 words): column privileges as the
+   granularity ceiling, the corrected 1142/1143 message-content distinction, views as the FGAC
+   mechanism (`DEFINER`/`INVOKER`, the measured `USER()`/`CURRENT_USER()` split, orphan-`DEFINER`
+   behaviour, `WITH CHECK OPTION`), the three RLS emulation patterns closing on "filtering is not
+   authorization", then the PostgreSQL `CREATE POLICY` / Oracle VPD contrast. Three new
+   `references.bib` entries (`postgresrls2024`, `oraclevpd2024`, `mysqlbug41354`).
+4. Learning record `0005-fgac-i-rls.md` closed out. **`SELECT *` verified live** (carried from ticket
+   10/record 0001, re-confirmed here): it does **not** bypass column privileges on 8.4.11, contrary
+   to memo 04's bug #41354 citation, which the chapter now states with an explicit version caveat
+   rather than as a live bypass. Export re-verified clean, all citation keys resolve. Committed and
+   pushed (`86b2aab`).

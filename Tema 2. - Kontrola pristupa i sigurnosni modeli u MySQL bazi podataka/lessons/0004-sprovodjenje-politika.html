@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 04 — Gde se sprovodi bezbednosna politika</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 04 · Poglavlje 5 (Sprovođenje bezbednosnih politika)</p>
+<h1>Autentifikacija je zamenljiva, sprovođenje politike nije</h1>
+<p class="subtitle">Prethodna lekcija je pokazala da pogled nije mehanizam autorizacije nego imenovani
+predikat. Ova zatvara srodno pitanje jedan nivo niže: kad server donese neku odluku o bezbednosti,
+<strong>ko</strong> je tačno donosi — jezgro servera, učitana komponenta ili autentifikacioni plugin.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Poglavlje 5 ne sme biti spisak mehanizama. Njegova okosnica je jedan kriterijum, i kad završiš ovu
+  lekciju treba da umeš, bez podsetnika: <strong>(1)</strong> da kažeš šta autentifikacioni plugin
+  vidi a šta ne vidi, <strong>(2)</strong> da za bilo koji mehanizam iz poglavlja odrediš tačku
+  sprovođenja iz prve, i <strong>(3)</strong> da objasniš zašto je Enterprise Firewall jedini koji
+  ne staje u taj kriterijum.
+</div>
+
+<h2>1 · Faza 1 bira tačno jedan red</h2>
+
+<p>Nalog u MySQL-u nije korisnik nego par <code>'ime'@'host'</code> — jedan red u
+<code>mysql.user</code> (Lekcija 02). Kad se klijent poveže, više redova može odgovarati istoj
+konekciji: <code>'doc'@'localhost'</code> i <code>'doc'@'%'</code> oba se poklapaju sa prijavom sa
+same mašine servera. Server tada ne spaja ništa.</p>
+
+<div class="slide">
+  Whenever the server reads the <code>user</code> table into memory, it sorts the rows. When a client
+  attempts to connect, the server looks through the rows in sorted order. <strong>The server uses the
+  first row that matches the client host name and user name.</strong>
+  <span class="src">MySQL 8.4 Reference Manual, 8.2.4 Access Control, Stage 1: Connection Verification</span>
+</div>
+
+<p>Sortiranje ide od najspecifičnijeg hosta ka najširem. „Specifičnije" ovde ne znači „detaljnije
+zapisano" nego <span class="hi">obuhvata manje mašina</span>:</p>
+
+<table class="exp">
+  <tr><td><code>192.168.1.7</code></td><td>jedna mašina — najspecifičnije, prvo u redosledu</td></tr>
+  <tr><td><code>192.168.1.0/24</code></td><td>256 mašina, CIDR notacija</td></tr>
+  <tr><td><code>192.168.1.0/255.255.255.0</code></td><td>256 mašina, mrežna maska</td></tr>
+  <tr><td><code>%</code></td><td>bilo koji host</td></tr>
+  <tr><td><code>''</code></td><td>takođe bilo koji host, ali sortira iza <code>%</code></td></tr>
+</table>
+
+<p>Unutar istog hosta neanonimni korisnici sortiraju pre anonimnih. Redosled nije proizvoljan:
+pošto server staje na prvom poklapanju i <strong>nikad se ne vraća na širi red</strong>, obrnut
+redosled bi značio da <code>'doc'@'%'</code> uvek pobeđuje, pa izuzetak za pojedinačnu mašinu ne bi
+mogao ni da postoji.</p>
+
+<div class="note">
+  <span class="lbl">Česta zabluda</span>
+  OR-kompozicija nivoa — <code>(global − restrictions) OR db OR table OR column OR routine</code> —
+  je pravilo <strong>Faze 2</strong> i kombinuje nivoe unutar naloga. Pri izboru reda u Fazi 1 nema
+  nikakvog OR-a: bira se jedan red i tu se staje.
+</div>
+
+<h2>1a · Ali šta tačno taj jedan red određuje</h2>
+
+<p>Ovde je lako preterati sa zaključkom, i <span class="hi">to je najvažnija zamka celog
+poglavlja</span>. Izbor reda u Fazi 1 određuje autentifikaciju i <strong>globalne</strong>
+privilegije — ali <strong>ne</strong> i privilegije nad bazom, tabelom ili kolonom. Za njih Faza 2
+radi svoje, potpuno nezavisno poklapanje:</p>
+
+<div class="slide">
+  The server looks in the <code>db</code> table for a match on the <code>Host</code>, <code>Db</code>,
+  and <code>User</code> columns. <strong>The <code>Host</code> and <code>User</code> columns are
+  matched to the connecting user's host name and MySQL user name.</strong> … The wildcard characters
+  <code>%</code> and <code>_</code> can be used in the <code>Host</code> and <code>Db</code> columns.
+  <span class="src">MySQL 8.4 Reference Manual, 8.2.7 Access Control, Stage 2: Request Verification</span>
+</div>
+
+<p>Posledica je neočekivana i izmerena je na ovom serveru: <code>GRANT SELECT ON poliklinika.* TO
+'probni'@'%'</code> upisuje red u <code>mysql.db</code> sa <code>Host = '%'</code>, a <code>%</code>
+se poklapa i sa klijentom koji dolazi sa <code>localhost</code>. Privilegija, dakle,
+<strong>stiže iz reda kojim se nisi autentifikovao</strong>.</p>
+
+<table class="exp">
+  <tr><td>koji plugin, koja lozinka, <code>REQUIRE</code>, zaključanost, <strong>globalne</strong> privilegije</td>
+      <td>isključivo iz jednog reda izabranog u Fazi 1</td></tr>
+  <tr><td>privilegije nad bazom / tabelom / kolonom</td>
+      <td>sopstveno poklapanje u <code>mysql.db</code> i <code>mysql.tables_priv</code>, po
+          <strong>hostu klijenta</strong>, sa džokerima</td></tr>
+</table>
+
+<p>Zato uži red sa samo <code>USAGE</code> zaklanja širi red <strong>samo na globalnom nivou</strong>.
+I zato <code>CURRENT_USER()</code> ne prikazuje domet sesije: on imenuje red iz Faze 1, a privilegije
+mogu doći iz drugog reda. To je isti obrazac kao <code>CURRENT_ROLE()</code> iz Lekcije 02, koji ne
+prikazuje nasleđene uloge.</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> nalog sa privilegijom <code>CREATE USER</code>
+      (na ovom serveru: <code>root</code>). Napravljeni nalozi se brišu na kraju bloka, baza
+      <code>poliklinika</code> se ne menja.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="c">-- Siri red sme da cita, uzi red nema nista.</span>
+<span class="k">CREATE USER</span> <span class="s">'probni'</span>@<span class="s">'%'</span>
+  <span class="k">IDENTIFIED BY</span> <span class="s">'Lozinka!2345'</span>;
+<span class="k">CREATE USER</span> <span class="s">'probni'</span>@<span class="s">'localhost'</span>
+  <span class="k">IDENTIFIED BY</span> <span class="s">'Lozinka!2345'</span>;
+<span class="k">GRANT SELECT ON</span> poliklinika.* <span class="k">TO</span> <span class="s">'probni'</span>@<span class="s">'%'</span>;
+
+<span class="c">-- Sada otvori NOVU konekciju kao 'probni' i pokusaj:</span>
+<span class="c">--   SELECT * FROM poliklinika.patients LIMIT 1;</span>
+
+<span class="k">DROP USER</span> <span class="s">'probni'</span>@<span class="s">'%'</span>, <span class="s">'probni'</span>@<span class="s">'localhost'</span>;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">probni@localhost   1   1   Pacijent 001   1967-12-23</pre>
+
+    <p class="prereq"><b>Pazi:</b> upit mora da se izvrsi iz konekcije prijavljene kao
+      <code>probni</code>. Iz privilegovane konekcije dobija se <code>1146</code>
+      (<code>Table ... doesn't exist</code>), sto meri nesto sasvim drugo.</p>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> dva nalaza u jednom redu rezultata.
+    <code>CURRENT_USER()</code> je <code>probni@localhost</code> — Faza 1 je izabrala uži red, baš kao
+    što odeljak 1 tvrdi. A <code>SELECT</code> <strong>ipak uspeva</strong>, jer privilegija nad bazom
+    ne dolazi iz tog reda nego iz <code>mysql.db</code>, gde stoji <code>Host = '%'</code>. Provera:
+    <code>SELECT Host, Db, User, Select_priv FROM mysql.db WHERE User = 'probni';</code> vraća
+    <code>% / poliklinika / probni / Y</code>, uz prazan <code>@@mandatory_roles</code>. Izmereno na
+    8.4.11.</p>
+  </div>
+</div>
+
+<h2>2 · Šta autentifikacioni plugin vidi</h2>
+
+<p>Ne dokazuju se svi nalozi na isti način: jedan lozinkom, drugi preko LDAP direktorijuma, treći
+preko naloga operativnog sistema, četvrti Kerberosom. Da je provera ušivena u server, svaki novi
+način dokazivanja identiteta tražio bi novu verziju servera. Zato je <strong>način provere izdvojen
+u zamenljiv modul i upisan u sam nalog</strong>, u kolonu <code>plugin</code> tabele
+<code>mysql.user</code>. Podrazumevani modul u 8.4 je <code>caching_sha2_password</code>; stariji
+<code>mysql_native_password</code> je zastareo u 8.0.34, isključen u 8.4 i uklonjen u 9.0.</p>
+
+<div class="slide">
+  The server then authenticates the client, determining from the account row which authentication
+  plugin applies to the client: … the server invokes that plugin to authenticate the user, and
+  <strong>the plugin returns a status to the server indicating whether the user provided the correct
+  password</strong> and is permitted to connect.
+  <span class="src">MySQL 8.4 Reference Manual, 8.2.17 Pluggable Authentication</span>
+</div>
+
+<p>Važno je i ono što tu <strong>ne</strong> piše. Plugin ne bira red — server ga je već izabrao i iz
+njega pročitao koga da pozove. Plugin dobija dve vrednosti, kredencijal koji je klijent poslao i
+sačuvani <code>authentication_string</code>, i vraća jedan bit. Redosled u Fazi 1 to pokazuje sam:</p>
+
+<table class="exp">
+  <tr><td>jezgro</td><td>sortira redove i bira jedan, po hostu i imenu</td></tr>
+  <tr><td>jezgro</td><td>iz kolone <code>plugin</code> tog reda vidi koga da pozove</td></tr>
+  <tr><td><span class="hi">plugin</span></td><td>kredencijal naspram <code>authentication_string</code> → jedan bit</td></tr>
+  <tr><td>jezgro</td><td>zaključanost, <code>REQUIRE</code>, istek lozinke, brojači</td></tr>
+</table>
+
+<p>Plugin je u sredini i okružen jezgrom sa obe strane. Priručnik čak precizira i redosled poslednja
+dva koraka: <strong>„The server checks credentials first, then account locking state."</strong>
+Zaključan nalog sa tačnom lozinkom, dakle, prolazi kroz plugin uspešno — pa ga jezgro odbije odmah
+posle, greškom <code>ER_ACCOUNT_HAS_BEEN_LOCKED</code>.</p>
+
+<h2>3 · Kriterijum</h2>
+
+<p>Plugin ima najsiromašniji ulaz u sistemu: dve vrednosti i nikakvo pamćenje između poziva. Odatle
+sledi kriterijum celog poglavlja:</p>
+
+<div class="note">
+  <span class="lbl">Kriterijum</span>
+  <span class="hi">Jezgro je jedino koje čita stanje. Plugin i komponenta sude isključivo o
+  vrednostima koje im jezgro preda.</span> Svaka odluka kojoj treba bilo šta osim „poklapa li se ovaj
+  kredencijal sa ovim otiskom" nije odluka plugina.
+</div>
+
+<table class="exp">
+  <tr><td>tajna naspram otiska</td><td>ulaz plugina → <strong>plugin</strong></td></tr>
+  <tr><td><code>account_locked</code>, <code>ssl_type</code>, <code>password_expired</code></td><td>kolone izabranog reda → <strong>jezgro</strong></td></tr>
+  <tr><td>broj uzastopnih promašaja, potrošnja po satu</td><td>brojači jezgra → <strong>jezgro</strong></td></tr>
+  <tr><td><code>mysql.password_history</code></td><td>tabela koju modul ne čita → <strong>jezgro</strong></td></tr>
+  <tr><td>koji plugin uopšte pozvati</td><td>kolona <code>plugin</code> → <strong>jezgro</strong></td></tr>
+</table>
+
+<p>Kriterijum govori o <strong>stanju</strong>, ne o trenutku. Dve provere mogu se desiti u istom
+trenutku a pripadati različitim mestima: „ima li lozinka cifru" traži samo tekst lozinke, dok
+„da li je među poslednje tri" traži redove iz <code>mysql.password_history</code>.</p>
+
+<h2>4 · Treće mesto: komponenta</h2>
+
+<p>Zahtev „lozinka mora imati najmanje 12 znakova, veliko i malo slovo, cifru i specijalni znak" ne
+može se proveriti pri prijavi — tada server ima samo otisak, iz kog se sastav ne vidi. Odluka mora
+pasti u trenutku <strong>postavljanja</strong> lozinke, a tada plugin ne radi. MySQL zato otvara
+treće mesto: <strong>komponentu</strong>, modul koji jezgro poziva kad mu zatreba sud o vrednosti.</p>
+
+<div class="slide">
+  The <code>validate_password</code> component serves to improve security by requiring account
+  passwords and enabling strength testing of potential passwords. … <code>validate_password</code>
+  checks the password against the current password policy and rejects the password if it is weak (the
+  statement returns an <code>ER_NOT_VALID_PASSWORD</code> error). <strong>This applies to the
+  <code>ALTER USER</code>, <code>CREATE USER</code>, and <code>SET PASSWORD</code> statements.</strong>
+  <span class="src">MySQL 8.4 Reference Manual, 8.4.3 The Password Validation Component</span>
+</div>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> nalog sa privilegijom za <code>INSTALL COMPONENT</code>
+      (na ovom serveru: <code>root</code>). Komponenta ostaje učitana i kroz restart servera dok se
+      izričito ne ukloni — poslednja naredba je vraća u prvobitno stanje.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">INSTALL COMPONENT</span> <span class="s">'file://component_validate_password'</span>;
+
+<span class="k">SHOW VARIABLES</span> <span class="k">LIKE</span> <span class="s">'validate_password%'</span>;
+
+<span class="k">CREATE USER</span> <span class="s">'slaba'</span>@<span class="s">'localhost'</span>
+  <span class="k">IDENTIFIED BY</span> <span class="s">'abc'</span>;
+
+<span class="k">UNINSTALL COMPONENT</span> <span class="s">'file://component_validate_password'</span>;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">validate_password.policy                        MEDIUM
+validate_password.length                        8
+validate_password.mixed_case_count              1
+validate_password.number_count                  1
+validate_password.special_char_count            1
+validate_password.check_user_name               ON
+validate_password.dictionary_file
+validate_password.changed_characters_percentage 0
+
+Error Code: 1819. Your password does not satisfy the current policy
+requirements</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> nalog nije ni nastao. Odluku nije doneo nijedan
+    autentifikacioni plugin — oni u ovom trenutku ne rade — nego komponenta, pozvana iz jezgra nad
+    tekstom lozinke. Greška <code>1819</code> je <code>ER_NOT_VALID_PASSWORD</code>. Promenljiva
+    <code>validate_password.policy</code> određuje koliko se ostalih uopšte primenjuje:
+    <code>LOW</code> gleda samo dužinu, <code>MEDIUM</code> (podrazumevano) dodaje sastav znakova,
+    <code>STRONG</code> dodaje i rečnik iz <code>dictionary_file</code>.</p>
+  </div>
+</div>
+
+<p>Razlika u jednoj rečenici: <strong>plugin odgovara na pitanje „da li si ti taj", komponenta na
+pitanje „da li je ova vrednost prihvatljiva".</strong> Prvi gleda identitet, druga podatak; nijedno
+od to dvoje ne odlučuje o pristupu objektu, što ostaje Faza 2.</p>
+
+<div class="gloss">
+  <code>validate_password</code> ima i opcije koje deluju kao da poznaju nalog —
+  <code>check_user_name</code> i <code>changed_characters_percentage</code>. Ne poznaju ga: jezgro joj
+  i korisničko ime i tekuću lozinku <strong>prosleđuje kao ulaz</strong>. Komponenta nikada sama ne
+  čita <code>mysql.user</code> ni <code>mysql.password_history</code>.
+</div>
+
+<h2>5 · Tri porodice politika kao dokazi</h2>
+
+<p>Od cele porodice politika o lozinkama, <span class="hi">samo provera jačine je komponenta</span>.
+Sve ostalo traži stanje naloga, pa je u jezgru.</p>
+
+<table class="exp">
+  <tr><td>jačina lozinke</td><td><code>validate_password.*</code> → komponenta</td></tr>
+  <tr><td>istek</td><td><code>default_password_lifetime</code> (podrazumevano <code>0</code> = nikad), <code>PASSWORD EXPIRE INTERVAL 90 DAY</code></td></tr>
+  <tr><td>ponovna upotreba</td><td><code>PASSWORD HISTORY 5</code>, <code>PASSWORD REUSE INTERVAL 365 DAY</code></td></tr>
+  <tr><td>dvostruka lozinka</td><td><code>RETAIN CURRENT PASSWORD</code> / <code>DISCARD OLD PASSWORD</code></td></tr>
+  <tr><td>nasumična lozinka</td><td><code>IDENTIFIED BY RANDOM PASSWORD</code></td></tr>
+</table>
+
+<p>Istek lozinke nije odbijanje veze nego <strong>ograničeni režim</strong>: nalog se poveže, ali
+svaka naredba osim promene lozinke pada.</p>
+
+<pre class="out">mysql&gt; SELECT 1;
+ERROR 1820 (HY000): You must reset your password using ALTER USER
+statement before executing this statement.</pre>
+
+<p>Dvostruke lozinke rešavaju problem koji vredi imenovati u radu. Kad deset aplikacija na deset
+servera koristi isti nalog, lozinka se ne može promeniti svuda u istom trenutku.
+<code>RETAIN CURRENT PASSWORD</code> čini staru lozinku sekundarnom — obe rade istovremeno — pa se
+aplikacije prebacuju jedna po jedna, a tek na kraju ide <code>DISCARD OLD PASSWORD</code>. Za
+sopstveni nalog traži privilegiju <code>APPLICATION_PASSWORD_ADMIN</code>, za tuđe naloge
+<code>CREATE USER</code>.</p>
+
+<p><strong>Politika naloga.</strong> <code>FAILED_LOGIN_ATTEMPTS 3 PASSWORD_LOCK_TIME 1</code> znači
+tri uzastopna promašaja i jedan dan zaključanosti; tačna lozinka resetuje brojač. Ručno zaključavanje
+je <code>ACCOUNT LOCK</code> / <code>ACCOUNT UNLOCK</code>.</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u i u komandnoj liniji</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> <code>root</code> za <code>CREATE USER</code>. Koraci sa
+      prijavljivanjem <strong>moraju</strong> ići kroz <code>mysql</code> u komandnoj liniji —
+      Workbench kešira konekciju, pa pokušaji ne bi bili zasebne prijave. Nalog se briše na kraju.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">CREATE USER</span> <span class="s">'kljucar'</span>@<span class="s">'localhost'</span>
+  <span class="k">IDENTIFIED BY</span> <span class="s">'Lozinka!2345'</span>
+  <span class="k">FAILED_LOGIN_ATTEMPTS</span> 3
+  <span class="k">PASSWORD_LOCK_TIME</span> 1;
+
+<span class="k">SELECT</span> user, host,
+       <span class="fn">JSON_EXTRACT</span>(User_attributes, <span class="s">'$.Password_locking'</span>) <span class="k">AS</span> zakljucavanje
+<span class="k">FROM</span> mysql.user <span class="k">WHERE</span> user = <span class="s">'kljucar'</span>;
+
+<span class="c">-- Zatim u cmd: tri puta POGRESNA lozinka, pa cetvrti put TACNA.</span>
+<span class="c">--   mysql -u kljucar -h 127.0.0.1 -p</span>
+
+<span class="k">ALTER USER</span> <span class="s">'kljucar'</span>@<span class="s">'localhost'</span> <span class="k">ACCOUNT UNLOCK</span>;
+<span class="k">DROP USER</span> <span class="s">'kljucar'</span>@<span class="s">'localhost'</span>;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">kljucar | localhost | {"failed_login_attempts": 3, "password_lock_time_days": 1}
+
+ERROR 3955 (HY000): Access denied for user 'kljucar'@'localhost'.
+Account is blocked for 1 day(s) (1 day(s) remaining)
+due to 3 consecutive failed logins.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> Četvrta prijava je išla sa <strong>tačnom</strong>
+    lozinkom. Plugin je, dakle, rekao „da", a veza je svejedno odbijena — jezgro je pročitalo stanje
+    koje plugin ne vidi, i poruka to i kaže: govori o brojaču promašaja, ne o lozinci. Posle
+    <code>ACCOUNT UNLOCK</code> ista, nepromenjena lozinka prolazi, čime je lozinka isključena kao
+    uzrok. Politika je pritom <span class="hi">JSON upisan na sam nalog</span> — isti obrazac kao
+    <code>partial_revokes</code> iz Lekcije 02.</p>
+
+    <p class="prereq"><b>Za citiranje:</b> broj <code>3955</code> je izmeren na 8.4.11. Priručnik u
+      svom primeru prikazuje <code>3957</code>, uz formulaciju „an error that looks like this" —
+      dakle ilustraciju, ne specifikaciju. Ručno zaključan nalog daje drugu poruku
+      (<code>ER_ACCOUNT_HAS_BEEN_LOCKED</code>, „Account is locked.").</p>
+  </div>
+</div>
+
+<p> Resursna ograničenja idu kroz
+<code>WITH MAX_QUERIES_PER_HOUR 1000 MAX_USER_CONNECTIONS 5</code>: granice stoje u kolonama reda
+naloga, brojači su u memoriji, kreću od nule pri pokretanju servera i ne prenose se kroz restart, a
+<code>FLUSH USER_RESOURCES</code> ih nuluje. Prekoračenje vraća grešku 1226.</p>
+
+<p><strong>Politika veze.</strong> <code>REQUIRE SSL</code>, <code>REQUIRE X509</code>,
+<code>SUBJECT</code>, <code>ISSUER</code>, <code>CIPHER</code> — sve kolone izabranog reda. Tu je i
+kontrola pristupa po hostu iz odeljka 1, kao i <code>skip_networking=ON</code>, koje isključuje
+TCP/IP u potpunosti.</p>
+
+<div class="note">
+  <span class="lbl">Za pisanje poglavlja</span>
+  <code>REQUIRE</code> se <strong>ne</strong> proverava „tokom TLS rukovanja, pre Faze 1", kako se
+  ponekad navodi. To je svojstvo naloga i ne može se proveriti dok nalog nije izabran: TLS rukovanje
+  jeste ranije, ali odluka da li baš ovaj nalog sme bez šifrovane veze pripada jezgru, unutar Faze 1.
+</div>
+
+<h2>6 · Enterprise Firewall, jedini izuzetak</h2>
+
+<div class="scope">
+  <span class="lbl">Komercijalno</span>
+  MySQL Enterprise Firewall je deo komercijalnog izdanja MySQL Enterprise Edition. U radu se navodi
+  kao teorija i izričito označava kao komercijalan, bez demonstracije.
+</div>
+
+<div class="slide">
+  MySQL Enterprise Edition includes MySQL Enterprise Firewall, an application-level firewall that
+  enables database administrators to permit or deny SQL statement execution based on matching against
+  <strong>lists of accepted statement patterns</strong>. … Each MySQL account registered with the
+  firewall has its own statement allowlist.
+  <span class="src">MySQL 8.4 Reference Manual, 8.4.7 MySQL Enterprise Firewall</span>
+</div>
+
+<p>Svi dosadašnji mehanizmi odlučuju na osnovu <strong>identiteta</strong> ili <strong>objekta</strong>.
+Firewall odlučuje na osnovu <strong>oblika same naredbe</strong>: nalog se prvo pusti u režim učenja,
+napravi se spisak dozvoljenih obrazaca, i posle toga naredba koja ne liči ni na jedan obrazac biva
+odbijena — i kad nalog ima svaku potrebnu privilegiju.</p>
+
+<p>Zato je zanimljiv za rad: <span class="hi">SQL injekcija ne krši nijednu privilegiju</span>.
+Napadnuta aplikacija radi pod svojim potpuno legitimnim nalogom, i ni subjekat ni objekat se nisu
+promenili — promenila se samo naredba. DAC sudi o paru (subjekat, objekat) i taj napad mu je po
+konstrukciji nevidljiv.</p>
+
+<h2>7 · Provera</h2>
+<div class="quiz">
+  <p>Šest pitanja, po jedno na svaku netrivijalnu tvrdnju lekcije. Odgovori napamet, bez vraćanja
+     na tekst — vrednost je u naporu prisećanja, ne u tačnom rezultatu iz prvog pokušaja.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Postoje redovi <code>'app'@'192.168.1.7'</code>, <code>'app'@'192.168.1.0/24'</code>
+       i <code>'app'@'%'</code>. Klijent dolazi sa <code>192.168.1.7</code>. Šta server koristi?</p>
+    <label><input type="radio"> Red sa CIDR zapisom, jer precizno opisuje mrežu klijenta</label>
+    <label><input type="radio"> Red sa džokerom, jer se poklapa sa svakim klijentom</label>
+    <label><input type="radio"> Red sa literalnim IP-om, dok se ostala dva ne konsultuju</label>
+    <label><input type="radio"> Red sa literalnim IP-om, uz privilegije preostala dva reda</label>
+    <p class="why">Sortiranje ide od najužeg obuhvata ka najširem i server staje na prvom poklapanju.
+       Reč je o izboru reda u Fazi 1 — dakle o autentifikaciji i globalnim privilegijama; privilegije
+       nad bazom se traže posebno (pitanje 7).</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">2. Zašto server sortira redove od najužeg hosta ka najširem?</p>
+    <label><input type="radio"> Da bi širi zapis poslužio kao rezerva kad uži nema privilegiju</label>
+    <label><input type="radio"> Da bi se poklapanja hostova mogla kombinovati OR-kompozicijom</label>
+    <label><input type="radio"> Da bi zapis koji pokriva manje mašina mogao nadjačati širi zapis</label>
+    <label><input type="radio"> Da bi provera stala ranije, jer uži zapisi traže manje poređenja</label>
+    <p class="why">Pošto se staje na prvom poklapanju, redosled je jedini način da izuzetak uopšte
+       postoji; rezervnog pokušaja nema.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">3. Nalog ima <code>REQUIRE X509</code>, a klijent se povezuje bez sertifikata ali
+       sa tačnom lozinkom. Ko odbija vezu?</p>
+    <label><input type="radio"> Jezgro servera, po koloni <code>ssl_type</code> izabranog reda</label>
+    <label><input type="radio"> Plugin, jer se sertifikat proverava zajedno sa lozinkom</label>
+    <label><input type="radio"> Nijedan, jer <code>REQUIRE</code> važi tek u Fazi 2</label>
+    <label><input type="radio"> Komponenta, koju jezgro poziva za svaku novu vezu</label>
+    <p class="why"><code>REQUIRE</code> je stanje upisano u red naloga, a stanje čita samo jezgro.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">4. Zašto <code>FAILED_LOGIN_ATTEMPTS</code> ne može biti posao plugina?</p>
+    <label><input type="radio"> Jer traži pamćenje ranijih pokušaja, a plugin samo poredi vrednosti</label>
+    <label><input type="radio"> Jer je zaključavanje privilegija, a one se razrešavaju u Fazi 2</label>
+    <label><input type="radio"> Jer plugin serveru može vratiti uspeh, ali nikada grešku</label>
+    <label><input type="radio"> Jer bi ga svaki plugin primenjivao drugačije, pa je premešten</label>
+    <p class="why">Plugin je funkcija bez pamćenja između poziva; brojač je stanje, dakle jezgro.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">5. Zabrana ponovne upotrebe poslednjih N lozinki — gde se odlučuje?</p>
+    <label><input type="radio"> U komponenti, jer se sve provere nove lozinke stiču na jednom mestu</label>
+    <label><input type="radio"> U pluginu, jer jedino on ume da uporedi lozinku sa otiscima</label>
+    <label><input type="radio"> U jezgru, ali tek pri narednoj prijavi tog naloga</label>
+    <label><input type="radio"> U jezgru, jer poređenje traži tabelu <code>mysql.password_history</code></label>
+    <p class="why">Kriterijum govori o potrebnom stanju, ne o trenutku: obe provere su pri postavljanju
+       lozinke, ali samo jednoj treba istorija naloga.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">6. Po čemu se Enterprise Firewall razlikuje od ostalih mehanizama poglavlja?</p>
+    <label><input type="radio"> Odlučuje pre Faze 1, pre nego što se nalog uopšte izabere</label>
+    <label><input type="radio"> Jedini dodaje privilegije, preko spiska dozvoljenih naloga</label>
+    <label><input type="radio"> Odlučuje po obliku naredbe, a ne po identitetu ni objektu</label>
+    <label><input type="radio"> Jedini radi nad redovima, pa donosi red-level security</label>
+    <p class="why">Uvodi dimenziju koju DAC nema, pa hvata napad u kom su i subjekat i objekat
+       legitimni.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">7. Postoje <code>'probni'@'%'</code> sa <code>GRANT SELECT ON poliklinika.*</code> i
+       <code>'probni'@'localhost'</code> bez ijedne privilegije. Klijent se prijavi sa iste mašine i
+       pokrene <code>SELECT</code> nad tom bazom.</p>
+    <label><input type="radio"> Upit pada, jer je Faza 1 izabrala red bez privilegija</label>
+    <label><input type="radio"> Upit prolazi, jer se red sa <code>Host='%'</code> u <code>mysql.db</code> poklapa sa klijentom</label>
+    <label><input type="radio"> Upit prolazi, jer se privilegije dva reda <code>mysql.user</code> spajaju</label>
+    <label><input type="radio"> Upit pada, jer <code>CURRENT_USER()</code> određuje sve privilegije sesije</label>
+    <p class="why">Faza 2 ne koristi red izabran u Fazi 1: ona sama traži poklapanje u
+       <code>mysql.db</code>, po hostu klijenta i sa džokerima. Izmereno na 8.4.11.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong>
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/connection-access.html">MySQL 8.4 Reference Manual,
+  8.2.4 Access Control, Stage 1: Connection Verification</a> — pročitaj ceo odeljak, posebno pravila
+  sortiranja hostova; odatle nastavi na
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/password-management.html">8.2.15 Password Management</a>. ·
+  <strong>Vidi još:</strong> <a href="../reference/04-sprovodjenje-politika.html">referentna kartica 04</a>,
+  <a href="0002-privilegije-i-uloge.html">Lekcija 02</a> (Faza 1 i Faza 2, OR-kompozicija),
+  <a href="0003-fgac-i-rls.html">Lekcija 03</a>, <a href="../GLOSSARY.md">GLOSSARY.md</a> §1. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu — lekcija je početak, ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>
