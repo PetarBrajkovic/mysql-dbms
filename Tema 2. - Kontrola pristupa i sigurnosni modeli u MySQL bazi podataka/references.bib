@@ -101,9 +101,12 @@
 
 % First cited in Chapter 4, as the source of a claim explicitly NOT reproduced on the paper's
 % own server (8.4.11) - cited to attribute the claim, immediately corrected by measurement.
+% Title corrected at the final pass (ticket 13) to the report's actual title, fetched from
+% bugs.mysql.com: the bug is about columns of a VIEW, not of a base table, and the paper's
+% retest was redone on a view to match (examples/04-fgac-i-rls/04-bug41354-na-pogledu.sql).
 @misc{mysqlbug41354,
   author       = {{Oracle Corporation}},
-  title        = {{MySQL Bug} \#41354: Column Privileges not Honored for {SELECT} *},
+  title        = {{MySQL Bug} \#41354: Access Control is Bypassed when All Columns of a View are Selected by * Wildcard},
   howpublished = {\url{https://bugs.mysql.com/bug.php?id=41354}},
   year         = {2009},
   note         = {pristupljeno 3. septembra 2026}
@@ -115,7 +118,7 @@
 @techreport{nistsp80092,
   author      = {Kent, Karen and Souppaya, Murugiah},
   title       = {Guide to Computer Security Log Management},
-  institution = {National Institute of Standards and Technology},
+  institution = {{National Institute of Standards and Technology}},
   number      = {NIST Special Publication 800-92},
   address     = {Gaithersburg, MD, USA},
   year        = {2006},
@@ -128,7 +131,7 @@
 @techreport{nistsp80053r5,
   author      = {{Joint Task Force}},
   title       = {Security and Privacy Controls for Information Systems and Organizations},
-  institution = {National Institute of Standards and Technology},
+  institution = {{National Institute of Standards and Technology}},
   number      = {NIST Special Publication 800-53, Revision 5},
   address     = {Gaithersburg, MD, USA},
   year        = {2020},

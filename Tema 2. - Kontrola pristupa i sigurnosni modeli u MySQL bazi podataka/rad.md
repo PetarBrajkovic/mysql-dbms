@@ -319,13 +319,19 @@ konfiguraciju.
 
 ![Slika 4.1: Kolonska privilegija naloga nurse_podgorica, dozvoljena i odbijena kolona](figures/04-fgac-01-kolonska-privilegija.png){width=85%}
 
-Ranija prijava greške iz 2009. godine tvrdila je da `SELECT *` zaobilazi kolonsku privilegiju i vraća
-sve kolone tabele, uključujući one koje nalogu nikada nisu dodeljene [@mysqlbug41354]. Na serveru rada
-ovo nije reprodukovano: `SELECT *` nad tabelom `diagnoses` kao `nurse_podgorica` ne vraća nedodeljene
-kolone, nego pada sa `ERROR 1142`, jer nalog nema privilegiju nad tabelom kao celinom, samo nad
-navedenim podskupom njenih kolona. Ovo tvrđenje se, dakle, ne prenosi u ovaj rad bez ograde na verziju:
-ono što je 2009. godine bilo tiho curenje podataka, na MySQL-u 8.4 je otvoreno odbijanje pristupa,
-verovatno posledica prepravke provere pristupa po zahtevu opisane u prethodnom poglavlju.
+Ranija prijava greške iz 2009. godine tvrdila je da džoker `*` zaobilazi kolonsku privilegiju: nalog
+kome je dodeljena samo jedna kolona pogleda pod `SQL SECURITY DEFINER` navodno je upitom `SELECT *`
+dobijao ceo red, dok je isti taj nalog, pri imenovanju nedodeljene kolone, uredno odbijan greškom
+`ERROR 1143` [@mysqlbug41354]. Na serveru rada tvrdnja je proverena nad objektom koji prijava
+izričito imenuje, dakle nad pogledom, a ne nad osnovnom tabelom, i nije reprodukovana: nalogu
+dodeljenom isključivo nad kolonom `icd_code` pogleda `v_bug41354` upit `SELECT *` pada sa
+`ERROR 1143`, uz naziv prve nedodeljene kolone na koju provera naiđe, dok upit nad samom kolonom
+`icd_code` uredno vraća redove. Isti ishod potvrđuje se i nad osnovnom tabelom, doduše pod drugim
+brojem greške: `SELECT *` nad tabelom `diagnoses` kao `nurse_podgorica` pada sa `ERROR 1142`, jer taj
+nalog nad tabelom kao celinom nema nijednu privilegiju, pa provera prestaje već na nivou tabele i ne
+stiže do kolona. Zaključak se, dakle, u ovaj rad prenosi uz ogradu na verziju: ono što je 2009. godine
+bilo tiho curenje podataka, na MySQL-u 8.4 je otvoreno odbijanje pristupa, jer se džoker `*` proširuje
+pre provere i svaka dobijena kolona se proverava pojedinačno.
 
 ## Pogledi kao mehanizam fino-granularne kontrole
 

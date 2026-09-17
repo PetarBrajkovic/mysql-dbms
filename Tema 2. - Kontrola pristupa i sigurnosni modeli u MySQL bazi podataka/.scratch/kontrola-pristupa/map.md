@@ -283,6 +283,21 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   and needed **no edit**. No new `references.bib` entries; all 15 resolve. Learning record 0009.
   Export clean. **The paper's prose is complete**; only the final pass (ticket 13) is left.
 
+- [Final export, bibliography, and consistency pass](issues/13-final-export.md): bibliography clean
+  (15 entries, 15 cited, nothing dangling; the two `dev.mysql.com`/`bugs.mysql.com` 403s confirmed to
+  be bot-blocking, not dead links, exactly as Tema 1 found). Figures clean with **no repairs needed**
+  — 8 figures, no numbering gaps, all captioned, all referenced by number, all explicitly sized,
+  matching `figures/README.md`'s per-chapter budget exactly. Terminology consistent, with three
+  divergences judged and **kept** rather than renamed, reasoning recorded in `NOTES.md`. **Three
+  defects repaired**: two bibliography entries rendering `National Institute of Standards; Technology`
+  (BibTeX splitting the institution on `and`), a paraphrased title on `mysqlbug41354`, and — the
+  substantive one — **ch. 4 had tested bug #41354's claim against a base table when the bug is about a
+  `SQL SECURITY DEFINER` view**. Retested on the object the bug actually names: still not reproducible
+  on 8.4.11, `SELECT *` fails with `ERROR 1143`. Paragraph rewritten to describe the bug correctly and
+  to explain why the base-table case yields 1142 rather than 1143; sandbox restored untouched.
+  Exported at **23 pages / 9,824 words**, inside the soft target, so no figure was ever squeezed.
+  **The paper is finished**; only the Word-only steps remain, which are the user's own.
+
 ## Not yet specified
 
 - **Whether the paper needs a comparison system at all.** *Settled by ch. 4 and ch. 8, not by a
