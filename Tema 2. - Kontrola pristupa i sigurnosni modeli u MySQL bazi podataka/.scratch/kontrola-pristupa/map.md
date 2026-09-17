@@ -270,17 +270,33 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   **the shared-pool account was never created**. Figure 7.1 re-rendered only to strip an em dash.
   Export clean, **22 rendered pages** with only ch. 8 left.
 
+- [Chapter 8. Zaključak](issues/21-zakljucak.md): no lesson (a conclusion needs none), no SQL, no
+  figure. ~660 words written into `rad.md` §8 with `academic-research-writer`, separating the two
+  sides of the thesis: composed-from-DAC (grant tables and the two-stage check, RBAC0 full / RBAC1
+  partial, column privileges plus definer views, silo tenancy) against absent-and-built-elsewhere
+  (MAC/Bell–LaPadula, RBAC2, RLS as an enforcement point inside query processing, attribution,
+  pool-pattern isolation). **The chapter's own contribution**: those six absences are one finding,
+  since each is exactly one rule unwritable in MySQL's three-coordinate vocabulary (subject =
+  `mysql.user` row, object = what `GRANT` names, operation = the privilege), with the corollary that
+  where the model cannot express a rule MySQL writes it outside the grant schema and the enforcement
+  point moves from the core onto the author of a view, procedure or application. Ch. 1 reconciled
+  and needed **no edit**. No new `references.bib` entries; all 15 resolve. Learning record 0009.
+  Export clean. **The paper's prose is complete**; only the final pass (ticket 13) is left.
+
 ## Not yet specified
 
-- **Whether the paper needs a comparison system at all.** *Partly settled*: ticket 04 fixes
-  PostgreSQL `CREATE POLICY` and Oracle VPD as the cited contrasts for row-level security, and
-  ticket 07 supplies the theory to compare against. What is still open is **how much weight they
-  carry** — a paragraph each inside the RLS section, or a Tema-1-style contrast chapter.
+- **Whether the paper needs a comparison system at all.** *Settled by ch. 4 and ch. 8, not by a
+  chapter*: PostgreSQL `CREATE POLICY` and Oracle VPD carry a paragraph each inside the RLS section
+  and one clause in the conclusion. No contrast chapter was written and none is now possible without
+  reopening the skeleton.
 - **The defense angle.** What the professor is likely to press on for a security topic — probably
   least privilege applied to a real design, and whether the student can say precisely what MySQL
   cannot enforce. The deck sharpens the guess: he taught **Bell–LaPadula formally** and the
   **Trojan-horse argument** for why DAC is insufficient, so "why does MySQL not implement MAC, and
-  what does that cost you" is a question worth being ready for. Revisit once the skeleton exists.
+  what does that cost you" is a question worth being ready for. *Partly answered by ch. 8*: learning
+  record 0009 holds the one-line reply (MySQL is precisely bounded, not weak) and the table of six
+  absences it rests on. Still fog because preparing the defense itself is the user's own deliverable,
+  outside this map (the deck is already out of scope).
 - **Which research claims need the live server to settle them.** Two of the three named at
   charting are now settled by ticket 10 (learning record 0001): `SELECT *` does **not** bypass
   column privileges on 8.4.11 (memo 04 corrected), and role-activation via `SET DEFAULT ROLE`

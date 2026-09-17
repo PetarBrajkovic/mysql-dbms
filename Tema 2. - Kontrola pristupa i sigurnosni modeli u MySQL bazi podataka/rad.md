@@ -736,3 +736,57 @@ razloga otpada. Okruženje na kome je ovaj rad građen namerno stoji na prvoj st
 dvanaest naloga oblika `<uloga>_<podružnica>`, svaki sa sopstvenim redom u `mysql.user`, čini da
 `CURRENT_USER()` nosi podružnicu, i to je jedini razlog zbog koga pogled `v_my_branch_diagnoses`
 uopšte može da radi.
+
+# 8. Zaključak
+
+Rad je pošao od teze da MySQL sprovodi isključivo diskrecionu, na objektima zasnovanu kontrolu
+pristupa, i da je svaki savremeniji bezbednosni zahtev nad takvim sistemom ili sastavljen iz te
+osnove ili u potpunosti odsutan iz same baze podataka, pa se mora rešavati izvan nje. Šest poglavlja
+koja slede uvod proverila su tu tvrdnju, svako na svom delu materije i, gde god je to bilo izvodljivo,
+merenjem nad radnim okruženjem `poliklinika` na besplatnom MySQL 8.4 Community izdanju, a ne samo
+čitanjem priručnika [@mysql84refman]. Nalazi se razvrstavaju tačno prema dvema stranama te teze.
+
+Na strani sastavljanja stoji veći deo onoga što MySQL stvarno radi. Sistem privilegija je skup redova
+u tabelama dodele prava, a dvostepena provera pristupa, izbor jednog reda u tabeli `mysql.user` pri
+povezivanju i potom provera prava za svaku naredbu, ostaje jedini put kojim se odluka o pristupu
+donosi [@mysql84refman]. Uloge ne uvode novi mehanizam, nego graf nad istim, diskrecionim redovima, pa
+je RBAC0 ostvaren u potpunosti, dok je RBAC1 ostvaren delimično, jer graf u tabeli `mysql.role_edges`
+nije formalno parcijalno uređenje [@sandhu1996; @incits2004]. Fino-granularna kontrola pristupa
+sastavlja se iz privilegija nad kolonama i iz pogleda sa definer semantikom, a silo obrazac
+multi-tenant izolacije, u kome svaki tenant dobija sopstvenu bazu, sprovodi samo jezgro servera, bez
+ijednog dodatnog mehanizma [@mysql84refman].
+
+Na strani odsustva stoji ono što je za tezu rada značajnije. Obavezne kontrole pristupa i
+Bell-LaPadula modela u MySQL-u nema ni u tragovima, pa argument o trojanskom konju, kojim se u teoriji
+motiviše prelazak sa DAC na MAC, nad ovim sistemom ostaje neodgovoren [@ramakrishnan2003]. Razdvajanje
+dužnosti, odnosno RBAC2, ne postoji, i to odsustvo je strukturno, jer uloga i nalog dele isti tip
+objekta, pa ograničenje nema na šta da se veže [@sandhu1996]. Bezbednosti na nivou reda, kakvu
+PostgreSQL sprovodi naredbom `CREATE POLICY`, a Oracle mehanizmom Virtual Private Database, nema kao
+tačke sprovođenja unutar obrade upita, nego samo kao obrasca koji se dopisuje spolja
+[@postgresrls2024; @oraclevpd2024]. Pripisivost u evidentiranju pristupa izostaje jer efektivni
+identitet, pod kojim je naredba stvarno izvršena, nikada ne napušta server kao zasebna vrednost
+zapisa, pa slobodno dostupni instrumenti ne zadovoljavaju kriterijume evidencionog traga
+[@nistsp80092]. Izolacija tenanta u pool obrascu, najzad, ne slabi, nego potpuno izlazi iz nadležnosti
+baze podataka.
+
+Poređenje tih odsustava daje im zajednički uzrok, i to je glavni nalaz ovog rada. Rečnik MySQL-ovog
+modela ima samo tri koordinate: subjekat je imenovani red u tabeli `mysql.user`, objekat je imenovani
+objekat koji se navodi u naredbi `GRANT`, a operacija je privilegija iz unapred određenog skupa
+[@mysql84refman]. Svako pojedinačno odsustvo utvrđeno u ovom radu jeste pravilo koje se u tom rečniku
+ne može zapisati: klasa sigurnosti subjekta i objekta u drugom poglavlju, ograničenje nad parom uloga
+u trećem, predikat nad pojedinačnim redom u četvrtom, oblik same naredbe u petom, efektivni identitet
+u zapisu u šestom i tenant kao koordinata u sedmom. Odatle sledi i drugi obrazac, ponovljen u više
+poglavlja: kada model ne ume da izrazi pravilo, MySQL ne proširuje šemu dodele prava, nego pravilo
+dopisuje van nje, u telo pogleda, u proceduru ili u aplikaciju, čime tačka sprovođenja prelazi sa
+jezgra servera na disciplinu onoga ko je to telo napisao.
+
+Praktična posledica formuliše se kroz princip najmanjih privilegija, nit koja povezuje čitav rad
+[@saltzerschroeder1975]. Pošto se nivoi dodele prava sastavljaju logičkim `OR` operatorom, uža dodela
+nikada ne sužava širu, pa se domašaj naloga određuje pri projektovanju, izborom toga koliko objekata
+jedno ime uopšte sme da dohvati, i naknadnim dodelama se ne ispravlja [@mysql84refman]. Za onoga ko
+projektuje bezbednost nad MySQL bazom zaključak nije da je sistem slab, nego da je precizno ograničen:
+sve što se izražava kao par imenovanog subjekta i imenovanog objekta server sprovodi pouzdano i sam,
+dok se sve ostalo mora svesno prepustiti sloju izvan baze, uz puno znanje o tome šta se time gubi.
+Mehanizmi dostupni isključivo u komercijalnom izdanju, pre svih MySQL Enterprise Audit i Enterprise
+Firewall, u ovom radu su obrađeni samo teorijski i predstavljaju prirodan pravac daljeg rada, kao i
+poređenje sa sistemima koji navedene tačke sprovođenja imaju ugrađene [@mysql84refman].
