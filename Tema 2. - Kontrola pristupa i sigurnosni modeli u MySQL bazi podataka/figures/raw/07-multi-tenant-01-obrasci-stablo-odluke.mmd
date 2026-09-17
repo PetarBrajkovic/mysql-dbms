@@ -1,0 +1,55 @@
+%% Slika 7.1: Izbor multi-tenant obrasca kao stablo odluke.
+%% Rendered with the `visualize` skill's Mermaid renderer (ticket 12's default for drawn diagrams),
+%% verified by looking at the render, then published to
+%% figures/07-multi-tenant-01-obrasci-stablo-odluke.png.
+%%
+%% Note on layout: the dotted note edge is deliberately attached to A (SILO) rather than to Q2.
+%% Attaching it to Q2 makes Mermaid reorder the root's branches and the pool (bad) branch ends up
+%% on the left, reversing the reading order. Do not "clean that up" without re-rendering.
+graph TD
+    Q0["Granica između tenanata mora stati<br/>na subjekat ili na objekat"]
+
+    Q1{"Razlikuju li se<br/>OBJEKTI po tenantu?"}
+    Q2{"Cela baza<br/>ili samo skup tabela?"}
+    Q3{"Razlikuju li se<br/>NALOZI po tenantu?"}
+
+    N1["granica pada na RED,<br/>a red nema ime"]
+    N2["schema-per-tenant nije treći obrazac:<br/>CREATE SCHEMA je sinonim za CREATE DATABASE"]
+
+    A["SILO<br/>database-per-tenant"]
+    B["BRIDGE<br/>skup tabela po tenantu"]
+    C["POOL<br/>nalog po tenantu"]
+    D["POOL<br/>zajednički nalog"]
+
+    RA["domašaj: 1 tenant<br/>sprovodi JEZGRO<br/>cena: O(n) baza i naloga"]
+    RB["domašaj: 1 tenant<br/>sprovodi JEZGRO, po tabeli<br/>cena: O(n × t) grantova"]
+    RC["domašaj: SVI tenanti<br/>sprovodi APLIKACIJA<br/>cena: O(n) naloga bez koristi"]
+    RD["domašaj: SVI tenanti, bez pripisivosti<br/>sprovodi APLIKACIJA<br/>cena: O(1), i zato se bira"]
+
+    Q0 --> Q1
+    Q1 -->|"da"| Q2
+    Q1 -->|"ne"| N1
+    N1 --> Q3
+
+    Q2 -->|"baza"| A
+    Q2 -->|"tabele"| B
+    Q3 -->|"da"| C
+    Q3 -->|"ne"| D
+
+    A --> RA
+    B --> RB
+    C --> RC
+    D --> RD
+    A -.- N2
+
+    classDef q fill:#ffffff,stroke:#333333,stroke-width:1px;
+    classDef pat fill:#e8eef7,stroke:#1f3864,stroke-width:2px,font-weight:bold;
+    classDef res fill:#f7f7f4,stroke:#8a8a80,stroke-width:1px,font-size:12px;
+    classDef bad fill:#f7eaea,stroke:#8c2b2b,stroke-width:2px,font-weight:bold;
+    classDef note fill:#fdf6e3,stroke:#b58900,stroke-width:1px,font-size:12px;
+
+    class Q0,Q1,Q2,Q3 q;
+    class A,B pat;
+    class C,D bad;
+    class RA,RB,RC,RD res;
+    class N1,N2 note;

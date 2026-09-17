@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 06 — Multi-tenant: gde granica sme da stane</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 06 · Poglavlje 7 (Multi-tenant bezbednosni modeli)</p>
+<h1>Tenant nije ni subjekat ni objekat</h1>
+<p class="subtitle">Poglavlje 7 nije četvrti model kontrole pristupa. To je jedno projektantsko
+pitanje na koje se odgovara svime što su poglavlja 2–6 utvrdila — i mesto gde nit najmanjih
+privilegija, koja traje od poglavlja 2, konačno sleće.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Ovo je zaključno poglavlje pred zaključak, i nosi pitanje koje profesor najverovatnije postavlja:
+  <em>„šta tačno MySQL ovde ne može da sprovede?"</em>. Kad završiš, treba da umeš, bez podsetnika:
+  <strong>(1)</strong> da izvedeš zašto postoje baš tri obrasca, a ne proizvoljno mnogo;
+  <strong>(2)</strong> da za svaki kažeš ko sprovodi izolaciju — jezgro ili aplikacija;
+  <strong>(3)</strong> da sudar oko konekcionog pula izložiš kao <em>jedan</em> defekt sa dva lica.
+</div>
+
+<h2>1 · Rečnik koji baza ima</h2>
+
+<p>Iz poglavlja 2 stoji da je odluka o pristupu uvek trojka <em>(subjekat, objekat, operacija)</em>.
+Poglavlja 3 i 4 su svaku koordinatu popunila konkretnim MySQL sadržajem:</p>
+
+<table class="exp">
+  <tr><td><strong>subjekat</strong></td><td>red u <code>mysql.user</code> koji je prvi korak izabrao — to je <code>CURRENT_USER()</code></td></tr>
+  <tr><td><strong>objekat</strong></td><td>baza, tabela, kolona ili rutina — ono što <code>GRANT</code> <strong>imenuje</strong></td></tr>
+  <tr><td><strong>operacija</strong></td><td><code>SELECT</code>, <code>INSERT</code>, <code>UPDATE</code>, …</td></tr>
+</table>
+
+<p>U toj tabeli nema reči <em>tenant</em>. Podružnica Bar nije ni subjekat, ni objekat, ni operacija —
+to je pojam poslovnog sveta, a ne pojam baze. Odatle sve ostalo:</p>
+
+<div class="slide">
+  Da bi je baza sprovela, granica između tenanata mora biti izrečena u rečniku koji baza ima.
+  Operacija otpada — <code>SELECT</code> je <code>SELECT</code> za svakoga. Ostaju
+  <strong>subjekat</strong> i <strong>objekat</strong>.
+  <span class="src">Okosnica poglavlja 7, izvedena iz trojke iz poglavlja 2</span>
+</div>
+
+<h2>2 · <code>CURRENT_USER()</code> imenuje red, ne konekciju</h2>
+
+<p>Pre nego što se krene dalje, jedan čvor mora da stoji precizno, jer ceo argument o pulu visi o
+njemu. Manual razdvaja dve funkcije jasno:</p>
+
+<div class="slide">
+  <span class="hi"><code>CURRENT_USER()</code></span> — <em>„Returns the user name and host name
+  combination for the MySQL account that the server used to authenticate the current client.
+  <strong>This account determines your access privileges.</strong>"</em><br><br>
+  <span class="hi"><code>USER()</code></span> — <em>„The value indicates the user name you specified
+  when connecting to the server, and the client host from which you connected."</em>
+  <span class="src">MySQL 8.4 Reference Manual, 14.15 Information Functions</span>
+</div>
+
+<p>Manual daje i krajnji slučaj, koji sam po sebi razrešava svaku zabunu:</p>
+
+<div class="codewrap">
+<pre><code>mysql&gt; SELECT USER();
+        -&gt; 'davida@localhost'
+mysql&gt; SELECT CURRENT_USER();
+        -&gt; '@localhost'</code></pre>
+</div>
+
+<p>Klijent je rekao da je <code>davida</code>. Server je za taj zahtev izabrao <strong>anonimni</strong>
+nalog — prazno korisničko ime. Ista sesija, a ne poklapa se ni korisničko ime, ne samo host.</p>
+
+<p>Ovo nije nov podatak nego opštiji oblik dva koja već stoje. Iz poglavlja 5: prvi korak bira
+<strong>tačno jedan</strong> red, najuži host prvi, bez povratka na širi — <code>CURRENT_USER()</code>
+je <em>ime tog reda</em>. A poznati slučaj <code>SQL SECURITY DEFINER</code> pogleda iz
+<a href="0003-fgac-i-rls.html">lekcije 03</a> je isti iskaz, ne izuzetak: unutar definer konteksta
+proveravaju se definerove privilegije, pa <code>CURRENT_USER()</code> imenuje <em>njegov</em> red.</p>
+
+<div class="recall">
+  <span class="lbl">Posledica koju treba izvesti odmah</span>
+  Ako <code>CURRENT_USER()</code> imenuje <em>red</em>, onda broj različitih identiteta koje baza može
+  da razlikuje nije broj korisnika — nego <strong>broj redova u <code>mysql.user</code></strong>.
+  Četiri hiljade zaposlenih iza jednog reda daju bazi tačno jedan identitet.
+</div>
+
+<h2>3 · Tri obrasca su tri odgovora, ne tri ukusa</h2>
+
+<p>Dve koordinate smeju da se razlikuju po tenantu. Prebrojimo koliko njih zaista razlikujemo.</p>
+
+<p><strong>Obe.</strong> Svaka podružnica dobija svoju bazu i svoj nalog:
+<code>GRANT … ON pod_bar.* TO 'app_bar'@'…'</code>. Granica stoji u oba imena, jezgro je proverava u
+drugom koraku, i nalog iz Bara ne dohvata Nikšić <em>ni ako aplikacija ima bag</em> — nema grant.
+To je <strong>silo</strong> obrazac, u AWS-ovoj terminologiji, odnosno <em>database-per-tenant</em>
+kod Azure-a.</p>
+
+<p><strong>Nijednu.</strong> Svi dele istu tabelu, a pripadnost nosi kolona <code>tenant_id</code>.
+To je <strong>pool</strong>. Granica je pala na <em>red</em>, a red nije ni subjekat ni objekat —
+to je tačno kolonski plafon iz <a href="0003-fgac-i-rls.html">lekcije 03</a>:
+<em>red nema ime, pa nema šta da stoji u grant tabeli.</em></p>
+
+<div class="note">
+  <span class="lbl">Precizna formulacija za rad</span>
+  U pool obrascu baza nije <em>slabija</em>. Ona je <strong>isključena iz odluke</strong> — izolacija
+  se ne sprovodi loše, nego se ne sprovodi u bazi uopšte, nego u aplikaciji.
+</div>
+
+<figure class="fig">
+  <img src="../figures/07-multi-tenant-01-obrasci-stablo-odluke.png"
+       alt="Stablo odluke: dve koordinate granaju četiri multi-tenant obrasca">
+  <figcaption><strong>Slika 7.1:</strong> Izbor obrasca kao stablo odluke. Dva pitanja — razlikuju
+  li se objekti, razlikuju li se nalozi — iscrpljuju sve mogućnosti, pa četiri obrasca nisu spisak
+  nego posledica. Ispod svakog stoji domašaj jednog naloga, ko sprovodi izolaciju, i cena.</figcaption>
+</figure>
+
+<h2>4 · Srednji obrazac u MySQL-u ne postoji</h2>
+
+<p>Literatura navodi i treći, srednji obrazac; PostgreSQL i Oracle tekstovi — i naš memorandum 07 —
+zovu ga <em>schema-per-tenant</em>. Ime se oslanja na reč <em>šema</em>, a ta reč u MySQL-u ne znači
+ono što znači drugde:</p>
+
+<div class="slide">
+  <em>„<code>CREATE SCHEMA</code> is a synonym for <code>CREATE DATABASE</code>."</em>
+  <span class="src">MySQL 8.4 Reference Manual, 15.1.12 CREATE DATABASE Statement</span>
+</div>
+
+<p>To je odluka o imenovanju koja se prima zdravo za gotovo — ne sledi ni iz čega. U PostgreSQL-u i
+Oracle-u šema je imenovani prostor <em>unutar</em> baze, pa su tamo „šema po tenantu" i „baza po
+tenantu" dve stvari. <strong>U MySQL-u su dve reči za isto.</strong></p>
+
+<p>Ono što u MySQL-u stvarno postoji kao srednji slučaj jeste jedna baza sa zasebnim <em>skupom
+tabela</em> po tenantu (<code>bar_diagnoses</code>, <code>niksic_diagnoses</code>, …). Ali to ne uvodi
+novi nivo granta: ne postoji ime koje pokriva „sve objekte tenanta Bar", pa umesto jednog
+<code>GRANT … ON pod_bar.*</code> dobijaš grant po tabeli, po tenantu. Isti stepen izolacije, veći
+trošak administracije — dakle <strong>lošija varijanta silo obrasca, a ne kompromis između dva</strong>.</p>
+
+<h2>5 · Sudar oko konekcionog pula</h2>
+
+<p>Dosad se obrazac birao slobodno. Sad dolazi ograničenje koje ne postavlja projektant baze nego
+arhitektura aplikacije. Konekcije su skupe, pa aplikacija drži šačicu otvorenih i deli ih između
+zahteva — a da bi se konekcija delila, mora biti otvorena kao <strong>jedan</strong> nalog, isti za
+sve tenante.</p>
+
+<p>Primeni na to čvor iz odeljka 2: jedan nalog → jedan red u <code>mysql.user</code> → jedna vrednost
+<code>CURRENT_USER()</code> za sve tenante. Baza nije delimično slepa za tenanta, nego potpuno:
+<strong>informacija o podružnici nikada nije ni ušla u server.</strong></p>
+
+<p>Uobičajena krpa je sesijska promenljiva — <code>SET @tenant_id = 7;</code>, pa pogled filtrira po
+njoj. To je Pattern B iz <a href="0003-fgac-i-rls.html">lekcije 03</a> i pada iz istog razloga:
+vrednost postavlja isti klijent koji se njome ograničava. <em>Mera koju ograničavani sam sebi
+dodeljuje nije kontrola pristupa.</em></p>
+
+<p>A zašto se ne može popraviti ni grantovima, sledi iz <code>OR</code>-kompozicije iz
+<a href="0002-privilegije-i-uloge.html">lekcije 02</a>: uži grant nikada ne sužava širi, pa ne postoji
+<code>GRANT</code> koji popravlja pool nalog.</p>
+
+<h3>Dva otkaza, jedan uzrok</h3>
+
+<p>Iz <a href="0005-audit-logging.html">lekcije 05</a> već stoji da pod zajedničkim pulom puca
+<strong>pripisivost</strong>, dok preostala tri kriterijuma audit trail-a i dalje važe. Sad se vidi da
+puca i <strong>izolacija</strong>. To nisu dva problema:</p>
+
+<table class="exp">
+  <tr><td><strong>izolacija</strong></td><td>pada <em>unapred</em> — baza ne može da odbije zahtev jer nema po čemu da razlikuje</td></tr>
+  <tr><td><strong>pripisivost</strong></td><td>pada <em>unazad</em> — baza ne može da kaže ko je bio jer nikada nije ni znala</td></tr>
+</table>
+
+<p>Jedan defekt, dva lica, i zato se nijedno ne popravlja nizvodno:
+<strong>ne može se povratiti informacija koja nikada nije stigla.</strong> Slanje logova na zaključan
+server, čuvanje 12 meseci i potpisivanje kupuju rok čuvanja i otpornost na izmenu — a pripisivost i
+izolaciju ne kupuju uopšte.</p>
+
+<h2>6 · Sletanje niti: najmanje privilegije kao broj</h2>
+
+<p>Nit ide od poglavlja 2, u izvornoj formulaciji Saltzer–Schroeder-a (1975): <em>„Every program and
+every user of the system should operate using the least set of privileges necessary to complete the
+job."</em> Ovde načelo postaje <strong>merljiva veličina</strong>:</p>
+
+<div class="slide">
+  Mera je <span class="hi">koliko tenanata jedan nalog <em>sme</em> da dohvati</span> — ne koliko ih
+  stvarno dohvata.
+  <span class="src">Domašaj se meri grantom, ne upitom koji aplikacija trenutno šalje</span>
+</div>
+
+<table class="exp">
+  <tr><td><strong>silo</strong> (<code>database-per-tenant</code>)</td><td>domašaj <strong>1</strong> · sprovodi jezgro, u drugom koraku · cena: <code>O(n)</code> baza i naloga, migracija <em>n</em> puta</td></tr>
+  <tr><td><strong>„bridge"</strong> (skup tabela po tenantu)</td><td>domašaj <strong>1</strong> · sprovodi jezgro, ali po tabeli · cena: <code>O(n × t)</code> grantova</td></tr>
+  <tr><td><strong>pool</strong> + nalog po tenantu</td><td>domašaj <strong>svi</strong> · sprovodi aplikacija · cena: <code>O(n)</code> naloga, bez koristi od njih</td></tr>
+  <tr><td><strong>pool</strong> + zajednički nalog</td><td>domašaj <strong>svi</strong>, i bez pripisivosti · sprovodi aplikacija · cena: <code>O(1)</code> — i zato se bira</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Zaključna rečenica poglavlja</span>
+  <span class="hi">Izbor obrasca <em>jeste</em> odluka o najmanjim privilegijama.</span> Donosi se
+  jednom, pri projektovanju, i posle se grantovima ne može ispraviti — jer nivoi se komponuju
+  <code>OR</code>-om, a uži grant ne sužava širi.
+</div>
+
+<h2>7 · Gde stoji naš sandbox</h2>
+
+<p><code>poliklinika</code> je namerno na ispravnoj strani te odluke: 12 naloga
+<code>&lt;uloga&gt;_&lt;podružnica&gt;</code>, svaki sa svojim redom u <code>mysql.user</code>, pa
+<code>CURRENT_USER()</code> <strong>nosi</strong> podružnicu. Zato pogled
+<code>v_my_branch_diagnoses</code> uopšte može da radi — on podružnicu čita iz <code>staff</code>
+preko <code>CURRENT_USER()</code>:</p>
+
+<div class="codewrap">
+<pre><code>WHERE d.tenant_id = (
+  SELECT s.tenant_id FROM staff s
+  WHERE s.mysql_account = SUBSTRING_INDEX(CURRENT_USER(), '@', 1)
+  LIMIT 1
+)</code></pre>
+</div>
+
+<p>Sa zajedničkim pool nalogom taj isti pogled vratio bi ili prazan rezultat ili tuđe redove — jer
+<code>CURRENT_USER()</code> više ne bi imenovao nikoga konkretnog. Pool nalog u radu zato ostaje
+<strong>strawman u prozi</strong> i nikada se ne pravi na serveru.</p>
+
+<div class="quiz">
+  <p>Provera — odgovaraj po sećanju, bez vraćanja gore.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Nalog postoji u <code>mysql.user</code> samo kao <code>'izvestaj'@'%'</code>. Dve sesije se otvaraju sa dve različite mašine. Šta se razlikuje?</p>
+    <label><input type="radio"> I <code>USER()</code> i <code>CURRENT_USER()</code> se razlikuju</label>
+    <label><input type="radio"> <code>CURRENT_USER()</code> se razlikuje, <code>USER()</code> je isti</label>
+    <label><input type="radio"> <code>USER()</code> se razlikuje, <code>CURRENT_USER()</code> je isti</label>
+    <label><input type="radio"> Ni jedno ni drugo se ne razlikuje</label>
+    <p class="why"><code>USER()</code> nosi stvarni klijentski host; <code>CURRENT_USER()</code> imenuje jedini postojeći red, pa je u obe sesije isti.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">2. Zašto granica između tenanata ne može da stane na red tabele?</p>
+    <label><input type="radio"> Jer bi provera reda previše usporila izvršavanje upita</label>
+    <label><input type="radio"> Jer red nema ime, pa nema šta da se upiše u grant tabelu</label>
+    <label><input type="radio"> Jer <code>partial_revokes</code> pokriva samo nivo tabele</label>
+    <label><input type="radio"> Jer se privilegije nad redovima gube pri svakom restartu servera</label>
+    <p class="why">Grant imenuje objekat; kolona je plafon granularnosti jer je poslednji imenovani nivo.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Šta je „schema-per-tenant" na MySQL-u?</p>
+    <label><input type="radio"> Više šema unutar jedne baze, svaka sa sopstvenim grantom</label>
+    <label><input type="radio"> Jedna baza sa posebnim skupom pogleda po tenantu</label>
+    <label><input type="radio"> Jedna baza sa prefiksima u imenima tabela</label>
+    <label><input type="radio"> Isti mehanizam kao database-per-tenant, pod drugim imenom</label>
+    <p class="why"><code>CREATE SCHEMA</code> je sinonim za <code>CREATE DATABASE</code> — dve reči za istu stvar.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">4. Aplikacija posle uzimanja konekcije izvrši <code>SET @tenant_id = 7;</code>, a pogledi filtriraju po toj promenljivoj. Šta se time postiže?</p>
+    <label><input type="radio"> Ništa u pogledu izolacije — vrednost postavlja isti klijent koji se ograničava</label>
+    <label><input type="radio"> Izolacija na nivou reda, jer server sada zna kom tenantu sesija pripada</label>
+    <label><input type="radio"> Izolacija samo za čitanje, dok upisi ostaju neomeđeni</label>
+    <label><input type="radio"> Izolacija koja traje dok se konekcija ne vrati u pul</label>
+    <p class="why">Pattern B iz poglavlja 4: korisnička promenljiva je pod kontrolom onoga koga ograničava.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">5. Logovi se šalju na zaključan server, čuvaju 12 meseci i potpisuju. Pool nalog ostaje isti. Šta se popravlja?</p>
+    <label><input type="radio"> Pripisivost, jer se svaki zahtev trajno vezuje za svoj zapis</label>
+    <label><input type="radio"> Sva četiri kriterijuma audit trail-a</label>
+    <label><input type="radio"> Rok čuvanja i otpornost na izmenu; izolacija i pripisivost ne</label>
+    <label><input type="radio"> Izolacija, jer se pristup tuđim redovima sada otkriva</label>
+    <p class="why">Nizvodno se kupuje samo ono što je stiglo do zapisa; podružnica nikada nije stigla do servera.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">6. Poliklinika ide na pool sa zajedničkim nalogom. Šta MySQL u toj postavci sprovodi?</p>
+    <label><input type="radio"> Ne sprovodi ništa, jer je nalog zajednički za sve podružnice</label>
+    <label><input type="radio"> Da pool nalog sme <code>diagnoses</code>; koja podružnica — sprovodi aplikacija</label>
+    <label><input type="radio"> Pristup po podružnici, čim pogled filtrira po <code>tenant_id</code></label>
+    <label><input type="radio"> Pristup po podružnici, ali ga ne može zabeležiti u logu</label>
+    <p class="why">DAC provera radi punom snagom — samo nad koordinatama koje baza ima, a tenant nije jedna od njih.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong>
+  <a href="https://docs.aws.amazon.com/whitepapers/latest/saas-tenant-isolation-strategies/saas-tenant-isolation-strategies.html">AWS, <em>SaaS Tenant Isolation Strategies</em></a>
+  — počni od poglavlja <em>Core isolation concepts</em> i <em>Silo / Pool / Bridge</em>; to je izvor
+  same terminologije, a ne njen prepričani oblik. Zatim
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/information-functions.html">MySQL 8.4 Reference Manual, 14.15 Information Functions</a>
+  (<code>USER()</code> naspram <code>CURRENT_USER()</code>). ·
+  <strong>Vidi još:</strong> <a href="../reference/06-multi-tenant.html">referentna kartica 06</a>,
+  <a href="0005-audit-logging.html">lekcija 05</a>,
+  <a href="0003-fgac-i-rls.html">lekcija 03</a>,
+  <a href="0002-privilegije-i-uloge.html">lekcija 02</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §1. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu — lekcija je početak, ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>

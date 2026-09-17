@@ -622,3 +622,117 @@ Pripisivost zahteva oba identiteta u istom zapisu, a slobodno dostupni instrumen
 nude nijedan mehanizam koji bi to obezbedio.
 
 ![Slika 6.1: Isečak opšteg dnevnika upita - obe veze beleže samo nalog koji se povezao, nikada nalog čijim je pravima upit stvarno izvršen](figures/06-audit-01-log-izvod.png){width=90%}
+
+# 7. Multi-tenant bezbednosni modeli
+
+Pod multi-tenant okruženjem podrazumeva se postavka u kojoj jedna instanca sistema opslužuje više
+međusobno nepoverljivih zakupaca (tenanta), pri čemu svaki od njih sme da vidi isključivo sopstvene
+podatke. U primeru na kome je ovaj rad građen, tenant je podružnica klinike, a instanca je jedan
+MySQL server sa jednom šemom `poliklinika`. Ovo poglavlje ne uvodi četvrti model kontrole pristupa
+pored DAC-a, MAC-a i RBAC-a iz drugog poglavlja, nego proverava sve prethodne na jednom
+projektantskom zadatku: gde se granica između tenanta može postaviti tako da je sprovodi sama baza
+podataka, a ne aplikacija iznad nje.
+
+Polazna tačka nije spisak obrazaca iz literature, nego rečnik kojim baza raspolaže. Drugo poglavlje
+je odluku o pristupu definisalo kao trojku (subjekat, objekat, operacija) [@ramakrishnan2003], a
+treće i četvrto su pokazali čime je svaka koordinata u MySQL-u konkretno popunjena: subjekat je red u
+tabeli `mysql.user` koji je prvi korak provere izabrao i koji `CURRENT_USER()` imenuje, objekat je
+ono što `GRANT` imenuje (baza, tabela, kolona ili rutina), a operacija je sama privilegija
+[@mysql84refman]. U toj trojci nigde ne stoji pojam tenanta. Podružnica nije ni subjekat, ni objekat,
+ni operacija, nego pojam poslovnog domena, pa server o njoj ne zna ništa osim onoga što mu je
+prethodno prevedeno u jednu od tri koordinate.
+
+Otuda sledi pitanje koje čini okosnicu poglavlja: da bi baza uopšte mogla da sprovede granicu između
+tenanta, ta granica mora biti izrečena na njenom jeziku. Operacija pritom otpada, jer je `SELECT`
+ista operacija za svakoga, pa ostaju tačno dve koordinate koje se po tenantu mogu razlikovati,
+objekat i subjekat. Kombinacije te dve mogućnosti nisu stvar izbora nego iscrpno nabrajanje, i upravo
+to nabrajanje daje obrasce prikazane na Slici 7.1, gde svaki list nosi tri podatka: domašaj jednog
+naloga, tačku sprovođenja i cenu.
+
+![Slika 7.1: Izbor multi-tenant obrasca kao stablo odluke. Dva pitanja, razlikuju li se objekti i razlikuju li se nalozi, iscrpljuju sve mogućnosti, pa četiri obrasca nisu spisak nego posledica.](figures/07-multi-tenant-01-obrasci-stablo-odluke.png){width=92%}
+
+Kada se razlikuju obe koordinate, svaki tenant dobija sopstvenu bazu i sopstveni nalog, pa grant
+glasi, na primer, `GRANT SELECT, INSERT ON pod_bar.* TO 'app_bar'@'10.0.0.%'`. Granica je tada
+zapisana u oba imena koja provera pristupa ionako čita, i sprovodi je jezgro servera u drugom koraku
+provere, nezavisno od ispravnosti aplikacije: nalog jedne podružnice ne može da dohvati podatke druge
+ni onda kada upit koji to pokušava zaista stigne do servera, jer odgovarajućeg reda u tabeli dodele
+prava nema [@mysql84refman]. Ovaj obrazac se u dokumentaciji vodećih dobavljača naziva *silo*
+[@awssaaslens], odnosno *database-per-tenant* [@azuretenancy], i oba izvora mu pripisuju visok
+stepen izolacije uz visoku cenu: broj baza i naloga raste linearno sa brojem tenanta, a svaka izmena
+šeme mora da se izvrši nad svakom bazom posebno [@azuretenancy].
+
+Srednji slučaj, u kome se objekti razlikuju ali se ne razdvajaju u zasebne baze, zahteva jednu
+terminološku ispravku. Tekstovi nastali oko sistema u kojima je šema imenovani prostor unutar baze,
+kao što su PostgreSQL i Oracle, ovaj obrazac zovu *schema-per-tenant*, ali u MySQL-u takvog nivoa
+nema: naredba `CREATE SCHEMA` je sinonim za `CREATE DATABASE` [@mysql84refman], pa je šema po tenantu
+u MySQL-u doslovno isto što i baza po tenantu. Ono što na MySQL-u stvarno postoji kao srednji slučaj
+jeste zaseban skup tabela po tenantu unutar jedne baze, ali on ne uvodi nijedan novi nivo dodele
+prava: ne postoji ime koje obuhvata sve objekte jednog tenanta, pa se umesto jednog granta nad bazom
+dodeljuje grant po tabeli i po tenantu, uz isti stepen izolacije. Na MySQL-u je taj obrazac, dakle,
+samo skuplja varijanta silo obrasca, a ne kompromis između dva krajnja slučaja; i sami dobavljači ga
+ne imenuju po šemi, nego kao *bridge*, mešovitu postavku u kojoj je jedan deo sistema izveden kao
+silo a drugi kao deljeni resurs [@awssaaslens], odnosno kao *sharded multitenant* model kome se
+izričito pripisuje niska izolacija [@azuretenancy].
+
+Kada se ne razlikuje nijedna koordinata, svi tenanti dele istu tabelu, a pripadnost reda se čita iz
+kolone kakva je `tenant_id` u tabeli `diagnoses`. To je *pool* obrazac [@awssaaslens], i u njemu
+granica pada na red. Četvrto poglavlje je već pokazalo zašto je to kraj puta za sistem privilegija:
+kolona je plafon granularnosti, red nema ime, pa nema šta da stoji u tabeli dodele prava
+[@mysql84refman]. Merenje na opisanom okruženju to i potvrđuje: nalog `doc_bar`, vezan za podružnicu
+Bar, kroz osnovnu tabelu `diagnoses` uredno čita redove sve tri podružnice, dok kroz pogled
+`v_my_branch_diagnoses` vidi samo redove sopstvene, pri čemu njegov `SHOW GRANTS` ne sadrži nijednu
+odredbu koja podružnicu uopšte pominje, jer je jedino što grant imenuje tabela kao celina.
+Formulacija koja tačno opisuje ishod nije da je baza u ovom obrascu slabija, nego da je isključena iz
+odluke: DAC provera se izvršava u punom obimu, samo nad koordinatama među kojima tenanta nema.
+
+Na taj izbor se nadovezuje ograničenje koje ne postavlja projektant baze nego arhitektura aplikacije.
+Otvaranje konekcije je skupa operacija, pa aplikacije održavaju zajednički skup konekcija
+(connection pooling), a da bi jedna konekcija mogla da se dodeli bilo kom zahtevu, mora biti otvorena
+kao jedan te isti nalog za sve korisnike. Posledica je neposredna: jedan nalog znači jedan red u
+tabeli `mysql.user`, a to znači jednu jedinu vrednost funkcije `CURRENT_USER()` u svim sesijama, bez
+obzira na broj krajnjih korisnika iza njih. Broj identiteta koje baza ume da razlikuje jednak je
+broju redova u `mysql.user`, a ne broju ljudi koji kroz aplikaciju rade. Druga identitetska funkcija
+tu ne pomaže, jer meri drugu stvar: `USER()` beleži ono što je klijent naveo pri povezivanju i
+stvarni host sa koga je došao, dok `CURRENT_USER()` imenuje red koji je server izabrao i koji jedini
+određuje prava pristupa; priručnik tu razliku ilustruje slučajem u kome se te dve vrednosti razlikuju
+čak i u korisničkom imenu, jer je zahtev klijenta `davida` pripao anonimnom nalogu [@mysql84refman].
+Ni u jednoj od te dve vrednosti nema podatka o podružnici.
+
+Uobičajena zakrpa za taj gubitak jeste da aplikacija, čim preuzme konekciju iz skupa, prijavi tenanta
+naredbom oblika `SET @tenant_id = 3`, a da pogledi filtriraju po toj promenljivoj. Reč je o drugom
+obrascu emulacije iz četvrtog poglavlja, i merenje pokazuje zašto on u pogledu izolacije ne menja
+ništa: isti nalog, u istoj sesiji, jednom dodelom vrednosti prelazi sa sopstvene podružnice na tuđu i
+uredno dobija njene redove, bez ijedne nove privilegije i bez ijedne greške. Korisnička promenljiva
+je vrednost koju postavlja upravo onaj nalog koji bi njome trebalo da bude ograničen, a mera koju
+ograničavani sam sebi dodeljuje nije kontrola pristupa [@mysql84refman].
+
+Time postaje vidljivo da zajednički nalog proizvodi dva otkaza koja imaju isti uzrok. Izolacija
+otkazuje unapred, jer server nema po čemu da razlikuje zahteve, a pripisivost otkazuje unazad, jer u
+zapis odlazi isključivo ime zajedničkog naloga. Šesto poglavlje je pokazalo da su trajnost i
+otpornost zapisa na izmenu svojstva koja se mogu obezbediti nizvodno, slanjem zapisa na zaseban i
+zaključan sistem [@nistsp80092], ali pripisivost se tako ne popravlja: identitet tenanta nikada nije
+ni ušao u server, a informacija koja nije stigla ne može se naknadno rekonstruisati. Jedan isti
+propust, dakle, ima dva lica, i nijedno od njih se ne leči merama koje se primenjuju pošto je odluka
+o obrascu već doneta.
+
+Na tom mestu se sklapa i nit koja kroz rad traje od drugog poglavlja. Princip najmanjih privilegija
+je u Saltzer-Schroederovoj formulaciji načelo o najmanjem skupu prava potrebnom za obavljanje posla
+[@saltzerschroeder1975]; u izboru multi-tenant obrasca on postaje merljiva veličina, i to ona koja
+glasi koliko tenanta jedan nalog *sme* da dohvati, a ne koliko ih stvarno dohvata upitima koje
+aplikacija trenutno šalje. Merenje iz ovog poglavlja daje obe vrednosti za isti nalog: kroz pogled
+jednu podružnicu, kroz osnovnu tabelu sve tri, pri čemu je samo druga vrednost mera u smislu ovog
+principa. Treće poglavlje je uz to utvrdilo da se nivoi dodele prava sastavljaju logičkim `OR`
+operatorom, pa uža dodela nikada ne sužava širu [@mysql84refman]: ne postoji naredba `GRANT` kojom se
+domašaj zajedničkog naloga naknadno smanjuje. Iz oba nalaza sledi zaključna tvrdnja poglavlja: izbor
+obrasca jeste odluka o najmanjim privilegijama, donosi se jednom, pri projektovanju, i kasnijim
+dodelama prava se ne ispravlja.
+
+Za tezu ovog rada multi-tenant postavka je zato poslednja i najoštrija provera. Silo obrazac je u
+celini sastavljen iz diskrecionih elemenata drugog poglavlja, imenovanog objekta i imenovanog
+subjekta, i MySQL ga sprovodi bez ijednog dodatnog mehanizma. Pool obrazac traži granicu koju
+diskreciona, na objektima zasnovana kontrola pristupa ne ume da zapiše, pa MySQL u njemu izolaciju
+tenanta ne sprovodi uopšte, nego je prepušta aplikaciji, zajedno sa pripisivošću koja iz istog
+razloga otpada. Okruženje na kome je ovaj rad građen namerno stoji na prvoj strani te odluke:
+dvanaest naloga oblika `<uloga>_<podružnica>`, svaki sa sopstvenim redom u `mysql.user`, čini da
+`CURRENT_USER()` nosi podružnicu, i to je jedini razlog zbog koga pogled `v_my_branch_diagnoses`
+uopšte može da radi.

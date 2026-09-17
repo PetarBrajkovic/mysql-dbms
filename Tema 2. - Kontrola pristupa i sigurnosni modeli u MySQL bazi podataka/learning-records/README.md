@@ -19,6 +19,7 @@ checking a chapter, never when planning a lesson.
 | [0005](0005-fgac-i-rls.md) | 17 (FGAC i RLS) | Column is the granularity ceiling because a row has no name; a view is a name for a predicate; filtering is not authorization; the three RLS emulation patterns and how each breaks | Writing ch. 4; any chapter using views, `DEFINER`/`INVOKER`, `USER()` vs `CURRENT_USER()`, or tenant isolation (5, 6, 7) |
 | [0006](0006-sprovodjenje-politika.md) | 18 (sprovođenje politika) | The core is the only thing that reads state — plugin and component judge only values handed to them; Stage 1 selects exactly one row; Enterprise Firewall is the one mechanism outside the criterion | Writing ch. 5; anything about authentication plugins, components, host matching, password/account/connection policy, or the DAC blind spot to SQL injection (6, 7) |
 | [0007](0007-audit-logging.md) | 19 (audit logging) | Four audit-trail criteria derived by negating one definition; attribution is the only one that cannot be bought downstream, because the effective identity is never emitted | Writing ch. 6; any claim about logs, NIST/PCI citations, or the connection-pooling attribution collision (7) |
+| [0008](0008-multi-tenant.md) | 20 (multi-tenant) | Tenant is neither subject nor object, so the boundary can only stand on an account or an object — which derives the patterns; `schema = database` collapses the middle one; isolation and attribution are one defect with two faces | Writing ch. 7; anything about tenancy patterns, connection pooling, `CURRENT_USER()` as an identity source, or where the least-privilege thread lands |
 
 ## Standing constraints these records impose on every later chapter
 
@@ -154,6 +155,25 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   (keyring encryption is documented; signing/checksums are not). Write it as not documented. Also do
   **not** cite MySQL bug #120896 (DEFINER logging) in the view argument — it concerns stored-program
   bodies, not views, and our capture is about a view. (0007)
+- **In MySQL, `SCHEMA` is a synonym for `DATABASE`** (8.4 refman 15.1.12, *"`CREATE SCHEMA` is a
+  synonym for `CREATE DATABASE`"*). Consequence: *schema-per-tenant* is **not** a third tenancy
+  mechanism here — it is database-per-tenant under another name, and the name is imported from
+  PostgreSQL/Oracle where schema ≠ database. The real MySQL middle case (a table set per tenant in
+  one database) adds **no new grant scope**, so it is a worse variant of silo. Primary sources name
+  the patterns **silo / bridge / pool** (AWS) or standalone / database-per-tenant / sharded
+  multi-tenant (Azure). (0008)
+- **`CURRENT_USER()` is the name of the selected row; the number of identities the database can
+  distinguish is the number of rows in `mysql.user`, not the number of humans.** A shared pool
+  account therefore yields exactly one identity for every tenant. State the pool verdict as **"the
+  database is excluded from the decision"**, never "the database is weaker" — the DAC check runs at
+  full strength, just over coordinates that exclude the tenant. (0008)
+- **Isolation and attribution under a shared pool are one defect with two faces**: isolation fails
+  forwards (nothing to refuse on), attribution fails backwards (nothing to record), both because the
+  tenant identity never entered the server. Retention and tamper resistance are still purchasable
+  downstream; these two are not. (0008)
+- **The choice of tenancy pattern is the least-privilege decision itself**, measured as *how many
+  tenants one account may reach* (not how many it does). Because levels compose by `OR`, no later
+  `GRANT` narrows a pool account — the decision is made once, at design time. (0008)
 - **Enterprise Firewall decides on the statement's shape, not on (subject, object)** — which is why a
   pure DAC model is structurally blind to SQL injection. Commercial; theory only. (0006)
 
@@ -163,3 +183,9 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   and silently returns ungranted columns. **Not reproducible on 8.4.11**: `SELECT *` against
   a column-restricted account returns `ERROR 1142` (table access denied), not a partial leak.
   The paper must not cite this bypass without a version caveat. (0001)
+
+- **Memo 07** describes *schema-per-tenant* as a distinct MySQL pattern realised by table prefixes
+  (`t1_users`, `t2_users`). **False on MySQL**: `CREATE SCHEMA` is a synonym for `CREATE DATABASE`
+  (8.4 refman 15.1.12), so the pattern is database-per-tenant renamed. Chapter 7 must present two
+  enforceable patterns plus a degenerate middle, and say openly that the three-pattern framing comes
+  from systems where schema ≠ database. (0008)

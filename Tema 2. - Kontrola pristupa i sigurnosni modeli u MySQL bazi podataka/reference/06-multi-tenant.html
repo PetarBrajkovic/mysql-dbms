@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kartica 06 — Multi-tenant obrasci i sudar oko pula</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica 06 · Poglavlje 7</p>
+<h1>Multi-tenant obrasci u MySQL-u</h1>
+<p class="subtitle">Dve koordinate, tri obrasca, jedan sudar — i jedna rečenica za odbranu.</p>
+
+<div class="note">
+  <span class="lbl">Okosnica</span>
+  <span class="hi">Tenant nije ni subjekat ni objekat ni operacija.</span> Da bi je baza sprovela,
+  granica mora stati na <strong>nalog</strong> ili na <strong>objekat</strong>. Sve ostalo je
+  aplikacija.
+</div>
+
+<h2>Dve funkcije identiteta</h2>
+<table class="exp">
+  <tr><td><code>USER()</code></td><td>šta je klijent rekao + <strong>stvarni klijentski host</strong>; zamrznuto na prijavi; nikada ne može biti definer</td></tr>
+  <tr><td><code>CURRENT_USER()</code></td><td><strong>ime izabranog reda</strong> u <code>mysql.user</code>; određuje privilegije; u definer kontekstu imenuje definera</td></tr>
+  <tr><td>posledica</td><td>broj identiteta koje baza razlikuje = <strong>broj redova u <code>mysql.user</code></strong>, ne broj ljudi</td></tr>
+</table>
+<p>Manual, 14.15: <em>„Returns the user name and host name combination for the MySQL account that the
+server used to authenticate the current client. This account determines your access privileges."</em>
+Krajnji slučaj iz manuala: <code>USER()</code> = <code>'davida@localhost'</code>, a
+<code>CURRENT_USER()</code> = <code>'@localhost'</code> (anonimni nalog).</p>
+
+<h2>Tri obrasca, po domašaju jednog naloga</h2>
+<table class="exp">
+  <tr><td><strong>silo</strong><br>database-per-tenant</td><td>domašaj <strong>1</strong> · sprovodi <strong>jezgro</strong> u drugom koraku · <code>GRANT … ON pod_bar.* TO 'app_bar'@'…'</code> · cena <code>O(n)</code> baza i naloga, migracija <em>n</em> puta</td></tr>
+  <tr><td><strong>„bridge"</strong><br>skup tabela po tenantu</td><td>domašaj <strong>1</strong> · sprovodi <strong>jezgro</strong>, ali po tabeli · nema imena koje pokriva sve objekte tenanta · cena <code>O(n × t)</code> grantova</td></tr>
+  <tr><td><strong>pool</strong><br>zajednička tabela + <code>tenant_id</code></td><td>domašaj <strong>svi</strong> · sprovodi <strong>aplikacija</strong> · cena <code>O(1)</code> — i zato se bira</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Zamka u imenovanju</span>
+  <em>schema-per-tenant</em> u MySQL-u <strong>nije</strong> treći mehanizam:
+  <span class="hi"><code>CREATE SCHEMA</code> is a synonym for <code>CREATE DATABASE</code></span>
+  (manual 15.1.12). Šema kao prostor <em>unutar</em> baze postoji u PostgreSQL-u i Oracle-u, ne ovde.
+  Memorandum 07 na ovom mestu greši.
+</div>
+
+<h2>Sudar oko konekcionog pula</h2>
+<table class="exp">
+  <tr><td>uzrok</td><td>jedan nalog za sve tenante → jedan red → jedna vrednost <code>CURRENT_USER()</code> → <strong>identitet tenanta nikada ne ulazi u server</strong></td></tr>
+  <tr><td>izolacija</td><td>pada <strong>unapred</strong> — nema po čemu da se odbije zahtev</td></tr>
+  <tr><td>pripisivost</td><td>pada <strong>unazad</strong> — nema šta da se upiše u zapis</td></tr>
+  <tr><td>nepopravljivo</td><td>ne može se povratiti informacija koja nikada nije stigla; rok čuvanja i otpornost na izmenu se kupuju nizvodno, ova dva ne</td></tr>
+</table>
+
+<h2>Dve krpe koje ne rade, i zašto</h2>
+<table class="exp">
+  <tr><td><code>SET @tenant_id</code></td><td>korisničku promenljivu postavlja isti klijent koji se njome ograničava (Pattern B, pogl. 4)</td></tr>
+  <tr><td>uži <code>GRANT</code></td><td>nivoi se komponuju <code>OR</code>-om: <code>(global − restrictions) OR db OR table OR column OR routine</code> — uži nikada ne sužava širi</td></tr>
+</table>
+
+<h2>Rečenice za odbranu</h2>
+<div class="slide">
+  <strong>Šta MySQL sprovodi pod pulom:</strong> da taj nalog sme tu tabelu i tu operaciju — DAC
+  provera radi punom snagom. <strong>Šta ne sprovodi:</strong> koja podružnica, jer tenant nije
+  koordinata odluke.
+</div>
+<div class="slide">
+  <span class="hi">Izbor obrasca <em>jeste</em> odluka o najmanjim privilegijama</span> — donosi se
+  jednom, pri projektovanju, i grantovima se posle ne ispravlja.
+  <span class="src">Saltzer &amp; Schroeder 1975: „…should operate using the least set of privileges necessary to complete the job."</span>
+</div>
+
+<h2>Naš sandbox</h2>
+<p>12 naloga <code>&lt;uloga&gt;_&lt;podružnica&gt;</code>, svaki sa svojim redom u
+<code>mysql.user</code> — zato <code>CURRENT_USER()</code> nosi podružnicu i
+<code>v_my_branch_diagnoses</code> uopšte radi (<code>staff.mysql_account =
+SUBSTRING_INDEX(CURRENT_USER(), '@', 1)</code>). Pool nalog je <strong>strawman u prozi</strong> i
+ne postoji na serveru.</p>
+
+<p class="meta">
+  Izvori: MySQL 8.4 Reference Manual 14.15 i 15.1.12 · AWS <em>SaaS Tenant Isolation Strategies</em>
+  (silo / bridge / pool) · Azure SQL <em>Multitenant SaaS Patterns</em> · Saltzer &amp; Schroeder 1975. ·
+  Vidi <a href="../lessons/0006-multi-tenant.html">lekciju 06</a> i
+  <a href="05-audit-logging.html">karticu 05</a>.
+</p>
+
+</body>
+</html>

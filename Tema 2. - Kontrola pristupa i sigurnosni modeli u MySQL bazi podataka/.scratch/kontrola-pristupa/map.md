@@ -253,6 +253,23 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   `tools/make-table-figure.ps1` for Figure 6.1's log extract, deciding the shape ticket 12 left
   open. Export re-verified clean. Committed and pushed.
 
+- [Chapter 7. Multi-tenant bezbednosni modeli](issues/20-multi-tenant.md): lesson already taught
+  (learning record 0008), so this session wrote ~1440 words into `rad.md` §7 with
+  `academic-research-writer`: the taxonomy **derived** from the database's own vocabulary (tenant is
+  neither subject nor object, operation is fixed, so only two coordinates may differ) rather than
+  listed, silo enforced by the core against pool's boundary falling on the nameless row, the verdict
+  worded as *the database is excluded from the decision* rather than weaker, the connection-pooling
+  collision (one pool account = one `mysql.user` row = one `CURRENT_USER()` for every tenant), the
+  `SET @tenant_id` patch shown failing by measurement, and isolation/attribution closed as one defect
+  with two faces against ch. 6's criteria. Least privilege lands as a measurable quantity: how many
+  tenants an account *may* reach, unrepairable later because levels compose by `OR`. Memo 07's
+  `schema-per-tenant` correction is stated openly in the paper, with AWS (silo/bridge/pool) and Azure
+  (standalone/database-per-tenant/sharded multitenant) fetched and cited as the vendors' own naming;
+  two new `references.bib` entries. New read-only SQL in `examples/07-multi-tenant/` measures reach
+  (three branches through the table, one through the view, no branch anywhere in `SHOW GRANTS`);
+  **the shared-pool account was never created**. Figure 7.1 re-rendered only to strip an em dash.
+  Export clean, **22 rendered pages** with only ch. 8 left.
+
 ## Not yet specified
 
 - **Whether the paper needs a comparison system at all.** *Partly settled*: ticket 04 fixes
@@ -267,9 +284,9 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
 - **Which research claims need the live server to settle them.** Two of the three named at
   charting are now settled by ticket 10 (learning record 0001): `SELECT *` does **not** bypass
   column privileges on 8.4.11 (memo 04 corrected), and role-activation via `SET DEFAULT ROLE`
-  works exactly as memo 03/07 described. Still open: whether the NIST/PCI-DSS citations say what
-  memo 06 says they say - ticket 11 did not touch this, it belongs to whoever writes chapter 19.
-  More will accumulate as chapters are taught.
+  works exactly as memo 03/07 described. The NIST/PCI-DSS question is now settled: ch. 6 verified all
+  three source documents before citing them. Nothing measurable is left open for ch. 8, which is
+  prose synthesis only.
 
 ## Out of scope
 
