@@ -18,6 +18,7 @@ checking a chapter, never when planning a lesson.
 | [0004](0004-privilegije-i-uloge.md) | 16 (privilegije i uloge) | Everything derived from "a privilege is a row in an ordinary table": level count, OR-composition, static=column/dynamic=row, `partial_revokes`, roles as locked accounts, the RBAC verdict | Writing ch. 3; any chapter using roles, `SET ROLE`, grant tables or the RBAC verdict (4, 5, 7) |
 | [0005](0005-fgac-i-rls.md) | 17 (FGAC i RLS) | Column is the granularity ceiling because a row has no name; a view is a name for a predicate; filtering is not authorization; the three RLS emulation patterns and how each breaks | Writing ch. 4; any chapter using views, `DEFINER`/`INVOKER`, `USER()` vs `CURRENT_USER()`, or tenant isolation (5, 6, 7) |
 | [0006](0006-sprovodjenje-politika.md) | 18 (sprovođenje politika) | The core is the only thing that reads state — plugin and component judge only values handed to them; Stage 1 selects exactly one row; Enterprise Firewall is the one mechanism outside the criterion | Writing ch. 5; anything about authentication plugins, components, host matching, password/account/connection policy, or the DAC blind spot to SQL injection (6, 7) |
+| [0007](0007-audit-logging.md) | 19 (audit logging) | Four audit-trail criteria derived by negating one definition; attribution is the only one that cannot be bought downstream, because the effective identity is never emitted | Writing ch. 6; any claim about logs, NIST/PCI citations, or the connection-pooling attribution collision (7) |
 
 ## Standing constraints these records impose on every later chapter
 
@@ -131,6 +132,28 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   `ER_ACCOUNT_HAS_BEEN_LOCKED` (manual `ACCOUNT LOCK`, "Account is locked."). The policy itself lives
   in `mysql.user.User_attributes -> $.Password_locking` as JSON — the fourth instance of "what the
   grant-table shape cannot express, MySQL writes outside the shape". (0006)
+- **An audit trail is judged on exactly four criteria** — completeness, retention, tamper resistance,
+  attribution — derived as the four ways "who did this, asked later, by an absent third party,
+  against someone hiding it" fails. Citable as NIST SP 800-92 (framework) and SP 800-53 Rev. 5 AU-3
+  (outcome **and** identity), AU-9 (protection + alerting), AU-11 (retention), with PCI DSS v4.0
+  10.5.1 fixing the number (12 months, last 3 immediately available). Never present the four as a
+  quoted list from one document. (0007)
+- **The general query log is written on receipt, before execution** — therefore it can never carry an
+  outcome, and a denied statement is indistinguishable from a successful one. Off by default, no
+  built-in rotation or retention, plain file/table with no signature or tamper alert. (0007)
+- **Attribution is the fatal criterion, for a structural reason.** Retention, tamper resistance and
+  completeness are all purchasable outside MySQL; the effective identity (`CURRENT_USER()`) is
+  **never emitted into any log**, so nothing downstream can reconstruct it. Correct wording for the
+  paper: the log records **only one of the two identities**, never "the wrong identity" — swapping
+  `USER()` for `CURRENT_USER()` would merely move the hole. (0007)
+- **`performance_schema` history tables are a fixed-size per-thread ring in memory**: oldest row is
+  discarded on overflow, everything is lost at restart, and the manual positions it as a performance
+  tool. Its retention is "until enough traffic arrives", so evidence can be destroyed by noise rather
+  than by deletion. (0007)
+- **Enterprise Audit's tamper-evidence is "not documented", not "absent"** in the 8.4 manual
+  (keyring encryption is documented; signing/checksums are not). Write it as not documented. Also do
+  **not** cite MySQL bug #120896 (DEFINER logging) in the view argument — it concerns stored-program
+  bodies, not views, and our capture is about a view. (0007)
 - **Enterprise Firewall decides on the statement's shape, not on (subject, object)** — which is why a
   pure DAC model is structurally blind to SQL injection. Commercial; theory only. (0006)
 

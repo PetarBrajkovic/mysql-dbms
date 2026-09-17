@@ -12,12 +12,20 @@
 .EXAMPLE
   .\tools\make-table-figure.ps1 -SqlFile examples\04-explain\03-country-code-skew.sql `
       -Database obrada_upita -OutBase figures\04-explain-03-country-code-skew
+
+.EXAMPLE
+  -Raw mode: render a plain-text extract (e.g. a log file) as a monospace figure instead of
+  running a query. No -Database needed; -SqlFile is unused.
+  .\tools\make-table-figure.ps1 -Raw -RawFile examples\11-audit\captured-general-log.txt `
+      -OutBase figures\06-audit-01-log-izvod
 #>
 param(
     [string]$Topic,
-    [Parameter(Mandatory)] [string]$SqlFile,
-    [Parameter(Mandatory)] [string]$Database,
-    [Parameter(Mandatory)] [string]$OutBase
+    [string]$SqlFile,
+    [string]$Database,
+    [Parameter(Mandatory)] [string]$OutBase,
+    [switch]$Raw,
+    [string]$RawFile
 )
 
 # --- Shared tool, lives at the course level -------------------------------------
@@ -35,18 +43,43 @@ $env:Path += ";C:\Program Files\MySQL\MySQL Server 8.4\bin"
 $creds = Join-Path $root 'mysql-credentials.cnf'
 if (-not (Test-Path $creds)) { throw "mysql-credentials.cnf not found at $creds - fill it in first." }
 
-$sqlPath = Resolve-Path $SqlFile
-$sqlText = (Get-Content $sqlPath | Where-Object { $_ -notmatch '^\s*--' }) -join "`n"
-if (-not $sqlText.Trim()) { throw "No SQL found in $SqlFile after stripping comment lines." }
+if ($Raw) {
+    if (-not $RawFile) { throw "-Raw requires -RawFile." }
+    $rawPath = Resolve-Path $RawFile
+    $rawLines = Get-Content $rawPath
+    if (-not $rawLines) { throw "No content found in $RawFile." }
 
-Write-Host "Running query against $Database ..."
-$tableHtml = & mysql --defaults-extra-file="$creds" -D $Database --html -e $sqlText
-if ($LASTEXITCODE -ne 0 -or -not $tableHtml) { throw "mysql produced no output - check mysql-credentials.cnf." }
+    $escaped = ($rawLines | ForEach-Object {
+        $_.Replace('&','&amp;').Replace('<','&lt;').Replace('>','&gt;')
+    }) -join "`n"
 
-$rowCount = ($tableHtml | Select-String '<TR>').Count
-$height = [Math]::Max(220, 120 + ($rowCount * 34))
+    $height = [Math]::Max(220, 100 + ($rawLines.Count * 22))
 
-$page = @"
+    $page = @"
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  body { background: #ffffff; font-family: Consolas, 'Courier New', monospace; padding: 24px; }
+  pre { font-size: 13px; white-space: pre; margin: 0; }
+</style></head><body>
+<pre>$escaped</pre>
+</body></html>
+"@
+} else {
+    if (-not $SqlFile) { throw "-SqlFile is required unless -Raw is used." }
+    if (-not $Database) { throw "-Database is required unless -Raw is used." }
+
+    $sqlPath = Resolve-Path $SqlFile
+    $sqlText = (Get-Content $sqlPath | Where-Object { $_ -notmatch '^\s*--' }) -join "`n"
+    if (-not $sqlText.Trim()) { throw "No SQL found in $SqlFile after stripping comment lines." }
+
+    Write-Host "Running query against $Database ..."
+    $tableHtml = & mysql --defaults-extra-file="$creds" -D $Database --html -e $sqlText
+    if ($LASTEXITCODE -ne 0 -or -not $tableHtml) { throw "mysql produced no output - check mysql-credentials.cnf." }
+
+    $rowCount = ($tableHtml | Select-String '<TR>').Count
+    $height = [Math]::Max(220, 120 + ($rowCount * 34))
+
+    $page = @"
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
   body { background: #ffffff; font-family: Consolas, 'Courier New', monospace; padding: 24px; }
@@ -57,6 +90,7 @@ $page = @"
 $($tableHtml -join "`n")
 </body></html>
 "@
+}
 
 $rawDir = Join-Path $root 'figures\raw'
 New-Item -ItemType Directory -Force -Path $rawDir | Out-Null

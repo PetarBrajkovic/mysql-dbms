@@ -32,11 +32,11 @@ None of that applies here — there is no plan to draw. This paper's figure type
   first per `../../tools/FIGURES.md`'s existing rule; Mermaid is the fallback when nothing suitable
   exists to reuse, which is expected to be the common case here since MySQL's own manual has no
   privilege-check-path or role-graph diagram.
-- **log extract** (ch. 6 only) — plain text, not a result grid, so `make-table-figure.ps1` doesn't
-  fit as-is. Rendered via a small monospace-styled HTML→PNG using the same rasterization step, either
-  a tiny shared `tools/make-log-figure.ps1` or a `-Raw` mode added to `make-table-figure.ps1` (decide
-  the exact shape when ch. 6 is written — the source text already exists in
-  `examples/11-audit/captured-general-log.txt`).
+- **log extract** (ch. 6 only) — plain text, not a result grid. Decided at ch. 6: a `-Raw`/`-RawFile`
+  mode added to `make-table-figure.ps1`, wrapping the text in a `<pre>` block instead of an HTML table
+  and skipping the query step entirely. Source text is a trimmed extract
+  (`examples/11-audit/figure-log-extract.txt`, the two `recept_podgorica` connections only) of the
+  full capture in `examples/11-audit/captured-general-log.txt`.
 
 **No screenshots anywhere in this paper.** Carried forward unchanged from `../../tools/FIGURES.md` and
 Tema 1's own trap note: every figure is agent-generated end to end via CLI/rasterization, including
@@ -68,4 +68,4 @@ lean side is the default to reach for, not the generous one.
 | Script | Figures it builds | What it asserts |
 |---|---|---|
 | `tools/make-pair-figure.ps1` | result/error pairs, chs. 3–5 (first built and used at ch. 4, Figure 4.1) | Runs a success statement and a fail statement (same account by default, or two named accounts) via `mysql --html`, asserts the success side returns rows and the fail side throws the declared error code, stitches both into one side-by-side PNG via headless Edge. Strips the client's own `[Warning] Using a password...` line before rendering. |
-| `tools/make-log-figure.ps1` (or `make-table-figure.ps1 -Raw`) | ch. 6 log extract | *(decided at ch. 6, shape TBD between the two options above)* |
+| `tools/make-table-figure.ps1 -Raw -RawFile <path>` | ch. 6 log extract (Figure 6.1) | Renders arbitrary plain text (no SQL run, no `-Database`) as a monospace `<pre>` block via the same headless-Edge rasterization step. |

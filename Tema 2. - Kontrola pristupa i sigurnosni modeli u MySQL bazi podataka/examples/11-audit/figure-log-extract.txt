@@ -1,0 +1,8 @@
+2026-09-03T15:05:09.695237Z	   62 Connect	recept_podgorica@localhost on poliklinika using SSL/TLS
+2026-09-03T15:05:09.695437Z	   62 Query	select @@version_comment limit 1
+2026-09-03T15:05:09.695563Z	   62 Query	SELECT * FROM diagnoses LIMIT 1
+2026-09-03T15:05:09.695735Z	   62 Quit	
+2026-09-03T15:05:09.723744Z	   63 Connect	recept_podgorica@localhost on poliklinika using SSL/TLS
+2026-09-03T15:05:09.723955Z	   63 Query	select @@version_comment limit 1
+2026-09-03T15:05:09.724125Z	   63 Query	SELECT * FROM v_definer_demo
+2026-09-03T15:05:09.724521Z	   63 Quit	

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kartica 05 — Audit trail naspram instrumenata</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica 05 · Poglavlje 6</p>
+<h1>Audit trail naspram instrumenata posmatranja</h1>
+<p class="subtitle">Četiri kriterijuma, tri besplatna instrumenta, jedna nepopravljiva rupa.</p>
+
+<div class="note">
+  <span class="lbl">Mera</span>
+  <span class="hi">Audit trail postoji da bi se na pitanje „ko je ovo uradio" odgovorilo kasnije, od
+  strane nekoga ko nije bio prisutan, i to protiv onoga ko ima motiv da to sakrije.</span>
+  Četiri kriterijuma su četiri načina da to pitanje propadne.
+</div>
+
+<h2>Četiri kriterijuma i njihova imena</h2>
+<table class="exp">
+  <tr><td><strong>potpunost</strong></td><td>događaj nije ni zapisan · NIST SP 800-53 AU-3 (type, when, where, source, <strong>outcome</strong>)</td></tr>
+  <tr><td><strong>rok čuvanja</strong></td><td>zapisa nema kad pitanje stigne · AU-11; PCI DSS 10.5.1: 12 meseci, 3 odmah dostupna</td></tr>
+  <tr><td><strong>otpornost na izmenu</strong></td><td>posmatrani je mogao da menja zapis · AU-9, uz obaveznu uzbunu pri izmeni</td></tr>
+  <tr><td><strong>pripisivost</strong></td><td>zapis ne imenuje subjekta koji je odlučivao · AU-3f (<strong>identity</strong> of any individuals, subjects)</td></tr>
+</table>
+<p>Okvir u celini: NIST SP 800-92, <strong>Guide to Computer Security Log Management</strong> (2006).</p>
+
+<h2>Presuda nad besplatnim instrumentima (MySQL 8.4 Community)</h2>
+<table class="exp">
+  <tr><td><code>general query log</code></td><td>upisuje se <strong>pri prijemu, pre izvršenja</strong> → nema ishoda; podrazumevano isključen; bez rotacije i roka; običan fajl ili <code>mysql.general_log</code> bez potpisa; beleži samo nalog koji se povezao</td></tr>
+  <tr><td><code>error log</code></td><td>nijedna izjava; neuspele prijave i „access denied" samo pri <code>log_error_verbosity = 3</code> (podrazumevano 2)</td></tr>
+  <tr><td><code>performance_schema</code></td><td><code>events_statements_history(_long)</code>: prsten fiksne veličine, najstariji red ispada; u memoriji, nestaje pri restartu; alat za performanse</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Zašto baš pripisivost</span>
+  Rok, otpornost i potpunost su problemi razvoja i kupuju se spolja (slanje logova na drugi server,
+  zaključan fajl-sistem, arhiva, uključen log uz cenu performanse).
+  <span class="hi">Efektivni identitet server nikada ne emituje, pa ga nijedan alat nizvodno ne može
+  rekonstruisati.</span> Gubitak informacije, ne propust u podešavanju.
+</div>
+
+<h2>Identitet u logu</h2>
+<table class="exp">
+  <tr><td><code>USER()</code></td><td>nalog koji se povezao; zamrznut na prijavi; <strong>ovo je ono što log beleži</strong>, i to u <code>Connect</code> redu</td></tr>
+  <tr><td><code>CURRENT_USER()</code></td><td>red iz <code>mysql.user</code> čije se privilegije proveravaju; u definer kontekstu postaje definer; <strong>ne beleži se nigde</strong></td></tr>
+</table>
+<p>Formulacija koja se brani: log ne beleži <strong>pogrešan</strong> identitet, nego
+<strong>samo jedan od dva</strong>. Zamena jednog drugim samo premešta rupu.</p>
+
+<h2>Izmereno (8.4.11, <code>examples/11-audit/</code>)</h2>
+<table class="exp">
+  <tr><td>rezultat pogleda</td><td><code>recept_podgorica@localhost</code> uz <code>dbadmin@localhost</code>, u istom redu</td></tr>
+  <tr><td>isti trenutak u logu</td><td>tri niti, sve tri nose samo nalog koji se povezao; odbijena i uspela izjava izgledaju isto</td></tr>
+  <tr><td>prepreka</td><td><code>dbadmin</code> ne može da uključi <code>general_log</code> (traži <code>SUPER</code> / <code>SYSTEM_VARIABLES_ADMIN</code>)</td></tr>
+</table>
+
+<h2>Enterprise Audit (komercijalno, teorija)</h2>
+<table class="exp">
+  <tr><td>filtriranje</td><td>pravila po nalogu i klasi događaja: <code>mysql.audit_log_filter</code>, <code>mysql.audit_log_user</code></td></tr>
+  <tr><td>format</td><td>JSON, odnosno XML; rotacija; arhiviranje i pretraga mašinski mogući</td></tr>
+  <tr><td>šifrovanje</td><td>preko keyringa, podrazumevano isključeno</td></tr>
+  <tr><td>tamper-evidence</td><td>nije dokumentovana u priručniku za 8.4 — tako i formulisati u radu</td></tr>
+  <tr><td>granica</td><td>plugin je pasivni primalac događaja: beleži samo ono što mu jezgro preda (pogl. 5)</td></tr>
+</table>
+
+<p class="meta">
+  <strong>Izvori:</strong>
+  <a href="https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-53r5.pdf">NIST SP 800-53 Rev. 5</a> (AU-3, AU-9, AU-11) ·
+  <a href="https://nvlpubs.nist.gov/nistpubs/legacy/sp/nistspecialpublication800-92.pdf">NIST SP 800-92</a> ·
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/query-log.html">MySQL 8.4 Reference Manual, The General Query Log</a> ·
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/audit-log.html">MySQL Enterprise Audit</a>. ·
+  <strong>Lekcija:</strong> <a href="../lessons/0005-audit-logging.html">05 — Instrumenti, a ne audit trail</a>.
+</p>
+
+<script src="../../assets/copy.js"></script>
+</body>
+</html>

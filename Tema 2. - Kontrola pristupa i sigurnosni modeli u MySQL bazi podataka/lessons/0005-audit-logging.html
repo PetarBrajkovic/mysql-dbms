@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 05 — Instrumenti, a ne audit trail</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 05 · Poglavlje 6 (Audit logging)</p>
+<h1>MySQL Community daje instrumente posmatranja, ne audit trail</h1>
+<p class="subtitle">Poglavlje 5 je pokazalo gde se odluka o pristupu donosi. Ovo poglavlje pita šta
+od te odluke ostane zapisano posle nje — i pokazuje da ono najvažnije, efektivni identitet pod kojim
+je pristup odobren, ne ostaje zapisano nigde.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Poglavlje je najkraće u radu (~2 strane) i mora da izdrži jedno pitanje na odbrani: „zar MySQL nema
+  logove?". Kad završiš, treba da umeš, bez podsetnika: <strong>(1)</strong> da izvedeš četiri
+  kriterijuma audit trail-a iz jedne rečenice, pre nego što se MySQL uopšte pomene;
+  <strong>(2)</strong> da presudiš svakom besplatnom instrumentu po tim kriterijumima;
+  <strong>(3)</strong> da objasniš zašto pripisivost pada nepopravljivo, a preostala tri ne.
+</div>
+
+<h2>1 · Mera pre merenja</h2>
+
+<p>Ako bismo prvo pogledali šta MySQL nudi pa to nazvali „audit logging", kriterijum bi bio izveden
+iz alata. Takav argument se ruši jednim pitanjem. Zato se prvo fiksira mera, i to kao tvrdnja koja se
+prihvata zdravo za gotovo:</p>
+
+<div class="slide">
+  Audit trail postoji da bi se na pitanje <strong>„ko je ovo uradio"</strong> odgovorilo
+  <strong>kasnije</strong>, od strane nekoga <strong>ko nije bio prisutan</strong>, i to
+  <strong>protiv</strong> onoga ko ima motiv da to sakrije.
+  <span class="src">Radna definicija ovog poglavlja, iz koje se izvode kriterijumi</span>
+</div>
+
+<p>Sve tri odrednice nose težinu. <strong>Kasnije</strong> znači da trenutak posmatranja i trenutak
+pitanja nisu isti. <strong>Neko ko nije bio prisutan</strong> znači da zapis mora sam da nosi ceo
+odgovor, jer se nema koga pitati za dopunu. <strong>Protiv onoga ko krije</strong> znači da zapis
+mora da važi i kada je posmatrani neprijateljski nastrojen, a ne samo kada je nesmotren.</p>
+
+<p>Obrnuta rečenica daje kriterijume: postoje tačno četiri načina da to pitanje propadne, i svaki
+napada po jednu odrednicu.</p>
+
+<table class="exp">
+  <tr><td><code>potpunost</code></td><td>događaj uopšte nije zapisan — nema šta da se čita</td></tr>
+  <tr><td><code>rok čuvanja</code></td><td>zapis je postojao, ali ga više nema kada pitanje stigne</td></tr>
+  <tr><td><code>otpornost na izmenu</code></td><td>zapis postoji, ali ga je posmatrani mogao promeniti ili obrisati</td></tr>
+  <tr><td><code>pripisivost</code></td><td>zapis postoji i netaknut je, ali ne imenuje subjekta koji je odlučivao</td></tr>
+</table>
+
+<p>Tek kada su posude pune, lepe im se imena iz normativnih izvora — one koje u radu idu u zagradu.</p>
+
+<div class="slide">
+  Ensure that audit records contain information that establishes the following: a. What type of event
+  occurred; b. When the event occurred; c. Where the event occurred; d. Source of the event;
+  e. <strong>Outcome of the event</strong>; and f. <strong>Identity of any individuals, subjects, or
+  objects/entities associated with the event</strong>.
+  <span class="src">NIST SP 800-53 Rev. 5, kontrola AU-3 (Content of Audit Records)</span>
+</div>
+
+<div class="slide">
+  Protect audit information and audit logging tools from unauthorized access, modification, and
+  deletion; and alert … upon detection of unauthorized access, modification, or deletion of audit
+  information.
+  <span class="src">NIST SP 800-53 Rev. 5, kontrola AU-9 (Protection of Audit Information)</span>
+</div>
+
+<table class="exp">
+  <tr><td><code>SP 800-92</code></td><td>okvir upravljanja logovima kao procesom (šta se loguje, kako se štiti, koliko se čuva)</td></tr>
+  <tr><td><code>AU-3</code></td><td>potpunost i pripisivost: traži se i <strong>ishod</strong> i <strong>identitet subjekta</strong></td></tr>
+  <tr><td><code>AU-9</code></td><td>otpornost na izmenu, uz obavezu uzbune kada do izmene ipak dođe</td></tr>
+  <tr><td><code>AU-11</code></td><td>rok čuvanja, prepušten organizaciji</td></tr>
+  <tr><td><code>PCI DSS 10.5.1</code></td><td>rok zakucan brojem: 12 meseci, od toga poslednja 3 odmah dostupna</td></tr>
+</table>
+
+<h2>2 · Prvi instrument: general query log</h2>
+
+<p>Sve sledi iz jedne činjenice o tome kada se piše: <span class="hi">server upisuje izjavu u
+trenutku kada je primi, pre izvršenja</span>. Tri posledice, bez gledanja u fajl:</p>
+
+<table class="exp">
+  <tr><td><code>ishod</code></td><td>ako se piše pre izvršenja, ishod još ne postoji — odbijena i uspela izjava izgledaju identično (AU-3e pada)</td></tr>
+  <tr><td><code>rok</code></td><td>log saobraćaja je skup, pa je podrazumevano isključen, bez ugrađene rotacije i roka (AU-11, PCI 10.5.1 padaju)</td></tr>
+  <tr><td><code>zaštita</code></td><td>običan fajl ili tabela <code>mysql.general_log</code> u vlasništvu servisnog naloga: bez potpisa, bez uzbune (AU-9 pada)</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Izmereno na ovom serveru</span>
+  <code>dbadmin</code> ne može da uključi <code>general_log</code> — potrebna je
+  <code>SUPER</code> ili <code>SYSTEM_VARIABLES_ADMIN</code>, koje namerno nema. Nalog koji izvodi
+  demonstraciju ne može da upali log koji bi ga posmatrao. Snimak je zato pravljen kao
+  <code>root</code>, jednokratno.
+</div>
+
+<h2>3 · Preostala dva instrumenta</h2>
+
+<p><strong>Error log</strong> beleži pokretanje i gašenje servera, greške i upozorenja. Neuspele
+prijave i „access denied" poruke pojavljuju se <strong>samo pri</strong>
+<code>log_error_verbosity = 3</code>; podrazumevana vrednost je 2. Dakle: nijedna izjava, i događaji
+na nivou konekcije koji se podrazumevano ne beleže.</p>
+
+<p><strong><code>performance_schema</code></strong>, tabele <code>events_statements_history</code> i
+<code>events_statements_history_long</code>, najviše liči na rešenje i zato se odbacuje eksplicitno.
+To je <span class="hi">prsten fiksne veličine</span>: kada se napuni, najstariji red se odbacuje da
+bi novi stao. Sadržaj živi u memoriji i nestaje pri restartu servera. Priručnik ga pozicionira kao
+alat za podatke o performansama, ne za bezbednost.</p>
+
+<p>Razlika u odnosu na fajl je suštinska: kod prstena rok čuvanja nije „nepodešen", nego glasi
+<strong>dok ne dođe dovoljno saobraćaja</strong>. Napadač ne mora ništa da briše — dovoljno je da
+posle svog upita napravi buku i zapis ispadne sam.</p>
+
+<h2>4 · Presuda: zašto baš pripisivost</h2>
+
+<p>Tri kriterijuma se mogu zakrpiti spolja, bez ijedne izmene u MySQL-u: logovi se šalju na drugi
+server, fajl-sistem se zaključa, arhiva se drži 12 meseci, a potpunost se kupuje uključivanjem loga
+i plaćanjem performanse. Pripisivost se tako ne može popraviti, jer podatak o tome čije su
+privilegije odobrile pristup <span class="hi">server nikada ne emituje</span>. Ne postoji alat
+nizvodno koji rekonstruiše informaciju koja nikada nije izašla iz servera. To je gubitak
+informacije, a ne propust u podešavanju.</p>
+
+<h2>5 · Enterprise Audit, kao referentna tačka</h2>
+
+<div class="scope">
+  <span class="lbl">Van obima</span>
+  Komercijalna funkcija. U ovom radu se obrađuje isključivo teorijski, iz priručnika, i nikada se ne
+  instalira niti demonstrira — u skladu sa pravilom da sve prikazano mora biti besplatno.
+</div>
+
+<div class="slide">
+  MySQL Enterprise Audit is an extension included in MySQL Enterprise Edition, a commercial product.
+  <span class="src">MySQL 8.4 Reference Manual, MySQL Enterprise Audit</span>
+</div>
+
+<table class="exp">
+  <tr><td><code>filtriranje</code></td><td>pravila po nalogu i klasi događaja (<code>mysql.audit_log_filter</code>, <code>mysql.audit_log_user</code>) — ciljana potpunost umesto „sve ili ništa"</td></tr>
+  <tr><td><code>format i rotacija</code></td><td>strukturisan zapis (JSON, odnosno XML) koji se može mašinski arhivirati i pretraživati</td></tr>
+  <tr><td><code>šifrovanje</code></td><td>preko keyringa, podrazumevano isključeno; kriptografska tamper-evidence <strong>nije dokumentovana</strong> u priručniku za 8.4</td></tr>
+</table>
+
+<p>Veza sa poglavljem 5 je ono što ovde stvarno treba zapamtiti: audit plugin je
+<strong>pasivni primalac događaja</strong> — jezgro mu prosledi opis događaja, on ga zapiše. Odatle
+granica koju nijedan dodatak ne pomera: <span class="hi">plugin može da zabeleži samo ono što mu
+jezgro preda</span>. Pitanje „može li MySQL da revidira" zato nije pitanje o dodacima, nego o tome
+šta jezgro uopšte emituje.</p>
+
+<h2>6 · Demonstracija: koji identitet log zapisuje</h2>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> sandbox <code>poliklinika</code> i pogled
+      <code>v_definer_demo</code> iz <code>examples/11-audit/01-definer-view.sql</code>
+      (<code>SQL SECURITY DEFINER</code>, definer <code>dbadmin</code>@<code>localhost</code>).
+      <code>role_receptionist</code> nema nijednu privilegiju nad <code>diagnoses</code>, samo
+      <code>SELECT</code> nad pogledom; <code>role_doctor</code> ima direktnu privilegiju nad
+      tabelom. Snimanje loga traži <code>root</code> i ne izvodi se ponovo — snimak je već u
+      <code>examples/11-audit/</code>.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="c">-- kao recept_podgorica@localhost</span>
+<span class="k">SELECT</span> * <span class="k">FROM</span> diagnoses <span class="k">LIMIT</span> 1;
+<span class="k">SELECT</span> * <span class="k">FROM</span> v_definer_demo;
+
+<span class="c">-- kao doc_podgorica@localhost</span>
+<span class="k">SELECT</span> diagnosis_id, tenant_id, icd_code <span class="k">FROM</span> diagnoses <span class="k">LIMIT</span> 1;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Prva izjava: ERROR 1142 - nalog nema nijedno pravo nad tabelom.
+Druga izjava: redovi se vracaju, iako prava i dalje nema - upit se
+  izvrsava sa privilegijama definera.
+Treca izjava: redovi se vracaju direktno, bez pogleda.</pre>
+
+    <h3 class="lab">Rascep identiteta, u samom rezultatu</h3>
+<pre class="out">| connected_user             | effective_user    | diagnosis_id | tenant_id | icd_code |
+| recept_podgorica@localhost | dbadmin@localhost |            1 |         1 | J06.9    |</pre>
+
+    <h3 class="lab">Isti taj trenutak, viđen iz general query loga</h3>
+<pre class="out">62 Connect  recept_podgorica@localhost on poliklinika using SSL/TLS
+62 Query    SELECT * FROM diagnoses LIMIT 1
+63 Connect  recept_podgorica@localhost on poliklinika using SSL/TLS
+63 Query    SELECT * FROM v_definer_demo
+64 Connect  doc_podgorica@localhost on poliklinika using SSL/TLS
+64 Query    SELECT diagnosis_id, tenant_id, icd_code FROM diagnoses LIMIT 1</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> nit 62 je odbijena, nit 63 je pročitala podatke iz
+      <code>diagnoses</code>, a u logu se to dvoje razlikuje samo po tekstu izjave. Log kaže ko se
+      povezao (<code>USER()</code>) i koji je tekst stigao — nikad čije su privilegije pristup
+      odobrile (<code>CURRENT_USER()</code>). Da bi se nit 63 uopšte razumela, mora se unapred znati
+      da je <code>v_definer_demo</code> DEFINER pogled i ko mu je definer, a to živi u rečniku
+      podataka, i to u stanju iz trenutka događaja, ne u logu.</p>
+  </div>
+</div>
+
+<div class="note">
+  <span class="lbl">Formulacija za odbranu</span>
+  Log ne beleži <strong>pogrešan</strong> identitet — beleži <strong>samo jedan od dva</strong>.
+  Zamena <code>USER()</code> sa <code>CURRENT_USER()</code> ne bi rešila ništa, nego bi premestila
+  rupu: ispalo bi da je administrator čitao kartone, a nalog koji je upit pokrenuo nestao bi iz
+  traga. Pripisivost traži oba identiteta u istom zapisu.
+</div>
+
+<h2>7 · Provera</h2>
+<div class="quiz">
+  <p>Šest pitanja na šest netrivijalnih tvrdnji lekcije.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Bolnica loguje svaki upit, čuva 12 meseci, medijum se ne može prepisati, ali svaki red glasi <code>app_user@10.0.0.5</code> za svih 400 zaposlenih. Koji kriterijum je pao?</p>
+    <label><input type="radio"> Otpornost na izmenu</label>
+    <label><input type="radio"> Rok čuvanja</label>
+    <label><input type="radio"> Pripisivost</label>
+    <label><input type="radio"> Potpunost</label>
+    <p class="why">Događaji jesu zapisani, traju i ne mogu se menjati; zapis samo ne imenuje subjekta koji je odlučivao, nego posrednika.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">2. Zašto se u general query logu ne vidi da je izjava odbijena sa <code>ERROR 1142</code>?</p>
+    <label><input type="radio"> Jer se izjava upisuje pre izvršenja, pa ishod još ne postoji</label>
+    <label><input type="radio"> Jer server odbijene izjave uopšte ne upisuje u taj log</label>
+    <label><input type="radio"> Jer se ishod upisuje u error log umesto u ovaj log</label>
+    <label><input type="radio"> Jer se ishod upisuje tek pri <code>log_error_verbosity = 3</code></label>
+    <p class="why">Upisuje se trenutak prijema, ne ishod; odbijena izjava stoji u logu isto kao i uspela.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Šta je tačno o <code>events_statements_history</code> tabelama?</p>
+    <label><input type="radio"> Čuvaju se na disku i preživljavaju restart servera</label>
+    <label><input type="radio"> Rastu dok ih administrator ručno ne isprazni</label>
+    <label><input type="radio"> Zapisuju ishod svake izjave uz identitet subjekta</label>
+    <label><input type="radio"> Prsten su fiksne veličine i najstariji red se odbacuje</label>
+    <p class="why">Zapis ispada sam kada dođe dovoljno saobraćaja, a ceo sadržaj nestaje pri restartu.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">4. Uz neograničen budžet van baze, koji kriterijum ostaje nepopravljiv?</p>
+    <label><input type="radio"> Rok čuvanja</label>
+    <label><input type="radio"> Pripisivost</label>
+    <label><input type="radio"> Otpornost na izmenu</label>
+    <label><input type="radio"> Potpunost</label>
+    <p class="why">Podatak koji nikada nije izašao iz servera nijedan alat nizvodno ne može da rekonstruiše.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">5. Šta istražitelj mora znati unapred da bi rekonstruisao ko je odobrio čitanje kroz DEFINER pogled?</p>
+    <label><input type="radio"> Koje privilegije nalog ima nad osnovnom tabelom</label>
+    <label><input type="radio"> Koja je uloga bila aktivna u toj sesiji</label>
+    <label><input type="radio"> Da je objekat DEFINER pogled i ko mu je definer</label>
+    <label><input type="radio"> Sa kog se hosta nalog povezao na server</label>
+    <p class="why">Ta činjenica živi u rečniku podataka, u stanju iz trenutka događaja, i nigde je nema u logu.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">6. Da log beleži <code>CURRENT_USER()</code> umesto <code>USER()</code>, šta bi se desilo?</p>
+    <label><input type="radio"> Izgubio bi se podatak o tome ko se stvarno povezao</label>
+    <label><input type="radio"> Pripisivost bi bila rešena za sve vrste pristupa</label>
+    <label><input type="radio"> Vrednost se ne bi promenila ni u jednom slučaju</label>
+    <label><input type="radio"> Zapis bi prestao da važi van trajanja same sesije</label>
+    <p class="why">Rupa bi se premestila: pripisivost traži oba identiteta u istom zapisu.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong>
+  <a href="https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-53r5.pdf">NIST SP 800-53 Rev. 5</a>,
+  porodica kontrola AU — počni od AU-3, pa AU-9 i AU-11; to su tri strane teksta i sadrže celu meru
+  po kojoj ovo poglavlje sudi MySQL-u. Zatim
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/query-log.html">MySQL 8.4 Reference Manual, The General Query Log</a>. ·
+  <strong>Vidi još:</strong> <a href="../reference/05-audit-logging.html">referentna kartica 05</a>,
+  <a href="0004-sprovodjenje-politika.html">lekcija 04</a>,
+  <a href="0003-fgac-i-rls.html">lekcija 03</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §1. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu — lekcija je početak, ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>
