@@ -238,6 +238,21 @@ taught, the examples run, and the Serbian prose is appended to `rad.md`.
   claim cites `mysql84refman`, already seeded. Terminology aligned to ch. 3's "prvi korak"/"drugi
   korak", not the scratch notes' informal "Faza 1/2". Export re-verified clean. Committed.
 
+- [Chapter 6. Audit logging](issues/19-audit-logging.md): lesson already taught (learning record
+  0007), so this session wrote ~1000 words into `rad.md` §6 with `academic-research-writer`: the
+  four audit-trail criteria derived by negating one definition of what an audit trail is, named
+  against NIST SP 800-92, SP 800-53 Rev. 5 (AU-3/AU-9/AU-11) and PCI DSS v4.0 10.5.1 (all three
+  verified against source documents before citing, per the ticket's own flag), MySQL Enterprise
+  Audit named as the commercial reference point and tied to ch. 5's plugin-vs-core split, the
+  three free instruments judged one by one. **Verdict sharpened during teaching**: attribution,
+  not tamper resistance, is the fatal criterion, because the effective identity is never emitted
+  and so cannot be recovered downstream, while the other three are purchasable. Closes on the
+  `v_definer_demo` measurement from ticket 11 — general query log records only the connecting
+  account, `USER()`/`CURRENT_USER()` inside the view's own result set shows the split the log
+  cannot. Three new `references.bib` entries. New `-Raw`/`-RawFile` mode added to
+  `tools/make-table-figure.ps1` for Figure 6.1's log extract, deciding the shape ticket 12 left
+  open. Export re-verified clean. Committed and pushed.
+
 ## Not yet specified
 
 - **Whether the paper needs a comparison system at all.** *Partly settled*: ticket 04 fixes

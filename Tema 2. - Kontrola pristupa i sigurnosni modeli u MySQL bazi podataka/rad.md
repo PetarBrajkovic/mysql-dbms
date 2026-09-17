@@ -552,9 +552,10 @@ MySQL-u zamenljiva; sprovođenje politike nije.
 
 Evidencioni zapis pristupa bazi (audit log/trail) odgovara na jedno posebno pitanje: ko je učinio
 šta, postavljeno *naknadno*, od strane nekoga ko *nije bio prisutan* u trenutku događaja, protiv
-nekoga ko ima motiv da to sakrije. Svaki od ta tri uslova otvara sopstveni način da odgovor izostane,
-a ta četiri načina su upravo četiri svojstva koja NIST-ov vodič za upravljanje bezbednosnim zapisima
-navodi kao uslove da bi zapis uopšte važio kao dokaz: potpunost, čuvanje svakog relevantnog događaja bez izostavljanja; retenciju, dovoljno
+nekoga ko ima motiv da to sakrije. Ako se ta definicija negira, dobijaju se četiri načina da odgovor
+izostane, i upravo su ta četiri načina svojstva koja NIST-ov vodič za upravljanje bezbednosnim
+zapisima navodi kao uslove da bi zapis uopšte važio kao dokaz: potpunost, čuvanje svakog relevantnog
+događaja bez izostavljanja; retenciju, dovoljno
 dugo trajanje da istraga koja počne kasno i dalje ima šta da pregleda; otpornost na neovlašćenu izmenu,
 zapis koji sam napadač ne može tiho da preuredi ili obriše; i pripisivost, zapis koji imenuje *ko*, ne
 samo *šta* [@nistsp80092]. Isti zahtevi imaju i formalna imena u kontrolama NIST SP 800-53: AU-3
@@ -564,11 +565,16 @@ poslednja tri odmah dostupna za analizu [@pcidss2022]. Nijedan od ova četiri za
 to je namerno, jer mera dolazi pre merenja - tek kada su kriterijumi postavljeni, ima smisla pitati
 da li ih neki konkretan alat ispunjava.
 
-MySQL Enterprise Audit je komercijalni odgovor na sva četiri zahteva odjednom: filtrira događaje po
-nalogu, tabeli i vrsti operacije, piše ih u JSON ili XML format, i čuva ih nezavisno od same baze
-[@mysql84refman]. Ovaj rad ga, u skladu sa ograničenjem na besplatno izdanje uspostavljenim u petom
-poglavlju, ne pokreće, nego ga navodi samo kao referentnu tačku: mesto na kome bi kriterijumi iz
-prethodnog pasusa bili zadovoljeni, da je licenca dostupna. Njegova arhitektura potvrđuje i podelu s
+MySQL Enterprise Audit je komercijalni odgovor na ove zahteve: filtrira događaje po
+nalogu, tabeli i vrsti operacije, piše ih u JSON ili XML format, i čuva ih u zasebnoj datoteci, van
+samih podataka koje nadgleda [@mysql84refman]. Vredi biti precizan oko toga dokle njegove garancije
+sežu: priručnik za verziju 8.4 dokumentuje šifrovanje zapisa preko sistema ključeva, ali ne i
+potpisivanje niti kontrolni zbir kojim bi se naknadna izmena otkrila [@mysql84refman]. Otpornost na
+izmenu kod njega, dakle, nije dokumentovano svojstvo, što nije isto što i tvrdnja da je nema.
+
+Ovaj rad ga, u skladu sa ograničenjem na besplatno izdanje uspostavljenim u petom poglavlju, ne
+pokreće, nego ga navodi samo kao referentnu tačku: mehanizam koji je, za razliku od svega što sledi,
+uopšte i projektovan kao evidencioni trag, a ne prenamenjen u njega. Njegova arhitektura potvrđuje i podelu s
 kojom je prethodno poglavlje zatvoreno - audit je *plugin*, jedna od zamenljivih komponenti koje
 jezgro poziva, ne deo samog jezgra [@mysql84refman].
 
@@ -576,11 +582,16 @@ Besplatno izdanje nudi tri instrumenta, i nijedan od njih nije projektovan kao d
 upita (`general_log`) upisuje svaku primljenu naredbu u trenutku prijema, pre nego što je izvršena
 [@mysql84refman]; iz te jedne činjenice slede sve njegove slabosti odjednom - ishod naredbe još ne
 postoji u trenutku upisa, pa odbijena naredba u zapisu izgleda identično uspešnoj, a sam fajl je
-običan tekstualni fajl u vlasništvu servisnog naloga servera, koji svako sa pristupom fajl-sistemu ili
-privilegijom `FILE` može da skrati ili obriše [@mysql84refman]. Dnevnik grešaka, uz
-`log_error_verbosity = 3`, beleži pokušaje povezivanja i njihov ishod, ali ne i sadržaj same naredbe,
-pa ne može da posluži ni za šta osim potvrde da je neko pokušao da se poveže [@mysql84refman].
-`performance_schema` čuva poslednjih N završenih naredbi po nizu i približno deset hiljada globalno,
+običan tekstualni fajl u vlasništvu servisnog naloga servera, koji svako sa pristupom fajl-sistemu
+može da skrati ili obriše. Sama SQL privilegija `FILE` za to nije dovoljna, jer
+`SELECT ... INTO OUTFILE` po priručniku ne sme da piše u postojeću datoteku, a i kada sme, ograničena
+je direktorijumom iz `secure_file_priv` [@mysql84refman]; napad na sam zapis zato ne dolazi iz baze,
+nego sa nivoa operativnog sistema, što je i razlog što se zaštita zapisa rešava van same baze. Dnevnik grešaka, uz
+`log_error_verbosity = 3`, beleži pokušaje povezivanja, neuspele autentifikacije i podizanje i
+gašenje servera, ali nijednu naredbu i nijedan pristup podacima [@mysql84refman]; on odgovara na
+pitanje ko je pokušao da uđe, nikada na pitanje šta je unutra uradio.
+`performance_schema` čuva poslednjih deset završenih naredbi po niti izvršavanja i približno deset
+hiljada globalno,
 ali kao kružni bafer: kada se ispuni, najstariji zapis se prepisuje, ne arhivira [@mysql84refman].
 Njegov kvar u retenciji je oštriji od kvara običnog fajla - napadaču nije potrebna privilegija brisanja,
 dovoljno je da generiše dovoljno saobraćaja da stari zapis sam nestane.
@@ -588,7 +599,8 @@ dovoljno je da generiše dovoljno saobraćaja da stari zapis sam nestane.
 Od četiri kriterijuma, tri su, za ova tri instrumenta, popravljiva van same baze: retencija se rešava
 prebacivanjem zapisa na drugi sistem pre nego što budu prepisani, otpornost na izmenu zaključavanjem
 fajl-sistema ili slanjem zapisa van dohvata servera, a potpunost se, za `general_log`, svodi na to da
-ostane trajno uključen. Pripisivost se ne popravlja na isti način, i to iz strukturnog, ne iz
+ostane trajno uključen, po cenu koja je merljiva: svaka naredba se upisuje na disk, pa se za ovaj rad
+dnevnik uključivao samo za trajanje demonstracije i odmah zatim gasio. Pripisivost se ne popravlja na isti način, i to iz strukturnog, ne iz
 količinskog razloga: efektivni identitet pod kojim je naredba stvarno izvršena nikada ne napušta
 server kao posebna vrednost u zapisu, pa ga nijedan naknadni alat ne može rekonstruisati iz podataka
 koji nikada nisu ni zapisani. Zato se za slobodno dostupne instrumente MySQL Community izdanja može
@@ -599,12 +611,12 @@ Ta razlika se može i izmeriti, ne samo tvrditi. Pogled `v_definer_demo`, defini
 nijednu privilegiju, čita istu tabelu preko definerovih prava umesto preko svojih [@mysql84refman].
 Dok je opšti dnevnik upita bio uključen, isti nalog je pokušao direktan upit nad `diagnoses`, odbijen
 sa `ERROR 1142`, a zatim isti podatak pročitao preko pogleda, uspešno. Dnevnik za obe veze beleži
-isključivo `recept_podgorica@localhost` u liniji `Connect`; ništa u njemu ne pokazuje da je treći upit
-stvarno izvršen pod pravima naloga `dbadmin`, definera pogleda. Tek kada pogled sam vrati `USER()` i
+isključivo `recept_podgorica@localhost` u liniji `Connect`; ništa u njemu ne pokazuje da je upit kroz
+pogled stvarno izvršen pod pravima naloga `dbadmin`, definera pogleda. Tek kada pogled sam vrati `USER()` i
 `CURRENT_USER()` kao kolone rezultata, razlika postaje vidljiva: `connected_user` ostaje
 `recept_podgorica@localhost`, dok `effective_user` postaje `dbadmin@localhost`
 (Slika 6.1). Ispravna formulacija nije da dnevnik beleži pogrešan identitet, nego da beleži samo
-jedan od dva identiteta odjednom; kad bi umesto `USER()` beležio `CURRENT_USER()`, rupa bi se samo
+jedan od dva identiteta; kad bi umesto `USER()` beležio `CURRENT_USER()`, rupa bi se samo
 premestila - zapis bi tada pokazivao `dbadmin`, a nalog koji je upit zaista pokrenuo bi nestao.
 Pripisivost zahteva oba identiteta u istom zapisu, a slobodno dostupni instrumenti ovog izdanja ne
 nude nijedan mehanizam koji bi to obezbedio.
