@@ -29,6 +29,57 @@ a stale claim; correct it in place.**
   *provera znanja* for probing. Proofread every Serbian sentence before sending; typos in quiz stems
   get flagged.
 
+## Research rules — how a claim earns its place
+
+Both rules below exist because of a real failure in this topic's own charting research, not as general
+good practice.
+
+### 1. No absence claim enters a lesson or the paper unverified
+
+Any sentence of the form **"MySQL has no X"**, **"MySQL does not support X"**, **"X must be built
+outside the database"** gets checked at the moment it is written, and the check is recorded next to
+the claim. Triggered by the *grammatical pattern*, not by whether anyone feels uncertain.
+
+**Why this rule and not a general accuracy rule:** a research memo flags what it knows it is unsure
+about. It cannot flag the feature it never thought of. A confident negative sentence is
+indistinguishable from a confident fact, so absence claims slip through every checkpoint built on
+flagged-claim lists.
+
+**The concrete failure:** charting memo 07 stated *"MySQL does not provide dedicated geo-distribution
+features."* False - **InnoDB ClusterSet** is exactly that. It was missed because every URL in the
+entire research set pointed at the **reference manual**, and ClusterSet is documented in the **MySQL
+Shell manual**, a separate documentation tree. The claim was never flagged as uncertain, so no
+checkpoint would have caught it.
+
+**This paper's thesis will be built from absence claims** - "MySQL gives you knobs, not guarantees" is
+an absence argument, the same shape as Tema 2's DAC-only spine, whose conclusion rested on six of
+them. One missed feature does not cost a paragraph here; it can invert a chapter's verdict. It nearly
+inverted the geo-distribution one.
+
+### 2. The source ladder — where to look, in order
+
+A claim is not "unsourced" just because the reference manual is silent. Walk the ladder and **record
+which rung the claim came from**:
+
+1. **MySQL 8.4 reference manual** (`dev.mysql.com/doc/refman/8.4/`). Default for server behaviour.
+2. **The other Oracle documentation trees** - and this is the rung that was missed: the **MySQL Shell**
+   manual (InnoDB Cluster, ClusterSet, AdminAPI), **MySQL Router**, the **worklogs** (`WL#`), and the
+   source tree. A feature absent from the refman is routinely documented here. **Before writing any
+   absence claim, check this rung explicitly.**
+3. **Primary academic literature** for anything theoretical - the paper cites these, never a manual,
+   for concepts like quorum, linearizability or CAP.
+4. **Practitioner and community sources** when rungs 1-3 are genuinely silent: Percona, MySQL release
+   notes and bug reports, conference talks, engineering blogs from people who actually ran it. **Use
+   them to learn and to know what to test, and then verify on the live topology.** Cite them in the
+   paper only when they are the genuine origin of a claim and nothing higher exists; a measurement of
+   your own beats a blog post, and `../WRITING.md` governs what may be cited.
+5. **The live topology.** The last word. A local measurement outranks any document, and where the two
+   disagree the paper reports the measurement and says which version it was taken on. Tema 2 overturned
+   a documented claim this way.
+
+The lecture decks in `../Predavanja/` sit outside this ladder: they are **learning material and a
+Serbian terminology source, never citable** (`../WORKFLOW.md` rule 7).
+
 ## Subject quirks
 
 - **Nothing in this topic can be shown on one server.** The topology (ports 3307/3308/3309) is a

@@ -29,6 +29,19 @@ professor's five bullets are the screenshot at this topic's root,
 (still fog — see below) deliberately carry execution: a chapter ticket is resolved only when the
 lesson has been taught, the examples run, and the Serbian prose is appended to `rad.md`.
 
+**Two research rules, binding on every session** (both written into `../../NOTES.md`, both caused by a
+real failure in this map's own charting research):
+- **No absence claim enters a lesson or the paper unverified.** Any "MySQL has no X" / "does not
+  support X" sentence is checked at the point of writing and the check recorded beside it. Triggered
+  by the grammatical pattern, not by felt uncertainty - because a memo cannot flag the feature it
+  never thought of. This paper's thesis will be built from absence claims, so the weakest class of
+  claim is the load-bearing one.
+- **Walk the source ladder, and record the rung**: 8.4 reference manual, then **the other Oracle doc
+  trees** (MySQL Shell / Router / worklogs - the rung whose omission caused the ClusterSet miss), then
+  primary literature for theory, then practitioner sources (Percona, release notes, bug reports) when
+  the docs are genuinely silent, then the live topology, which is the last word. `../RESOURCES.md`
+  holds the ladder with links.
+
 **Skills every session must consult**:
 - `academic-research-writer` — **mandatory** for all prose that lands in the paper. Non-negotiable.
 - `serbian-grammar` — for **every** line of Serbian written anywhere, not just the paper. This topic
@@ -172,6 +185,20 @@ the operator's to assemble.
   Replication is consistency-favouring inside a cluster gives the paper **the vendor taking opposite
   CAP positions at two scopes, in its own words**. Tema 2's pattern repeats exactly: its equivalent
   theory memo also shipped one false claim that was caught and corrected in place.
+
+- **Research-method defects found and rules added** (2026-09-17, prompted by the user asking whether
+  lessons re-challenge the research). Audited the six memos: **17 URLs across ~118 KB, all of them
+  `dev.mysql.com/doc/refman`**; memos 02, 03 and 04 recorded **zero** sources. That single bounded
+  search space is the precise root cause of the ClusterSet miss - it lives in the **MySQL Shell**
+  manual, a tree no memo opened. Second defect: memo 07 claims its 12 bibliography entries were
+  verified against ACM/IEEE records and **recorded no URL for any of them**, which is a direct risk to
+  an IEEE-cited paper. Two standing rules added (absence-claim verification, and the source ladder
+  with practitioner sources as an explicit rung), `../RESOURCES.md` rewritten as that ladder, and two
+  follow-up jobs fired: re-verify the bibliography with recorded lookups, and finish the lecture-deck
+  sweep across all six PDFs. **Also established: lessons do not re-challenge research** - the
+  `../TEACHING.md` reading protocol excludes `.scratch/**`, so memos reach the paper through the
+  chapter-writing session, not the lesson. Verification lives at tickets 10, 11 and 13 plus these
+  rules, not in teaching.
 
 ## Not yet specified
 
