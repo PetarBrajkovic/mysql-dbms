@@ -1,0 +1,16 @@
+# Credentials - never commit
+mysql-credentials.cnf
+
+# Generated data - only the scripts that produce it are committed
+*.sql.gz
+*.dump
+*.csv
+
+# Intermediate plan JSON captured for the figure pipeline - regenerate from examples/
+figures/raw/*.json
+
+# Auto-generated tool bundles (not paper content)
+figures/teach/
+
+# Word owner/lock files, created whenever rad.docx is open
+~$*

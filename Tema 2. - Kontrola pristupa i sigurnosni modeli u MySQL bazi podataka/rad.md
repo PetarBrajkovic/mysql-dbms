@@ -3,6 +3,7 @@ title: "Kontrola pristupa i sigurnosni modeli u MySQL bazi podataka"
 author: "Petar Brajković"
 bibliography: references.bib
 csl: ../ieee.csl
+reference-section-title: "Reference"
 ---
 
 <!--
