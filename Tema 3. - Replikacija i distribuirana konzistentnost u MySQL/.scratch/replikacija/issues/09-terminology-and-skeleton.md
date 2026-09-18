@@ -22,14 +22,22 @@ with the research in hand.
    *consensus*, *binary log* (and whether it follows the recovery deck's word for *log*, if ticket 02
    found one), *relay log*, *GTID*, *lag*, *consistency* with *eventual* / *strong* / *causal*,
    *durability*, *commit*, *acknowledgement*, *failover*, *split brain*, *certification*, *conflict*,
-   *read replica*, *read/write splitting*, *geo-distributed*. Record the reasoning in
+   *read replica*, *read/write splitting*, *geo-distributed*, *cluster* / *ClusterSet*, *switchover* vs
+   *failover* (Serbian blurs these two as readily as it blurs authentication/authorization, so decide
+   them explicitly and together). Record the reasoning in
    `../terminology-rationale.md` as both prior topics did; the one-line binding rule goes in
    `GLOSSARY.md`.
 
 2. **Lock the chapter skeleton** - list, order, and a soft page budget per chapter, now that research
    has shown what actually exists to write about. The five bullets are **not** five chapters. Specific
-   calls this ticket must make, each fed by a memo: does geo-distribution stand as its own chapter or
-   become a section (ticket 07's verdict), do asynchronous and semisynchronous share a chapter or
+   calls this ticket must make, each fed by a memo: **does geo-distribution stand as its own chapter or
+   become a section - and note that memo 07's verdict on this was WITHDRAWN**, because it rested on the
+   false claim that MySQL has no dedicated geo feature. **InnoDB ClusterSet** is exactly such a
+   feature, it is free, and it may be partly demonstrable locally (ticket 11). Re-take this call from
+   scratch rather than adopting the memo's stated verdict; its remaining four reasons are still valid
+   input. Also decide where ClusterSet's own admission that it *"prioritizes availability over data
+   consistency"* lands - it is the paper's cleanest bridge from CAP/PACELC to a named MySQL feature,
+   and it belongs somewhere deliberate rather than wherever it first fits. Then: do asynchronous and semisynchronous share a chapter or
    split (tickets 03 and 04), does Group Replication need one chapter or two given that it carries
    both the multi-leader and the quorum bullet (ticket 05), and how much consensus theory the theory
    chapter carries (ticket 07's recommendation).

@@ -152,12 +152,26 @@ the operator's to assemble.
   deterministic lag rather than hoping load produces some.
 
 - [Research: distributed-consistency theory, geo-distribution, and the bibliography](issues/07-research-theory-and-geo.md):
-  **verdict - geo-distribution is a section of the multi-leader chapter, not a chapter**, the same shape
-  as Tema 2's RLS ruling. CAP/PACELC with four standard misreadings called out; the **consensus-quorum
-  vs Dynamo-quorum distinction** stated explicitly, since the professor's own phrasing invites that
-  confusion. Recommended consensus depth: conceptual, no proofs. **~12 bibliography entries verified**
-  against primary records and ready for `references.bib`; 10 claims carry confidence flags for ticket 09
-  to treat as unsettled.
+  CAP/PACELC with four standard misreadings called out; the **consensus-quorum vs Dynamo-quorum
+  distinction** stated explicitly, since the professor's own phrasing invites that confusion.
+  Recommended consensus depth: conceptual, no proofs. **~12 bibliography entries verified** against
+  primary records and ready for `references.bib`; 10 claims carry confidence flags. **Its
+  geo-distribution verdict has since been withdrawn - see the correction below.**
+
+- **Memo 07's geo-distribution verdict withdrawn; InnoDB ClusterSet found missing from the research**
+  (2026-09-17, prompted by the user asking whether MySQL can do geo-distribution at all). The memo
+  ruled geo-distribution a section rather than a chapter, resting on the claim that **"MySQL does not
+  provide dedicated geo-distribution features."** That claim is **false**: **InnoDB ClusterSet** links
+  a primary InnoDB Cluster to replica clusters *"in alternate locations, such as different
+  datacenters"* (MySQL Shell 8.4 manual ch. 8, verified), with its own replication channel, read-only
+  non-diverging replica clusters, controlled switchover and emergency failover - all Community/GPL.
+  Memo and ticket **corrected in place**; the chapter-vs-section call is **reopened for ticket 09**.
+  Two further consequences: **geo-distribution is now partly demonstrable locally** (a cluster may be
+  single-member, so two or three instances form a real ClusterSet - ticket 11 confirms), and the
+  manual's own line that ClusterSet *"prioritizes availability over data consistency"* while Group
+  Replication is consistency-favouring inside a cluster gives the paper **the vendor taking opposite
+  CAP positions at two scopes, in its own words**. Tema 2's pattern repeats exactly: its equivalent
+  theory memo also shipped one false claim that was caught and corrected in place.
 
 ## Not yet specified
 
@@ -165,9 +179,11 @@ the operator's to assemble.
   reason Tema 2 gave: the professor's five bullets are not five chapters, and what is actually
   writable only becomes visible once the research memos land. Expect ~6 body chapters plus intro and
   conclusion, each becoming its own execution ticket wired into ticket 13.
-- ~~**Whether geo-distribution can carry a chapter at all.**~~ **Settled by memo 07**: it does not. It
-  becomes a section of the multi-leader chapter, the same shape as Tema 2's RLS ruling. Ticket 09
-  writes that into the skeleton.
+- **Whether geo-distribution can carry a chapter at all.** Briefly considered settled by memo 07, then
+  **reopened** when that memo's load-bearing reason turned out to be false (see Decisions). With
+  **InnoDB ClusterSet** in scope there is now a concrete, free, named MySQL feature to explain, plus
+  controlled switchover and emergency failover that appear demonstrable on two or three local
+  instances. Ticket 09 re-takes the call; ticket 11 establishes what can actually be shown.
 - ~~**How much of the consensus literature the paper touches.**~~ **Answered by memo 07** with a
   recommendation — conceptual depth only (leader election, log replication, quorum safety), no proofs.
   Ticket 09 still has to take the decision formally, but it is no longer fog.

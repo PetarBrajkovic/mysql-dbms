@@ -23,7 +23,15 @@ more than the original plan.
    concrete instead of arithmetic.
 4. **Stage a certification conflict** in multi-primary mode, using ticket 08's conflict scenario, and
    capture the rollback on the losing member.
-5. **Measure the `group_replication_consistency` levels** - at minimum `EVENTUAL` against `AFTER` or
+5. **Try to stand up an InnoDB ClusterSet**, added after memo 07 was corrected. A ClusterSet needs two
+   *clusters*, but a cluster may be **single-member**, so two or three local instances should form a
+   real one without a six-instance deployment. If it works, geo-distribution stops being theory-only:
+   **controlled switchover** (planned, demoting the old primary cluster to read-only) and **emergency
+   failover** both become demonstrable, and so does the read-only, non-diverging nature of a replica
+   cluster - try writing to one and capture the refusal. The one thing that stays undemonstrable is
+   inter-region *latency*, which is physics, not a missing feature. Same stop rule as the rest of this
+   ticket: if it will not come up, document the failure rather than fighting it, and tell ticket 09.
+6. **Measure the `group_replication_consistency` levels** - at minimum `EVENTUAL` against `AFTER` or
    `BEFORE_AND_AFTER` - showing the difference as a visible fact rather than a documented promise.
 
 **If any of this cannot be made to work locally, stop and record the fallback rather than fighting

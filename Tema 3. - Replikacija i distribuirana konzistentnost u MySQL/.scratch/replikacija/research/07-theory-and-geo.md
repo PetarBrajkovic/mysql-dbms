@@ -295,6 +295,43 @@ When replication links span multiple geographic regions:
 
 ### What MySQL Offers for Geo-Distribution
 
+> **CORRECTED IN PLACE, 2026-09-17.** This section originally concluded that *"MySQL does not provide
+> dedicated geo-distribution features."* **That was false** and has been rewritten. MySQL ships
+> **InnoDB ClusterSet**, which is precisely such a feature. The error was caught by the user asking
+> whether MySQL can do geo-distribution at all, and verified against the MySQL Shell 8.4 manual before
+> this rewrite. The verdict in the next section has been re-derived accordingly.
+
+**InnoDB ClusterSet - MySQL's dedicated cross-datacenter feature (the one this memo originally missed)**
+
+Documented in the MySQL Shell 8.4 manual, chapter 8. Community Edition, driven by MySQL Shell's
+AdminAPI. Its own words:
+
+- *"MySQL InnoDB ClusterSet provides disaster tolerance for InnoDB Cluster deployments by linking a
+  primary InnoDB Cluster with one or more replicas of itself in alternate locations, such as different
+  datacenters."*
+- *"InnoDB ClusterSet automatically manages replication from the primary cluster to the replica
+  clusters using a dedicated ClusterSet replication channel."*
+- The manual's own example is a primary cluster in **Rome** with replica clusters in **Lisbon** and
+  **Brussels**, with read-only reporting traffic routed to the local replica cluster.
+- Replica clusters are **read-only** and therefore **cannot diverge**: *"A replica cluster ... cannot
+  diverge from the primary cluster while it remains a passive replica, because it does not accept
+  writes."* This is the architectural answer to multi-leader conflict across regions - MySQL sidesteps
+  it by refusing writes outside the primary cluster.
+- Supports **controlled switchover** (planned, demotes the old primary to a read-only replica cluster)
+  and **emergency failover** (unplanned).
+
+**The single most quotable sentence in this memo**, because it is the vendor stating its own CAP /
+PACELC position in its own documentation:
+
+> *"It is important to know that InnoDB ClusterSet prioritizes availability over data consistency in
+> order to maximize disaster tolerance."* and *"There is no guarantee that data will be preserved in
+> the event of an emergency failover."*
+
+That pairs directly with section 2 of this memo: Group Replication inside one cluster is
+consistency-favouring under partition, while ClusterSet **between** clusters is availability-favouring.
+**The same product takes opposite sides of the CAP tradeoff at two different scopes**, and says so
+explicitly. That is a genuinely strong argument for the paper and should not be left in a footnote.
+
 **Asynchronous replication channels**
 - MySQL can replicate to remote replicas asynchronously
 - Multiple replication channels can be configured (multi-source replication)
@@ -318,7 +355,11 @@ When replication links span multiple geographic regions:
 
 ### Verdict: Is Geo-Distribution Its Own Chapter or a Section of Multi-Leader?
 
-**Verdict: Geo-distribution should be a section within the multi-leader chapter, not a standalone chapter.**
+**Verdict: REOPENED - see the withdrawal of reason 3 below.** The original verdict was *"a section
+within the multi-leader chapter, not a standalone chapter,"* and it rested most heavily on the false
+claim that MySQL has no dedicated geo feature. With **InnoDB ClusterSet** on the table that reason is
+gone, so this is now an **open decision for ticket 09**, not a recommendation to adopt. The remaining
+reasons below are still valid input to it.
 
 **Justification**:
 
@@ -326,7 +367,7 @@ When replication links span multiple geographic regions:
 
 2. **Limited novel substance unique to geography**: The literature on geo-distribution (PACELC, per-region leaders, conflict resolution) is well-covered by multi-leader material. The distinctiveness is not new theory but engineering responses to latency (e.g., "make regions independent leaders" is a multi-leader topology choice).
 
-3. **MySQL does not provide dedicated geo-distribution features**: MySQL offers asynchronous replication and multi-source replication, neither of which is specific to geo-distribution. Group Replication is not designed for cross-region use. The "geo-distribution" chapter would mostly be prescriptive guidance ("don't do X because of latency") rather than MySQL features to explain.
+3. ~~**MySQL does not provide dedicated geo-distribution features**~~ - **THIS REASON IS WITHDRAWN. It was false.** MySQL ships **InnoDB ClusterSet**, a dedicated cross-datacenter feature with its own AdminAPI, its own replication channel, controlled switchover and emergency failover (see the corrected section above). A geo-distribution chapter would therefore have a concrete, named, free MySQL feature to explain - not merely prescriptive advice. This was the single strongest reason for demoting geo-distribution to a section, and it no longer stands. The verdict below is consequently **downgraded from a recommendation to an open question for ticket 09**, which must re-take it with ClusterSet in hand. Reasons 1, 2, 4 and 5 still stand and may still carry the decision on their own.
 
 4. **Density**: A standalone geo-distribution chapter would either be too short (2–3 pages, repeating multi-leader concepts) or repeat material unnecessarily. A well-written section (2–3 pages within multi-leader) clearly delineates "what changes when regions are involved" without redundancy.
 

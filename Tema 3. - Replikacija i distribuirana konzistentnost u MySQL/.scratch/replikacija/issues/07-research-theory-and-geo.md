@@ -49,10 +49,34 @@ that had to be corrected in place after it had already been accepted.
 
 Resolved at charting, 2026-09-17. Findings: [`research/07-theory-and-geo.md`](../research/07-theory-and-geo.md)
 
-**The verdict the map was waiting for: geo-distribution is a section of the multi-leader chapter, not
-a chapter of its own.** Reasons given: it is thematically a multi-leader problem, MySQL ships no
-dedicated geo feature to describe, and nothing about it is measurable on one machine. Same shape as
-Tema 2's ruling that RLS was a section rather than a chapter. Ticket 09 takes this into the skeleton.
+**The verdict this memo delivered has since been WITHDRAWN. Read this before using the memo.**
+
+As delivered, the memo ruled that geo-distribution is a section of the multi-leader chapter rather
+than a chapter of its own, resting on three reasons - thematic overlap with multi-leader, nothing
+measurable on one machine, and **"MySQL does not provide dedicated geo-distribution features."**
+
+**That third reason is false, and it was the load-bearing one.** MySQL ships **InnoDB ClusterSet**:
+a primary InnoDB Cluster linked to replica clusters *"in alternate locations, such as different
+datacenters"* (MySQL Shell 8.4 manual, ch. 8), with a dedicated replication channel, read-only
+non-diverging replica clusters, controlled switchover and emergency failover - all Community/GPL via
+AdminAPI. The memo never mentions it. Caught when the user asked whether MySQL can do
+geo-distribution at all; verified against the manual before the memo was corrected in place.
+
+**Two consequences:**
+- **The chapter-vs-section verdict is reopened** and is now an open decision for ticket 09, which must
+  re-take it knowing a concrete free MySQL feature exists to explain. Reasons 1, 2, 4 and 5 still
+  stand and may still carry it.
+- **Demonstrability improved.** A ClusterSet needs two *clusters*, but a cluster may be single-member,
+  so two or three local instances can form a real one. Controlled switchover and emergency failover
+  look demonstrable locally, pending ticket 11. Only the *latency* is undemonstrable, and that is
+  physics, not a missing feature.
+
+**The memo's best single find, added during the correction**: the manual states that *"InnoDB
+ClusterSet prioritizes availability over data consistency in order to maximize disaster tolerance"*
+and that *"there is no guarantee that data will be preserved in the event of an emergency failover."*
+So the same product is consistency-favouring **inside** a cluster (Group Replication quorum) and
+availability-favouring **between** clusters, and says so in its own documentation. That is the
+paper's cleanest bridge from CAP/PACELC to a named MySQL feature.
 
 The consistency vocabulary is defined and each MySQL mode placed on it. CAP and PACELC are covered
 with **four standard misreadings explicitly called out**, which is exactly the defensive work a
