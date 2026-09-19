@@ -200,33 +200,104 @@ the operator's to assemble.
   chapter-writing session, not the lesson. Verification lives at tickets 10, 11 and 13 plus these
   rules, not in teaching.
 
+- **Both follow-up jobs landed; both rules held** (2026-09-17). *Lecture-deck sweep finished*
+  ([research/02b-remaining-decks.md](research/02b-remaining-decks.md)): decks 02, 03 and 04 are
+  Ramakrishnan & Gehrke chs. 12–14 and 19–20, all single-node query processing; **zero** replication,
+  distribution or consistency content, and the lone *replikacija* in `04_Tuning` p. 4 is an
+  unelaborated bullet beside *horizontalno particionisanje* and *pogledi*. The only reusable Serbian
+  is **cena** (cost) and **particionisanje**. The zero-deck-backing premise is now verified across all
+  six decks, not four. *Bibliography re-verified with recorded lookups*
+  ([research/07b-bibliography-verified.md](research/07b-bibliography-verified.md)): **17/17 entries
+  verified, every one with a fetched URL** (ACM DOIs, IEEE Xplore, USENIX, Lamport's own PDFs,
+  bailis.org, DBLP). One genuine ambiguity found and settled: **Gray & Reuter is dated 1991 by
+  Microsoft Research and 1993 by DBLP/Google Books — the paper uses 1993**. The IEEE-citation risk
+  named in the previous entry is closed; `references.bib` can be populated directly from 07b.
+
+- [Decide the running example and workload the whole paper is built on](issues/08-running-example.md)
+  (2026-09-18): **`poliklinika` reused**, but only after a demo-by-demo audit rather than on
+  familiarity — it passes every need (all-InnoDB, primary key on every table, **zero cascading foreign
+  keys**, so multi-primary is open; `UPDATE … LIMIT` on `invoices` supplies the unsafe-statement demo
+  for free) with **one gap**: it is too well-keyed to show Group Replication rejecting a PK-less table,
+  so a throwaway `no_pk_demo` is created and dropped inside that chapter. One instrument table added,
+  **`heartbeat`** (no FKs), which the lag time-series samples. **Lag is induced by `SOURCE_DELAY` by
+  default with exactly one natural-lag figure** (burst into `visits`, applier pinned to one worker,
+  measured by `performance_schema` timestamps, not `Seconds_Behind_Source`), and every induced caption
+  says so in Serbian — a binding honesty rule. **Conflict demo runs as a pair**: same invoice (one
+  rolled back) *and* two different invoices (both commit), so the reader sees certification is
+  row-level rather than table-level. **Read-your-writes runs twice**: the anomaly on an async replica,
+  then closed by `group_replication_consistency='BEFORE'`. **Examples are SQL + PowerShell**, scripts
+  writing to `measurements/` so ticket 12 draws figures from output, never screenshots.
+
+- [Decide the Serbian terminology glossary and lock the paper skeleton](issues/09-terminology-and-skeleton.md)
+  (2026-09-18): the map's highest-leverage ticket, fifteen questions over two rounds. **Spine locked and
+  the charting hunch deliberately not adopted**: *"MySQL ne isporučuje model konzistentnosti —
+  isporučuje log i skup podesivih tačaka potvrde, pa je konzistentnost odluka operatora, a ne svojstvo
+  sistema"*; the hunch survives as the mechanism beneath it, having failed two tests — it is
+  undisputable rather than arguable, and ClusterSet does not buy its guarantee with latency at all.
+  **Skeleton: 8 chapters, 24 pages, and every one of the professor's five bullets owns a chapter** — a
+  constraint not in the ticket, added because a bullet without a chapter is a defense risk.
+  Geo-distribution **re-decided from scratch as its own chapter** on ClusterSet, and it is where the
+  CAP payoff lands, not the theory chapter; semisync split from async so it cannot read as a tuning
+  option; Group Replication kept as one long chapter; theory second, before any MySQL.
+  **Terminology: the house rule was checked against both finished papers at the user's request** rather
+  than invented — translate by default, English gloss on first use only, English kept solely for
+  identifiers, keywords and product proper nouns — plus a **deck column** inheriting memo 02's 26
+  recovery terms. The Croatianism hazard was **confirmed empirically here**: searches for Serbian
+  renderings returned almost only Croatian/Bosnian sources, so nothing was harvested from the web.
+  Five recorded non-choices (*eventualna*, *sertifikacija*, *podeljeni mozak*, *latencija replikacije*,
+  *master/slave*), and **two role vocabularies on purpose** with the switch stated in the text. Theory
+  budget made a number; voice unchanged; induced-lag captions must say so. Written into `GLOSSARY.md`
+  and [terminology-rationale.md](terminology-rationale.md).
+
+- [Stand up the multi-instance replication topology](issues/10-build-the-topology.md) (2026-09-19):
+  **three instances live on 3307/3308/3309, async replication running to both replicas, 3306 verified
+  untouched** — and, as on Tema 2, the live servers overturned the research. Both replicas were
+  provisioned by `SOURCE_AUTO_POSITION=1` from node1's binary log alone, so the sandbox carries **no
+  errant GTIDs** into ticket 11. **Two corrections**: memo 03's setup sequence omits
+  `GET_SOURCE_PUBLIC_KEY=1`, without which an 8.4 channel dies after any restart of the source (it
+  works while the password cache is warm, which is what makes it dangerous); and **memo 04's claim that
+  semisync costs 2–10 ms per commit is false here** — at full durability the cost vanishes into two
+  fsyncs, and only with `sync_binlog=0` + `flush=2` does it show as a clean 2× (61 → 124 µs). That 2×2
+  matrix is a figure ch. 3 and ch. 4 share, and it reframes acknowledgement cost as a *network-distance*
+  story. Timeout degradation reproduced exactly — first commit waits the full 1 s, **the second is
+  already async at 782 µs** — with `Rpl_semi_sync_source_no_tx` as the only lasting evidence. The
+  applier, not the receiver, confirmed as the bottleneck by `Relay_Log_Space` **plateauing** while lag
+  grew; parallel workers gave 8.2×, above memo 03's 2–4×. `Seconds_Behind_Source` caught reading **3 on
+  an idle, caught-up replica**. No Administrator on this account, so the instances are background
+  processes started by hand each session via `examples/00-setup/topology.ps1`.
+
 ## Not yet specified
 
-- **The chapter tickets.** Deliberately not cut until ticket 09 locks the skeleton, for exactly the
-  reason Tema 2 gave: the professor's five bullets are not five chapters, and what is actually
-  writable only becomes visible once the research memos land. Expect ~6 body chapters plus intro and
-  conclusion, each becoming its own execution ticket wired into ticket 13.
-- **Whether geo-distribution can carry a chapter at all.** Briefly considered settled by memo 07, then
-  **reopened** when that memo's load-bearing reason turned out to be false (see Decisions). With
-  **InnoDB ClusterSet** in scope there is now a concrete, free, named MySQL feature to explain, plus
-  controlled switchover and emergency failover that appear demonstrable on two or three local
-  instances. Ticket 09 re-takes the call; ticket 11 establishes what can actually be shown.
-- ~~**How much of the consensus literature the paper touches.**~~ **Answered by memo 07** with a
-  recommendation — conceptual depth only (leader election, log replication, quorum safety), no proofs.
-  Ticket 09 still has to take the decision formally, but it is no longer fog.
+- ~~**The chapter tickets.**~~ **Graduated at ticket 09** into tickets 14–20, chained
+  14 → 15 → 16 → 17 → 18 → 19 → 20, with ticket 13 rewired onto 20.
+- ~~**Whether geo-distribution can carry a chapter at all.**~~ **Answered at ticket 09: its own
+  chapter** (ch. 6, ~3 pages, built on InnoDB ClusterSet), re-decided from scratch rather than
+  adopting memo 07's withdrawn verdict. Ticket 11 still establishes what can actually be shown live.
+- ~~**How much of the consensus literature the paper touches.**~~ **Taken formally at ticket 09**:
+  conceptual depth only, no proofs, inside a ~3-page / 10–12-paragraph theory chapter.
+- **The measurement file format** the PowerShell drivers emit into `measurements/`. Ticket 08 fixed
+  *that* they emit there; the columns and units are ticket 12's call, once it knows which figure types
+  survive.
 - **What a "figure" is for this topic.** Tema 1 had flame graphs, Tema 2 had result/error pairs and
   Mermaid diagrams. Replication's natural figures are time-series (lag over time), topology diagrams,
   and before/after state on two nodes side by side — none of which the existing shared scripts
   produce. Ticket 12 decides; it may need a new shared tool the way Tema 2 needed
   `make-pair-figure.ps1`.
+- **Whether the theory chapter's budget survives contact with writing.** Ticket 09 made it a number
+  (~3 pages, 10–12 paragraphs), but Tema 1's scar was a budget that bent. If ch. 2 overruns, the
+  question is whether the budget or the chapter list gives — not a decision anyone can take yet.
 - **The defense angle.** What the professor is likely to press on. The bullet list leans hard on
   vocabulary from the distributed-systems literature rather than from MySQL, which suggests he will
   ask the student to place MySQL *inside* that vocabulary — "is MySQL CP or AP", "what is MySQL's
   quorum", "what consistency model does a read replica give you". Worth being ready for, but
   preparing the defense is the user's own deliverable and sits outside this map.
-- **Which research claims need the live topology to settle them.** Every memo should flag its own;
-  ticket 10 is where they get tested, as ticket 10 did on Tema 2 (which overturned one memo claim
-  outright).
+- ~~**The lecture-deck sweep and the bibliography re-verification.**~~ Both done; see Decisions.
+- ~~**Which research claims need the live topology to settle them.**~~ **Largely settled at ticket
+  10**: memo 03 claims 1, 2, 5, 7, 8, 9, 11, 15; memo 04 claims 1, 4, 7; memo 06 claims 1–5 all tested,
+  two overturned. **What remains is now sharp enough to name but belongs to ticket 11's session**: memo
+  04 claims 2, 3 and 6 (the `AFTER_SYNC` vs `AFTER_COMMIT` visibility window, and whether a failed
+  source can rejoin) need two concurrent sessions and a staged crash; memo 06 claims 6 and 7 need the
+  group. If ticket 11 cannot absorb them, they graduate into a ticket of their own.
 
 ## Out of scope
 

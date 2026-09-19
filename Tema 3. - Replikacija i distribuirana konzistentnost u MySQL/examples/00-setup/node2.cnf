@@ -1,0 +1,44 @@
+# node2.cnf - instance B of this paper's topology. Port 3308, server_id 2.
+# Default role: REPLIKA (replica) of node1 for the asynchronous chapters; secondary in the group.
+#
+# Port 3306 belongs to another topic's server and is NOT touched by anything here.
+# Data lives outside the repository, under C:/mysql-repl/node2 - see examples/00-setup/README.md.
+#
+# Start with:
+#   mysqld --defaults-file=<this file>
+# never with a bare `mysqld` - a bare start would pick up the machine-wide 3306 config.
+
+[mysqld]
+server_id                       = 2
+port                            = 3308
+mysqlx_port                     = 33080
+basedir                         = C:/Program Files/MySQL/MySQL Server 8.4
+datadir                         = C:/mysql-repl/node2/data
+tmpdir                          = C:/mysql-repl/node2/tmp
+secure_file_priv                = C:/mysql-repl/node2/outfile
+log_error                       = C:/mysql-repl/node2/node2.err
+pid_file                        = C:/mysql-repl/node2/node2.pid
+
+# --- binary log: the thing that is actually replicated -------------------------------
+log_bin                         = C:/mysql-repl/node2/binlog/node2-bin
+binlog_format                   = ROW
+log_replica_updates             = ON
+binlog_expire_logs_seconds      = 604800
+
+# --- GTIDs ---------------------------------------------------------------------------
+gtid_mode                       = ON
+enforce_gtid_consistency        = ON
+
+# --- durability (the sync_binlog x innodb_flush_log_at_trx_commit matrix of ch. 3) ---
+sync_binlog                     = 1
+innodb_flush_log_at_trx_commit  = 1
+
+# --- replica-side settings, kept identical on all three so roles can be swapped ------
+relay_log                       = C:/mysql-repl/node2/relay/node2-relay
+relay_log_recovery              = ON
+report_host                     = 127.0.0.1
+report_port                     = 3308
+
+# --- small box: three servers share one machine --------------------------------------
+innodb_buffer_pool_size         = 128M
+max_connections                 = 100
