@@ -266,6 +266,28 @@ the operator's to assemble.
   an idle, caught-up replica**. No Administrator on this account, so the instances are background
   processes started by hand each session via `examples/00-setup/topology.ps1`.
 
+- [Get Group Replication demonstrable on the local topology](issues/11-make-group-replication-work.md)
+  (2026-09-19): **all six items delivered, the stop rule never needed — chapters 5 and 6 both have
+  measurements, neither is theory-only.** The three-member group came up with both `addInstance` calls
+  reporting *"State recovery already finished"*, which is ticket 10's no-errant-GTID discipline paying
+  off exactly where it was aimed. **InnoDB ClusterSet works on one machine** because a cluster may be
+  **single-member**: 3307+3308 as the primary cluster, 3309 as a real replica cluster with its own
+  ClusterSet channel — controlled switchover **478 ms**, emergency failover **23 s and not automatic**,
+  leaving the old primary `INVALIDATED` under the tool's own warning that transactions *"may be lost"*
+  and *"a split-brain can happen"*. That runtime warning is ch. 6's CAP payoff in the vendor's voice.
+  **Quorum loss is the paper's cleanest measurement**: reads in 39 ms, writes still blocked at 30 s,
+  the pending row invisible — and after the forced repair **the suspended write committed**, two
+  minutes late, its client long dead. **The consistency levels are ch. 5's climax**: `EVENTUAL` 100 %
+  stale reads at 16 ms median commit, `AFTER` 0 % at 29 ms, `BEFORE_AND_AFTER` 0 % at 31 ms — the
+  guarantee bought with latency at the writer, which is the spine as a table. **Memo 05 corrected**:
+  first-commit-wins and row-level granularity hold, but across four timings the loser always got
+  `ERROR 1180 … 'Lock deadlock'` and `COUNT_CONFLICTS_DETECTED` never moved — 3101 never appeared
+  (corroborated at MySQL bug 78705). **A methodological catch worth keeping**: the first consistency
+  run showed zero stale reads at every level because one `mysql.exe` per statement put 20 ms of
+  process start-up inside a shorter replication window — the instrument erased the phenomenon. MySQL
+  Shell installed unpacked, no Administrator; the sandbox now has **two mutually exclusive states**
+  with scripts both ways, async resting.
+
 ## Not yet specified
 
 - ~~**The chapter tickets.**~~ **Graduated at ticket 09** into tickets 14–20, chained
@@ -278,7 +300,9 @@ the operator's to assemble.
 - **The measurement file format** the PowerShell drivers emit into `measurements/`. Ticket 08 fixed
   *that* they emit there; the columns and units are ticket 12's call, once it knows which figure types
   survive.
-- **What a "figure" is for this topic.** Tema 1 had flame graphs, Tema 2 had result/error pairs and
+- **What a "figure" is for this topic.** *(Ticket 11 has since added three strong candidates to weigh:
+  the consistency-level table, the quorum-loss three-outcome panel, and a switchover-vs-failover
+  timing pair.)* Tema 1 had flame graphs, Tema 2 had result/error pairs and
   Mermaid diagrams. Replication's natural figures are time-series (lag over time), topology diagrams,
   and before/after state on two nodes side by side — none of which the existing shared scripts
   produce. Ticket 12 decides; it may need a new shared tool the way Tema 2 needed
@@ -292,12 +316,18 @@ the operator's to assemble.
   quorum", "what consistency model does a read replica give you". Worth being ready for, but
   preparing the defense is the user's own deliverable and sits outside this map.
 - ~~**The lecture-deck sweep and the bibliography re-verification.**~~ Both done; see Decisions.
-- ~~**Which research claims need the live topology to settle them.**~~ **Largely settled at ticket
-  10**: memo 03 claims 1, 2, 5, 7, 8, 9, 11, 15; memo 04 claims 1, 4, 7; memo 06 claims 1–5 all tested,
-  two overturned. **What remains is now sharp enough to name but belongs to ticket 11's session**: memo
-  04 claims 2, 3 and 6 (the `AFTER_SYNC` vs `AFTER_COMMIT` visibility window, and whether a failed
-  source can rejoin) need two concurrent sessions and a staged crash; memo 06 claims 6 and 7 need the
-  group. If ticket 11 cannot absorb them, they graduate into a ticket of their own.
+- ~~**Which research claims need the live topology to settle them.**~~ **Settled across tickets 10 and
+  11.** Memo 06 claims 6 and 7 were absorbed by ticket 11's group work. What is left is **memo 04
+  claims 2, 3 and 6** — the `AFTER_SYNC` vs `AFTER_COMMIT` visibility window and whether a failed
+  source can rejoin. Ticket 11 deliberately did **not** take them: they need semisync running and a
+  staged crash, which is a chapter-4 session, not a group session. They now ride on
+  [Chapter 4 - Semisinhrona replikacija](issues/16-chapter-4-semisync.md) as a named prerequisite
+  rather than a ticket of their own, because the measurement and the prose want the same session.
+- **Whether any figure that samples a sub-millisecond window can be driven by the existing script
+  shape.** Ticket 11 found that one client process per sample (~20 ms of start-up) is slower than the
+  replication window it is trying to observe, and silently reports that the window does not exist.
+  Ticket 12 must decide whether the measurement drivers stay PowerShell-per-statement (fine for lag,
+  fatal for read-your-writes) or move to a persistent-session harness.
 
 ## Out of scope
 

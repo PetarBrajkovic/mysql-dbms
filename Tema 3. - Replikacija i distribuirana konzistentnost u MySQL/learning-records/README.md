@@ -11,6 +11,7 @@ chapter, never when planning a lesson.
 | # | Chapter | Headline | Open it when you are teaching / writing about |
 |---|---|---|---|
 | [0001](0001-replication-topology.md) | — (ticket 10) | The three-instance sandbox, and what the live servers said about the memos | the topology itself; semisync latency and timeout degradation; applier vs receiver lag; `Seconds_Behind_Source`; read-your-writes |
+| [0002](0002-group-replication.md) | — (ticket 11) | The group, the quorum, the conflicts and a live InnoDB ClusterSet — all of it works locally | Group Replication; quorum loss; multi-primary conflicts; `group_replication_consistency`; geo-distribution and ClusterSet |
 
 ## Standing constraints these records impose on every later chapter
 
@@ -28,6 +29,17 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   but `rpl_semi_sync_*_enabled` returns to OFF on every start. (0001)
 - Lag is induced with `SOURCE_DELAY` on node3 by default; every such caption says so in Serbian
   (ticket 08's honesty rule).
+- **The sandbox has two mutually exclusive states**: plain asynchronous (the resting state) and the
+  InnoDB Cluster / ClusterSet. `examples\01-group-replication\10-gr-up.js` goes one way,
+  `19-gr-down.ps1` the other; **always run `19-gr-down.ps1` at the end of a group session.** (0002)
+- **MySQL Shell is not installed system-wide** — it lives unpacked at
+  `C:\mysql-repl\tools\mysql-shell-8.4.10-windows-x86-64bit\bin\mysqlsh.exe` (no Administrator
+  needed). Shell 8.4.10 is the newest 8.4 build Oracle serves; it drives 8.4.11 servers without
+  complaint. (0002)
+- **Group Replication, quorum, multi-primary and InnoDB ClusterSet are all demonstrable locally.** Do
+  not plan any part of chapters 5 or 6 as theory-only. (0002)
+- A clean `topology.ps1 stop` is a **graceful leave**, not a failure — it cannot be used to
+  demonstrate quorum loss. Losing majority requires killing the process. (0002)
 
 ## Corrections filed against the research memos
 
@@ -39,6 +51,11 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
 - **Memo 03's setup sequence is incomplete**: it omits `GET_SOURCE_PUBLIC_KEY = 1`, without which a
   fresh 8.4 channel cannot authenticate over an unencrypted connection once the source's password cache
   is cold. (0001)
+- **Memo 05's certification story is right about the mechanism and wrong about the observable.** The
+  losing transaction receives `ERROR 1180 … Got error 149 - 'Lock deadlock; Retry transaction' during
+  COMMIT`, not `ER_TRANSACTION_ROLLBACK_DURING_COMMIT` (3101), and `COUNT_CONFLICTS_DETECTED` never
+  moves — measured across four different timings. First-commit-wins and row-level granularity both
+  hold. (0002)
 - **Memo 03, claim 9 (parallel applier 2–4×) is understated** for this workload: measured 8.2×
   (40 507 ms → 4 950 ms at 4 workers). Treat as an optimistic upper bound — independent single-row
   inserts are the ideal case. (0001)

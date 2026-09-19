@@ -6,6 +6,13 @@ Blocked by: 15
 
 ## Question
 
+**Carries a measurement debt from ticket 11.** Memo 04 claims 2, 3 and 6 are still untested: the
+`AFTER_SYNC` vs `AFTER_COMMIT` visibility window (the chapter's sharpest argument) and whether a
+failed source can rejoin. They need semisync running plus a staged crash and two concurrent sessions,
+so they belong to this session rather than to a group session. **Run them before writing the prose**;
+if `AFTER_COMMIT`'s anomaly does not reproduce, the chapter's claim changes and this ticket says so
+rather than quoting the memo.
+
 Write ch. 4, **~3 pages**. Split from ch. 3 deliberately at ticket 09: folding it in would make
 semisync read as a tuning option, which is precisely the misreading this chapter exists to kill.
 Backed by memo 04 - **the paper's sharpest available argument**.
