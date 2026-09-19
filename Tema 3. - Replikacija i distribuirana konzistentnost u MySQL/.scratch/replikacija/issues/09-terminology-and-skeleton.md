@@ -1,8 +1,9 @@
 # Decide the Serbian terminology glossary and lock the paper skeleton
 
 Type: grilling
-Status: open
-Blocked by: 02, 03, 04, 05, 06, 07
+Status: closed
+Assignee: Pex
+Blocked by: 02, 03, 04, 05, 06, 07 — all closed
 
 ## Question
 
@@ -58,3 +59,97 @@ with the research in hand.
 **On closing this ticket, graduate the fog**: create the chapter tickets in one pass (create, then
 wire blocking in a second pass), and clear the corresponding entries from the map's *Not yet
 specified*.
+
+---
+
+## Answer (2026-09-18)
+
+Resolved in one grilling session, fifteen questions over two rounds, with all six memos in hand.
+Full term tables and the skeleton are in `GLOSSARY.md`; the reasoning behind every locked non-choice
+is in `../terminology-rationale.md`. Gist below.
+
+### 1. The spine (attacked, then replaced)
+
+> MySQL ne isporučuje model konzistentnosti - isporučuje log i skup podesivih tačaka potvrde, pa je
+> konzistentnost odluka operatora, a ne svojstvo sistema.
+
+The charting hunch ("replicira log, ne stanje") was **not adopted as written**: it is descriptive
+rather than arguable, and it does not survive ClusterSet, where MySQL declines to buy the guarantee at
+all. It survives as the **mechanism underneath** the spine. The evidence that the spine is contestable
+and true: **the same product takes opposite CAP positions at two scopes in its own documentation** -
+Group Replication blocks a minority rather than diverging, ClusterSet *"prioritizes availability over
+data consistency."*
+
+### 2. Terminology: the house rule inherited, plus a deck column
+
+Checked Temas 1 and 2 before deciding (the user asked for this explicitly). Both translate by default,
+gloss the English in parentheses on first use only, and keep English solely for identifiers, SQL
+keywords and product proper nouns. **Tema 3 keeps that rule**, and adds a **deck column**: the 26
+logging/recovery terms memo 02 harvested from `05_Oporavak` are inherited Serbian-only, exactly as
+Tema 1's §1 was.
+
+The Croatianism hazard was **confirmed empirically at this ticket**, not just asserted: searches for
+Serbian renderings of *failover* and *replication lag* returned almost exclusively Croatian and
+Bosnian sources. **Nothing from the open web was harvested.** One positive: *kvorum* is attested in
+ordinary Serbian institutional usage (Narodna skupština pojmovnik), so it is a settled borrowing.
+
+**Six contested terms, decided individually:**
+
+- **Two role vocabularies on purpose**: *leader/follower* in ch. 2 (the literature's, and the
+  professor's own bullet #2 is in those English words), *izvor/replika* from ch. 3 on (MySQL's current
+  vocabulary). Per the user's instruction the switch is **stated in the text** - the paper says it
+  adopts *izvor/replika* because MySQL renamed the roles - not performed silently. *master/slave*
+  appears once, in the footnote at that switch.
+- **`failover` / `switchover` both English**, defined against each other on one joint first use, the
+  way Tema 2 handled autentifikacija/autorizacija. The distinction is load-bearing in ch. 6 and no
+  normative Serbian attestation exists for either.
+- **kašnjenje replikacije**, not *latencija* (collides with real network latency in ch. 6), not
+  *zaostajanje*.
+- **konačna / stroga / uzročna konzistentnost**. *Eventualna* is a false friend that asserts nearly the
+  opposite of the concept.
+- **`certification` stays English**, glossed once as *provera saglasnosti transakcija*; *sertifikacija*
+  means awarding a certificate, which is not what Group Replication does. Surrounding vocabulary is
+  Serbian: *skup upisa*, *sukob*.
+- **`split brain` stays English**, glossed once; *podeljeni mozak* reads as anatomy. *klaster* is the
+  generic noun; `InnoDB Cluster` / `InnoDB ClusterSet` are undeclined proper nouns.
+
+### 3. The skeleton: 8 chapters, 24 pages, every bullet covered
+
+| # | Chapter | Pages | Bullet |
+|---|---|---|---|
+| 1 | Uvod | 1 | — |
+| 2 | Teorijski okvir: modeli konzistentnosti, CAP/PACELC i konsenzus | 3 | — |
+| 3 | Binarni log, GTID i asinhrona replikacija | 4.5 | #1, #2 |
+| 4 | Semisinhrona replikacija i značenje potvrde | 3 | #2 |
+| 5 | Group Replication: kvorum, certification i multi-primary | 5 | #3 |
+| 6 | Geo-distribuirana replikacija i InnoDB ClusterSet | 3 | #4 |
+| 7 | Skaliranje čitanja i kašnjenje replikacije | 3.5 | #5 |
+| 8 | Zaključak | 1 | — |
+
+A constraint that drove several calls and was not in the ticket: **a professor bullet without a
+chapter is a defense risk**. All five now have one.
+
+- **Geo-distribution: its own chapter**, re-decided from scratch. Memo 07's four surviving reasons
+  were outweighed by bullet #4 plus a concrete free feature (ClusterSet) plus the CAP payoff, which
+  **lands in ch. 6, not ch. 2**.
+- **Async and semisync split.** Folding semisync in would make it read as a tuning option - exactly
+  the misreading ch. 4 exists to kill.
+- **Group Replication stays one chapter**, deliberately the longest; splitting quorum from
+  multi-primary would duplicate the certification machinery in both halves.
+- **Theory second, before any MySQL**, so later chapters use the vocabulary without re-defining it.
+
+### 4. Theory budget, made enforceable
+
+~3 pages / 10-12 paragraphs for ch. 2, consensus conceptual only (no proofs). **Any concept first
+needed later gets one paragraph plus one citation, and the next paragraph must be MySQL.** Mechanical
+violation test: a second consecutive theory paragraph outside ch. 2 means the concept belonged in ch. 2.
+
+### 5. Voice and captions
+
+`../WRITING.md` unchanged (impersonal *se*, per-paragraph citation) - a change on the third paper of
+one course buys nothing. One topic-specific addition, `GLOSSARY.md` §5: **every induced-lag caption
+states in Serbian that the lag was induced**, and the single natural-lag figure says that too.
+
+### Graduated from the fog
+
+Chapter tickets 14-20 created and wired; ticket 13's blocking rewired onto ticket 20.

@@ -2,12 +2,12 @@
 
 Type: task
 Status: open
-Blocked by: 12
+Blocked by: 20 (rewired from 12 at ticket 09, when the chapter tickets graduated)
 
 ## Question
 
-The last ticket. Its blocking is rewired to the chapter tickets when ticket 09 graduates them out of
-the fog; until then it hangs off ticket 12 as a placeholder.
+The last ticket. Its blocking was rewired at ticket 09: it now hangs off ticket 20 (Uvod i Zaključak), the last
+link in the chapter chain 14 -> 15 -> 16 -> 17 -> 18 -> 19 -> 20.
 
 Run the same final pass Temas 1 and 2 ran:
 
