@@ -792,3 +792,104 @@
 
 > [!abstract] PI
 > Other topics commit their live logs, so this one goes in too. Opening the lesson, then commit and push:
+
+
+> [!abstract] PI
+> Obsidian je napravio svoju konfiguraciju (`.obsidian/`) u `lessons-live/`, i ona je slučajno ušla u commit. Nijedna druga tema je ne verzioniše, pa je uklanjam:
+
+
+> [!abstract] PI
+> Lekcija je gotova i otvorena u browser-u: `lessons/0001-teorijski-okvir.html`. Sve je commitovano i push-ovano. Tiket 14 ostaje otvoren za sesiju pisanja.
+>
+> **Šta je leglo, a šta je trebalo popraviti:**
+> - **Kvorum i konsenzus** si sam izveo iz preseka većina već u proveri znanja. Trebalo ih je samo imenovati.
+> - **CAP**: ranije razumevanje „izaberi dva“ je oboreno kad si sam izveo teoremu na primeru 3307/3309.
+> - **Read-your-writes i monotona čitanja**: primeri su ti bili jasni, ali imena nisu bila povezana sa značenjem. Pomoglo je pravilo „ime ti kaže okidač“, uz lestvicu modela.
+> - **PACELC**: sam pojam si razumeo, ali su te zbunjivale skraćenice. Zato je u lekciji i kartici predstavljen kao dva obična pitanja, a slova su samo prečica.
+> - **Dva kvoruma**: prvi tačan odgovor iz provere znanja bio je prepoznavanje, ne razumevanje. Primer sa replikama r1, r2 i r3 je to ispravio.
+>
+> **Usput sam našao dva problema:**
+> - **Sandbox:** AdminAPI je na tiketu 11 trajno sačuvao `skip_replica_start=ON`, pa se kanal na 3308 posle svakog starta nije pokretao. Podaci nisu izgubljeni, jer su skupovi GTID bili identični. Kanal je vraćen, a `19-gr-down.ps1` sada briše tu postavku.
+> - **Memo 07 ima pet grešaka.** Najopasnija je pogrešna lista nivoa `group_replication_consistency`. Označene su u samom memou, a ova tema je zapisana u ograničenjima za kasnija poglavlja.
+>
+> **Za sesiju pisanja:**
+> - Za tvrdnju „Dynamo-kvorum nije strogo konzistentan ni uz R+W>N“ citiraj **Abadija (2012)**. Citat sam proverio doslovno, iz samog PDF-a.
+> - **Brewera (2012)** treba dodati u `references.bib`.
+>
+> **Zapisano je:**
+> - zapis učenja 0003 i red u indeksu `learning-records/README.md`;
+> - beleška o merenjima `.scratch/replikacija/measurements/0003-theory-framework.md`;
+> - komentar na tiketu 14;
+> - referentna kartica `reference/modeli-konzistentnosti.html`;
+> - u `NOTES.md` dve napomene o načinu učenja:
+>   - činjenice iz tiketa 10 i 11 uvek stoje u samom pitanju;
+>   - prvo obična pitanja, pa tek onda skraćenice.
+>
+> U zajednički CSS dodata je komponenta za tabele poređenja. U šablonu lekcije ispravljena je klasa za izvor citata (`.src` → `.sr`), koja nije imala stil.
+>
+> Obsidian je napravio svoju konfiguraciju (`.obsidian/`) u `lessons-live/`, i ona je slučajno ušla u prvi commit. Uklonio sam je iz repozitorijuma i dodao je u `.gitignore`.
+
+
+> [!quote] YOU
+> Da li mozes da dodas neki dijagram ili sliku da dodatno pojasni CAP i PACELS
+
+
+> [!abstract] PI
+> Dodaću dve slike: jednu za misaoni eksperiment CAP-a i jednu za PACELC kao stablo sa dva pitanja. Pravim ih paralelno:
+
+
+> [!abstract] PI
+> Proveravam obe slike pre ugradnje:
+
+
+> [!abstract] PI
+> Obe slike su sada čiste. Na stablu PACELC strelice i dalje dodiruju naslove grupa, ali se tekst lepo čita, pa ga ostavljam tako. Brišem prve verzije i ugrađujem slike u lekciju:
+
+
+> [!abstract] PI
+> Alt tekst mi je ispao pokvaren, pa ga ispravljam:
+
+
+> [!abstract] PI
+> U lekciju sam dodao dve slike. Lekcija je ponovo otvorena u browser-u, a izmene su commitovane i push-ovane.
+>
+> **Slika 1, CAP kao misaoni eksperiment** (u odeljku 3, odmah ispod izvođenja). Veza između 3307 i 3309 je prekinuta, pa 3309 ima samo dve mogućnosti:
+> - da odgovori odmah, i tada vraća staru vrednost i gubi C;
+> - da čeka 3307, i tada odgovor možda nikad ne stigne, pa gubi A.
+>
+> ![[viz-cap-misaoni-eksperiment-1791403267295.png|600]]
+>
+> **Slika 2, PACELC kao stablo sa dva pitanja** (u odeljku 4, ispod tabele sa dva pitanja). Leva grana je CAP i važi samo dok traje particija. Desna grana je Abadijev dodatak i važi pri svakom upisu. Boja pokazuje šta se bira:
+> - **narandžasto**: odgovor ili brzina;
+> - **plavo**: konzistentnost.
+>
+> Slova PA, PC, EL i EC stoje na listovima samo kao oznake. Prvo se čita pitanje i odgovor, pa tek onda skraćenica.
+>
+> ![[viz-pacelc-dva-pitanja-1791403252157.png|650]]
+>
+> Slika 2 je dodata i na referentnu karticu `reference/modeli-konzistentnosti.html`. Obe slike su u `viz/` i imaju potpun alt tekst na srpskom.
+>
+> Na slici 2 strelice malo dodiruju naslove dve grupe, ali se tekst čita bez problema, pa sam je ostavio tako.
+
+
+> [!quote] YOU
+> Sta je sledece
+
+
+> [!abstract] PI
+> Na redu je **pisanje poglavlja 2**, u **novoj sesiji**. Lekcija i pisanje su po dogovoru odvojeni (`MISSION.md` i tiket 14), a tiket 14 je i dalje otvoren baš za to.
+>
+> **1. Opciono, pre pisanja:** reši kviz na kraju lekcije `lessons/0001-teorijski-okvir.html` još jednom, sutra ili prekosutra. Posebno pitanja 1, 2, 6 i 7, jer su read-your-writes, monotona čitanja i PACELC najslabije legli. Ponavljanje posle pauze pokazuje da li je gradivo zaista ostalo u pamćenju. Za ovo poglavlje nema primera za pokretanje, osim provere uloga čvorova iz odeljka 5.
+>
+> **2. Sesija za pisanje** (pokreni iz foldera teme):
+> ```
+> /mattpocock-skills:wayfinder .scratch/replikacija/map.md
+> ```
+> Ona preuzima tiket 14 i piše ~3 strane (10–12 pasusa) srpskog teksta u `rad.md`. Takođe pravi `references.bib` od 17 izvora iz 07b i dodaje Brewera 2012. U komentaru na tiketu su već uputstva:
+> - tvrdnju o Dynamo-kvorumu potkrepiti citatom Abadija;
+> - PACELC opisati kao dva pitanja;
+> - ništa ne preuzimati iz pogrešne liste nivoa u memou 07.
+>
+> **3. Posle toga:** lekcija za **poglavlje 3** (tiket 15): binarni log, formati, GTID, niti prijema i primene i matrica postojanosti. Tu se uloge preimenuju u izvor/repliku, a sandbox dolazi do punog izražaja. Lekciju ću otvoriti kratkom proverom read-your-writes, monotonih čitanja i PACELC-a, da se vidi šta je ostalo od ove lekcije.
+>
+> **Na čemu možeš da zapneš:** `WORKFLOW.md` kaže da se pisanje radi „u istoj sesiji“ kao lekcija, a misija i tiket kažu „u različitim sesijama“. Pratio sam tvoje uputstvo i misiju. Ako želiš, mogu da uskladim `WORKFLOW.md` da ne bude zabune.

@@ -89,8 +89,9 @@ real failure in this map's own charting research):
 - Subagents run on **haiku** with narrow, specific briefs.
 - Git: one repo at the **course** level, `origin` = `github.com/PetarBrajkovic/mysql-dbms.git`. Push
   as part of finishing a chapter.
-- Pacing: one lesson *or* one chapter per session, sessions roughly every two days; a lesson and its
-  chapter are written in **different** sessions. Do not plan a session that teaches and writes the
+- Pacing: one lesson *or* one chapter per session; a lesson and its chapter are written in
+  **different** sessions. **No calendar spacing** (the earlier "roughly every two days" was dropped
+  by the user on 2026-10-07): the session boundary is the rule, not the date. Do not plan a session that teaches and writes the
   same chapter.
 - Export: `../tools/make-docx.ps1` from inside this folder. Never bare `pandoc` — it drops the title
   page.
