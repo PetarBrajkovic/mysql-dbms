@@ -21,3 +21,6 @@ desktop.ini
 # Course lecture PDFs - source material, not project output.
 # The exported paper (rad.docx / rad.pdf) is NOT covered by this and stays committable.
 Predavanja/
+
+# Obsidian vault config created by the live lesson log
+.obsidian/
