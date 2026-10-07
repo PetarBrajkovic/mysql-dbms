@@ -146,4 +146,4 @@ One row per drawn diagram: which official diagram was checked, and why ours was 
 
 | Figure | Official diagram checked | Why ours |
 |---|---|---|
-| | | |
+| Slika 2.1 three replication models (`02-teorija-01-modeli-replikacije`, source `.mmd` beside it) | MySQL 8.4 refman ch. 19-20: none, the three models are literature categories, not MySQL features. Kleppmann DDIA ch. 5 draws them as separate figures (not fetched; copyrighted book art) | needs all three side by side on one visual vocabulary, with Serbian labels; the panel titles stay English per `GLOSSARY.md` §1d (ch. 2 role vocabulary) |

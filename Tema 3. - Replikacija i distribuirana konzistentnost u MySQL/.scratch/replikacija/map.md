@@ -298,6 +298,15 @@ the operator's to assemble.
   sessions), chart CSVs go to `figures/raw/`, and every example script declares and checks its
   sandbox state.
 
+- [Chapter 2 - Teorijski okvir](issues/14-chapter-2-theory.md) (2026-10-07): **first chapter in
+  `rad.md`**, lesson and writing in separate sessions. Vocabulary defined once (stroga/uzročna/
+  konačna, read-your-writes, monotona čitanja), CAP via Gilbert-Lynch with "pick two" refuted in
+  Brewer's own words, **PACELC as two plain questions**, three replication models (Slika 2.1),
+  consensus by majority intersection, and the **consensus-quorum vs Dynamo-quorum distinction** on a
+  worked example with Abadi's "even if R + W > N". `references.bib` seeded with the 14 sources cited;
+  07b's Dynamo DOI found to be the OSR reprint and 07b itself truncated. **Measured at ~4.2 pages;
+  the user raised ch. 2's budget to ~4.25 rather than trim** (total 25.25).
+
 ## Not yet specified
 
 - ~~**The chapter tickets.**~~ **Graduated at ticket 09** into tickets 14–20, chained
@@ -316,9 +325,9 @@ the operator's to assemble.
   and before/after state on two nodes side by side — none of which the existing shared scripts
   produce. Ticket 12 decides; it may need a new shared tool the way Tema 2 needed
   `make-pair-figure.ps1`.
-- **Whether the theory chapter's budget survives contact with writing.** Ticket 09 made it a number
-  (~3 pages, 10–12 paragraphs), but Tema 1's scar was a budget that bent. If ch. 2 overruns, the
-  question is whether the budget or the chapter list gives — not a decision anyone can take yet.
+- ~~**Whether the theory chapter's budget survives contact with writing.**~~ **Answered at ticket
+  14**: it did not; ch. 2 measured ~4.2 pages and the budget gave (raised to ~4.25), not the chapter
+  list.
 - **The defense angle.** What the professor is likely to press on. The bullet list leans hard on
   vocabulary from the distributed-systems literature rather than from MySQL, which suggests he will
   ask the student to place MySQL *inside* that vocabulary — "is MySQL CP or AP", "what is MySQL's

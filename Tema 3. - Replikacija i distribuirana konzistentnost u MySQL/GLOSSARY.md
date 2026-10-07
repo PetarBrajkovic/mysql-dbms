@@ -91,6 +91,21 @@ and it is this paper's best defence against Croatianisms.
 | Switchover | *switchover* (planirana promena uloga) | switchover | 09 |
 | Split brain | *split brain* (razdvajanje grupe na dve nezavisne celine) | split brain | 09 |
 
+### 1b'. Added at ticket 14 (ch. 2 writing), taken from the taught lesson 0001
+
+| Concept | Serbian term (first use) | After first use | Note |
+|---|---|---|---|
+| Linearizability | linearizabilnost *(linearizability)* | linearizabilnost | the formal name of *stroga konzistentnost*; the two are used as synonyms |
+| Session guarantees | sesijske garancije *(session guarantees)* | sesijske garancije | Terry et al. 1994 |
+| Network partition | particija mreže *(network partition)* | particija | CAP's P; *particionisanje* (deck) stays reserved for data partitioning |
+| Availability (CAP) | dostupnost *(availability)* | dostupnost | |
+| Partition tolerance | tolerancija na particiju | — | used only to say it is not a choice |
+| Latency (PACELC's L) | latencija *(latency)*, i.e. vreme odziva | latencija | **only** for the response-time cost at the writer; replication lag stays *kašnjenje replikacije* (non-choice above) |
+| Leader election | izbor leadera | izbor leadera | ch. 2 role vocabulary (§1d) |
+| Term (Raft) | mandat *(term)* | mandat | |
+| Consensus quorum / Dynamo-style quorum | konsenzus-kvorum / Dynamo-kvorum | — | the distinction ch. 2 must state |
+| Sloppy quorum | *sloppy quorum* | sloppy quorum | kept English, Dynamo-specific term |
+
 **Locked non-choices** (reasoning: `.scratch/replikacija/terminology-rationale.md`):
 never *eventualna konzistentnost*; never *sertifikacija* for certification; never *podeljeni mozak*;
 never *latencija replikacije*; never *master/slave* as working terms.
@@ -126,7 +141,7 @@ Soft target ~20-25 rendered pages; 24 budgeted below is a starting point, not a 
 | # | Chapter | Page budget | Backing | Professor's bullet |
 |---|---|---|---|---|
 | 1 | Uvod | 1 | — | — |
-| 2 | Teorijski okvir: modeli konzistentnosti, CAP/PACELC i konsenzus | 3 | memo 07 | — |
+| 2 | Teorijski okvir: modeli konzistentnosti, CAP/PACELC i konsenzus | 3 → **4.25 (measured, 2026-10-07)** | memo 07 | — |
 | 3 | Binarni log, GTID i asinhrona replikacija | 4.5 | memo 03 | #1, #2 |
 | 4 | Semisinhrona replikacija i značenje potvrde | 3 | memo 04 | #2 |
 | 5 | Group Replication: kvorum, certification i multi-primary | 5 | memo 05 | #3 |
@@ -134,7 +149,7 @@ Soft target ~20-25 rendered pages; 24 budgeted below is a starting point, not a 
 | 7 | Skaliranje čitanja i kašnjenje replikacije | 3.5 | memo 06 | #5 |
 | 8 | Zaključak | 1 | — | — |
 
-**Total: 24 pages.** All five of the professor's bullets are covered by a chapter; none is left
+**Total: 24 pages as budgeted at ticket 09; 25.25 after ch. 2 was measured.** All five of the professor's bullets are covered by a chapter; none is left
 without one.
 
 ### 2a. What each chapter owns, decided at ticket 09
@@ -179,6 +194,10 @@ without one.
 The standing rule ("lessons may re-teach theory freely, the paper stays MySQL-tied") is made a number:
 
 - **Ch. 2 gets ~3 pages, roughly 10-12 paragraphs.** Consensus conceptual only, no proofs.
+  **Measured at writing (2026-10-07): ~4.2 rendered pages, 13 paragraphs plus Slika 2.1.** The user
+  chose to raise the budget to ~4.25 rather than trim (`../WRITING.md` default: never trim prose).
+  The overrun is prose, not layout; the figure costs about a quarter page at full width. The
+  per-later-chapter rule below (one paragraph plus one citation, then MySQL) is unchanged.
 - **Any concept first needed in a later chapter gets one paragraph plus one citation, and the next
   paragraph must be MySQL.** If it needs two paragraphs, it belonged in ch. 2.
 - Comparisons to PostgreSQL, Oracle, Cassandra or NDB are a **mention**, never a section.

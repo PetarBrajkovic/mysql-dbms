@@ -1,7 +1,7 @@
 # Chapter 2 - Teorijski okvir: modeli konzistentnosti, CAP/PACELC i konsenzus
 
 Type: task (execution - see the map's execution override)
-Status: open
+Status: closed
 Assignee: Pex
 Blocked by: 09, 12
 
@@ -54,3 +54,31 @@ R + W > N" (verbatim, verified); add **Brewer 2012** (DOI 10.1109/MC.2012.37) to
 write PACELC as two plain questions before the acronym; do **not** take anything from memo 07 §1's
 GR consistency-level list. No MySQL examples are needed for this chapter beyond the read-only role
 check embedded in the lesson. **Ticket stays open** for the prose session.
+
+**2026-10-07 — writing half done. Resolution.** Ch. 2 appended to `rad.md` (13 paragraphs, five
+subsections: modeli konzistentnosti, CAP i PACELC, modeli replikacije, konsenzus, dva značenja
+kvoruma). All five required items present; PACELC written as two plain questions before the acronym;
+the four CAP misreadings refuted, "pick two" named as one of them via Brewer 2012; the two-quorum
+distinction carried by the r1/r2/r3 worked example and Abadi's verbatim "even if R + W > N"; the
+defense sentence closes the chapter. One absence claim ("no MySQL 8.4 Community mode is Dynamo-style
+leaderless") enters with its check recorded in an HTML comment beside it (rungs 1-2).
+
+- **Slika 2.1** `figures/02-teorija-01-modeli-replikacije.png` (+ `.mmd` source), the three models on
+  one visual vocabulary; drawn by hand with the mermaid tools after the maker subagent looped.
+  Row added to `figures/README.md`'s own-vs-official table.
+- **`references.bib` seeded with the 14 sources ch. 2 cites**, not all 17 from 07b (WRITING rule 5:
+  as used). Two corrections on the way: **Dynamo's DOI in 07b is the SIGOPS OSR reprint**
+  (1323293.1294281); the SOSP proceedings DOI 1294261.1294281 is used, Crossref-checked. Vogels is
+  cited as the **ACM Queue 2008** version, because that is the text actually verified (author's page
+  says so), not the CACM 2009 reprint. Brewer 2012 and Abadi 2012 Crossref-checked; Brewer quote
+  fetched verbatim. Also noticed: **07b's file is truncated mid-entry 13**; the remaining records
+  live only in memo 07 §6 and must be checked when first cited.
+- **GLOSSARY §1b'** added: ten ch. 2 terms from the taught lesson (linearizabilnost, particija mreže,
+  latencija vs kašnjenje, mandat, konsenzus-/Dynamo-kvorum, …). Pravopis applied: *loga/logu*, not
+  *log-a/log-u* (hyphen only for acronyms such as CAP-a).
+- **Page measurement**: exported with `../tools/make-docx.ps1`, measured in Word: ch. 2 ≈ **4.2
+  pages** vs 3 budgeted. **User chose to raise the budget to ~4.25** (paper total 24 → 25.25). Recorded
+  in GLOSSARY §2/§3.
+- Pacing rule changed by the user this session: no calendar spacing, only the session boundary.
+
+Status: closed.

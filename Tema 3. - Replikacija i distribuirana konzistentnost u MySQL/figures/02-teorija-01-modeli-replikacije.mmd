@@ -1,0 +1,50 @@
+%% Slika 2.1 - three replication models. Rendered via the mermaid render tool (light theme).
+flowchart LR
+  subgraph SL["Single-leader"]
+    direction TB
+    c1["Klijent"]
+    L["Leader"]
+    f1["Follower 1"]
+    f2["Follower 2"]
+    c1 -- upis --> L
+    L -. log .-> f1
+    L -. log .-> f2
+  end
+  subgraph ML["Multi-leader"]
+    direction TB
+    ca["Klijent A"]
+    cb["Klijent B"]
+    L1["Leader 1"]
+    L2["Leader 2"]
+    ca -- upis --> L1
+    cb -- upis --> L2
+    k["razmena upisa:<br/>mogući sukob"]
+    L1 -. log .-> k
+    L2 -. log .-> k
+  end
+  subgraph LL["Leaderless"]
+    direction TB
+    c3["Klijent"]
+    r1["Replika 1"]
+    r2["Replika 2"]
+    r3["Replika 3"]
+    n["upis na W od N replika"]
+    c3 --> r1
+    c3 --> r2
+    c3 --> r3
+    r2 ~~~ n
+  end
+  SL ~~~ ML ~~~ LL
+  classDef leader fill:#64748b,stroke:#334155,color:#fff
+  classDef rep fill:#e5e7eb,stroke:#6b7280,color:#111
+  classDef cli fill:#fff,stroke:#374151,color:#111
+  classDef note fill:#fff,stroke:#fff,color:#374151
+  class L,L1,L2 leader
+  class f1,f2,r1,r2,r3 rep
+  class c1,ca,cb,c3 cli
+  class n note
+  classDef conflict fill:#fff7ed,stroke:#c2410c,stroke-dasharray:4 3,color:#7c2d12
+  class k conflict
+  style SL fill:#fff,stroke:#9ca3af
+  style ML fill:#fff,stroke:#9ca3af
+  style LL fill:#fff,stroke:#9ca3af

@@ -1,4 +1,6 @@
 # Bibliography Verification Report
+
+> **Note 2026-10-07 (ch. 2 writing):** this file is truncated mid-entry 13; entries 13-17 are only in memo 07 §6 - verify each when first cited. Entry 11 (Dynamo) DOI 10.1145/1323293.1294281 is the SIGOPS OSR reprint; the SOSP proceedings DOI is 10.1145/1294261.1294281 (Crossref).
 ## Section 6 of 07-theory-and-geo.md — Re-verified Against Authoritative Sources
 
 **Date verified**: 2026-01-17  
