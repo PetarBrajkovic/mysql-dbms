@@ -99,6 +99,12 @@ upiše x=5 na 3307 i dobije OK. Drugi klijent traži x od 3309. Čvor 3309 ima t
 <strong>da odgovori</strong>, i onda vraća staru vrednost posle završenog upisa, čime gubi C; ili
 <strong>da čeka</strong> 3307, a ako particija traje, živ čvor ne odgovara, čime gubi A. Treće mogućnosti
 nema. To je teorema 1:</p>
+<figure class="fig">
+  <img src="../viz/viz-cap-misaoni-eksperiment-1791403267295.png"
+       alt="Klijent 1 upisuje x=5 na čvor 3307 i dobija OK. Veza između 3307 i 3309 je prekinuta (particija, poruke se gube), pa 3309 i dalje ima x=1. Klijent 2 čita x sa 3309. Od 3309 vode dve strelice: levo „Odgovara odmah“, vraća staro x=1 i gubi C (konzistentnost); desno „Čeka 3307“, odgovor možda nikad ne stigne i gubi A (dostupnost). Ispod piše: treće mogućnosti nema, P se ne bira.">
+  <figcaption><b>Slika 1</b> — misaoni eksperiment iz teoreme Gilberta i Lyncha na čvorovima našeg
+    sandbox-a. Odsečeni čvor bira između zastarelog odgovora (gubi C) i čekanja bez kraja (gubi A).</figcaption>
+</figure>
 <div class="slide">
   „It is impossible in the asynchronous network model to implement a read/write data object that
   guarantees the following properties: Availability; Atomic consistency in all fair executions
@@ -148,6 +154,14 @@ poruku. Odgovor <strong>stiže</strong>, samo kasnije. To nije gubitak dostupnos
   <tr><td>1. (P-grana, to je CAP)</td><td>Kad mreža pukne, šta radi odsečeni čvor?</td><td><strong>odgovara</strong> (rizikuje zastarelo) ili <strong>odbija</strong> (čuva tačnost)</td></tr>
   <tr><td>2. (else-grana, Abadijev dodatak)</td><td>Kad mreža radi, da li komit čeka druge čvorove?</td><td><strong>ne čeka</strong> (brzo, rizikuje zastarelo) ili <strong>čeka</strong> (sporije, tačno)</td></tr>
 </table>
+<figure class="fig">
+  <img src="../viz/viz-pacelc-dva-pitanja-1791403252157.png"
+       alt="Stablo odlučivanja. Koren: Da li je mreža pukla? Grana DA (particija) vodi u grupu CAP (Gilbert i Lynch), samo tokom particije: pitanje 1, šta radi odsečeni čvor; odgovara vodi u PA: dostupan, možda zastarelo; odbija vodi u PC: tačno, ali bez odgovora. Grana NE (else) vodi u grupu Abadijev dodatak, uvek prisutno: pitanje 2, da li komit čeka druge čvorove; ne čeka vodi u EL: brzo, možda zastarelo; čeka vodi u EC: tačno, ali sporije. Narandžasti listovi biraju brzinu ili odgovor, plavi biraju konzistentnost.">
+  <figcaption><b>Slika 2</b> — PACELC kao dva pitanja. Leva polovina je CAP i važi samo dok traje
+    particija; desna je Abadijev dodatak i važi pri svakom upisu. Narandžasto: bira se odgovor ili
+    brzina; plavo: bira se konzistentnost.</figcaption>
+</figure>
+
 <p>Skraćenica samo beleži oba odgovora: PA/EL znači „odgovara“ i „ne čeka“, a PC/EC znači „odbija“
 i „čeka“. Abadi svrstava Dynamo, Cassandru i Riak (podrazumevano) u PA/EL, a VoltDB/H-Store i
 Megastore u PC/EC. Za ovaj rad je ključna njegova druga tvrdnja: kompromis iz drugog pitanja
