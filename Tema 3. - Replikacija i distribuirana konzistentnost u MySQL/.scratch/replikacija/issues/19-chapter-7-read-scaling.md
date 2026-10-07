@@ -38,3 +38,7 @@ Binding on every session here: `GLOSSARY.md` (terms are locked - do not re-trans
 budget in `GLOSSARY.md` section 3, the caption honesty rule in section 5, `academic-research-writer`
 for all prose, `serbian-grammar` for every Serbian line, and the two research rules in
 `../../NOTES.md` (**no unverified absence claim**, **walk the source ladder and record the rung**).
+
+## Comments
+
+- **From ticket 12:** `pip install --user matplotlib`, then write `tools/make-lag-plot.py`: one natural-burst chart with both lag series overlaid, asserting that they diverge. Sampler output goes to `figures/raw/<figure-base>.csv`. Spec in `figures/README.md`.

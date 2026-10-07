@@ -40,3 +40,7 @@ Binding on every session here: `GLOSSARY.md` (terms are locked - do not re-trans
 budget in `GLOSSARY.md` section 3, the caption honesty rule in section 5, `academic-research-writer`
 for all prose, `serbian-grammar` for every Serbian line, and the two research rules in
 `../../NOTES.md` (**no unverified absence claim**, **walk the source ladder and record the rung**).
+
+## Comments
+
+- **From ticket 12:** this chapter holds the paper's **first native table** (the 2x2 matrix, `Tabela 4.1`). After export, open the DOCX and check table borders and header row; fix any styling in `../tools/build-reference-doc.py`, never by hand. The `AFTER_SYNC`/`AFTER_COMMIT` window measurement must use **mysqlsh JS with held sessions** (`figures/README.md`, harness rule).

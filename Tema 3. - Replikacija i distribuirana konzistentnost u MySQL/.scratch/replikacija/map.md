@@ -288,6 +288,15 @@ the operator's to assemble.
   Shell installed unpacked, no Administrator; the sandbox now has **two mutually exclusive states**
   with scripts both ways, async resting.
 
+- [Decide the figure and example strategy for a replication paper](issues/12-figure-and-example-strategy.md)
+  (2026-09-19): binding text in `figures/README.md`. **Measured results become native `Tabela N.N`
+  tables**, a first for the course; figures are kept for real pictures. **~7 figures + ~6 tables**,
+  held to the ~25-page target. **One matplotlib lag chart** (natural burst, both lag metrics
+  overlaid) in a topic-local script. Diagrams are our own Serbian-labelled Mermaid after checking
+  the manual per figure. The **harness is chosen by timing** (sub-second uses mysqlsh JS with held
+  sessions), chart CSVs go to `figures/raw/`, and every example script declares and checks its
+  sandbox state.
+
 ## Not yet specified
 
 - ~~**The chapter tickets.**~~ **Graduated at ticket 09** into tickets 14–20, chained
@@ -297,10 +306,9 @@ the operator's to assemble.
   adopting memo 07's withdrawn verdict. Ticket 11 still establishes what can actually be shown live.
 - ~~**How much of the consensus literature the paper touches.**~~ **Taken formally at ticket 09**:
   conceptual depth only, no proofs, inside a ~3-page / 10–12-paragraph theory chapter.
-- **The measurement file format** the PowerShell drivers emit into `measurements/`. Ticket 08 fixed
-  *that* they emit there; the columns and units are ticket 12's call, once it knows which figure types
-  survive.
-- **What a "figure" is for this topic.** *(Ticket 11 has since added three strong candidates to weigh:
+- ~~**The measurement file format.**~~ **Settled at ticket 12**: chart CSVs in `figures/raw/`, table
+  numbers from the committed measurement records.
+- ~~**What a "figure" is for this topic.**~~ **Settled at ticket 12**, see Decisions. *(Ticket 11 has since added three strong candidates to weigh:
   the consistency-level table, the quorum-loss three-outcome panel, and a switchover-vs-failover
   timing pair.)* Tema 1 had flame graphs, Tema 2 had result/error pairs and
   Mermaid diagrams. Replication's natural figures are time-series (lag over time), topology diagrams,
@@ -323,8 +331,8 @@ the operator's to assemble.
   staged crash, which is a chapter-4 session, not a group session. They now ride on
   [Chapter 4 - Semisinhrona replikacija](issues/16-chapter-4-semisync.md) as a named prerequisite
   rather than a ticket of their own, because the measurement and the prose want the same session.
-- **Whether any figure that samples a sub-millisecond window can be driven by the existing script
-  shape.** Ticket 11 found that one client process per sample (~20 ms of start-up) is slower than the
+- ~~**Whether any figure that samples a sub-millisecond window can be driven by the existing script
+  shape.**~~ **Settled at ticket 12**: mysqlsh JS with held sessions for sub-second windows. Ticket 11 found that one client process per sample (~20 ms of start-up) is slower than the
   replication window it is trying to observe, and silently reports that the window does not exist.
   Ticket 12 must decide whether the measurement drivers stay PowerShell-per-statement (fine for lag,
   fatal for read-your-writes) or move to a persistent-session harness.
