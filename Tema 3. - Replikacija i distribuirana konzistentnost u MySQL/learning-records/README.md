@@ -12,6 +12,7 @@ chapter, never when planning a lesson.
 |---|---|---|---|
 | [0001](0001-replication-topology.md) | — (ticket 10) | The three-instance sandbox, and what the live servers said about the memos | the topology itself; semisync latency and timeout degradation; applier vs receiver lag; `Seconds_Behind_Source`; read-your-writes |
 | [0002](0002-group-replication.md) | — (ticket 11) | The group, the quorum, the conflicts and a live InnoDB ClusterSet — all of it works locally | Group Replication; quorum loss; multi-primary conflicts; `group_replication_consistency`; geo-distribution and ClusterSet |
+| [0003](0003-theory-framework.md) | 2 (ticket 14, lesson) | Vocabulary from three roots; PACELC as two plain questions; Abadi is the citation for "Dynamo quorums are not linearizable" | consistency models, RYW vs monotonic reads, CAP misreadings, PACELC, replication models, consensus, the two quorums; memo 07's errors |
 
 ## Standing constraints these records impose on every later chapter
 
@@ -38,6 +39,11 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   complaint. (0002)
 - **Group Replication, quorum, multi-primary and InnoDB ClusterSet are all demonstrable locally.** Do
   not plan any part of chapters 5 or 6 as theory-only. (0002)
+- **The AdminAPI PERSISTs `skip_replica_start=ON`**; until 0003 `19-gr-down.ps1` did not clear it, so
+  3308's channel silently stayed OFF after every start. Fixed and the script patched. If a channel is
+  ever OFF after `start`, check `mysqld-auto.cnf` first. (0003)
+- **Memo 07 §1's `group_replication_consistency` levels are wrong** (names and semantics); ch. 5 takes
+  them from the refman only. Ch. 2 cites **Abadi 2012** for "Dynamo quorums are not linearizable". (0003)
 - A clean `topology.ps1 stop` is a **graceful leave**, not a failure — it cannot be used to
   demonstrate quorum loss. Losing majority requires killing the process. (0002)
 

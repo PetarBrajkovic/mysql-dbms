@@ -42,3 +42,14 @@ Binding on every session here: `GLOSSARY.md` (terms are locked - do not re-trans
 budget in `GLOSSARY.md` section 3, the caption honesty rule in section 5, `academic-research-writer`
 for all prose, `serbian-grammar` for every Serbian line, and the two research rules in
 `../../NOTES.md` (**no unverified absence claim**, **walk the source ladder and record the rung**).
+
+## Comments
+
+**2026-10-07 — lesson half done.** Taught live and compressed into `lessons/0001-teorijski-okvir.html`
+(+ `reference/modeli-konzistentnosti.html`). Record: `learning-records/0003-theory-framework.md`;
+sources, memo 07 errors and the sandbox repair: `../measurements/0003-theory-framework.md`.
+For the writing session: cite **Abadi 2012** for "Dynamo quorums are not linearizable even if
+R + W > N" (verbatim, verified); add **Brewer 2012** (DOI 10.1109/MC.2012.37) to `references.bib`;
+write PACELC as two plain questions before the acronym; do **not** take anything from memo 07 §1's
+GR consistency-level list. No MySQL examples are needed for this chapter beyond the read-only role
+check embedded in the lesson. **Ticket stays open** for the prose session.

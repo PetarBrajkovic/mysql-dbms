@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referentna kartica — modeli konzistentnosti, CAP/PACELC, dva kvoruma</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica · Poglavlje 2</p>
+<h1>Modeli konzistentnosti, CAP/PACELC, dva kvoruma</h1>
+<p class="subtitle">Sažetak <a href="../lessons/0001-teorijski-okvir.html">lekcije 01</a>. Termini prema
+<a href="../GLOSSARY.md">GLOSSARY.md</a> §1b.</p>
+
+<h2>Tri istine</h2>
+<table class="exp">
+  <tr><td>Istina 1</td><td>Čvorovi komuniciraju samo porukama, a poruke kasne ili se gube.</td></tr>
+  <tr><td>Istina 2</td><td>Tišina ne razlikuje pao, spor i odsečen čvor.</td></tr>
+  <tr><td>Istina 3</td><td>Svake dve većine istih N čvorova imaju zajednički čvor.</td></tr>
+</table>
+
+<h2>Lestvica modela (jači ispunjava sve slabije)</h2>
+<table class="cmp">
+  <tr><th>Model</th><th>Obećanje</th><th>Okidač / opseg</th><th>Izvor</th></tr>
+  <tr><td>Stroga</td><td>kao jedna kopija; posle završenog upisa svi vide njega ili noviji</td><td>ceo sistem, stvarno vreme</td><td>Herlihy i Wing 1990</td></tr>
+  <tr><td>Uzročna</td><td>ako A utiče na B, svi vide A pre B</td><td>ceo sistem, samo uzročno povezani upisi</td><td>Lamport 1978</td></tr>
+  <tr><td>Read-your-writes</td><td>tvoja čitanja vide tvoj upis</td><td>sesija; okidač je <strong>tvoj upis</strong></td><td>Terry i dr. 1994</td></tr>
+  <tr><td>Monotona čitanja</td><td>nikad starije od onoga što si već pročitao</td><td>sesija; okidač je <strong>tvoje čitanje</strong></td><td>Terry i dr. 1994</td></tr>
+  <tr><td>Konačna</td><td>bez novih upisa, replike se na kraju slože</td><td>ceo sistem</td><td>Vogels 2008</td></tr>
+</table>
+<p>Pitanje „šta je prekršeno?“ traži <strong>najslabiji</strong> model koji tačno to zabranjuje.</p>
+
+<h2>CAP (Gilbert i Lynch 2002)</h2>
+<p>Dok traje particija, odsečeni čvor može ili da <strong>odgovori</strong> (gubi C) ili da <strong>čeka</strong>
+(gubi A). C = stroga konzistentnost, ne ACID-ova. P se ne bira.</p>
+<table class="exp">
+  <tr><td>Netačno</td><td>„izaberi dva“ · „važi uvek“ · „konačna konzistentnost krši CAP“ · „C znači nikad dostupno“</td></tr>
+</table>
+
+<h2>PACELC (Abadi 2012): dva pitanja</h2>
+<table class="cmp">
+  <tr><th>Pitanje</th><th>Odgovori</th><th>Oznaka</th></tr>
+  <tr><td>Kad mreža pukne, šta radi odsečeni čvor?</td><td>odgovara / odbija</td><td>PA / PC</td></tr>
+  <tr><td>Kad mreža radi, da li komit čeka druge?</td><td>ne čeka / čeka</td><td>EL / EC</td></tr>
+</table>
+<p>Čekanje kad mreža radi košta <strong>latenciju</strong>, a ne dostupnost. Svako MySQL podešavanje
+„čekaj na X pre OK“ odgovara na drugo pitanje.</p>
+
+<h2>Modeli replikacije (Kleppmann, DDIA pogl. 5)</h2>
+<table class="cmp">
+  <tr><th>Model</th><th>Ko prima upise</th><th>Ključni problem</th></tr>
+  <tr><td>Single-leader</td><td>jedan leader</td><td>pad leadera → treba konsenzus</td></tr>
+  <tr><td>Multi-leader</td><td>više leadera</td><td>sukobi upisa</td></tr>
+  <tr><td>Leaderless</td><td>bilo koji čvor</td><td>nema dogovorenog redosleda</td></tr>
+</table>
+
+<h2>Konsenzus (Raft, Ongaro i Ousterhout 2014)</h2>
+<table class="exp">
+  <tr><td>Izbor leadera</td><td>jedan glas po mandatu + većina → nema dva leadera</td></tr>
+  <tr><td>Replikacija log-a</td><td>komitovano = upisano na većini</td></tr>
+  <tr><td>Bezbednost</td><td>glas samo kandidatu sa log-om koji nije zastareliji → novi leader ima sve komitovano</td></tr>
+</table>
+
+<h2>Dva kvoruma</h2>
+<table class="cmp">
+  <tr><th></th><th>Konsenzus-kvorum</th><th>Dynamo-kvorum (W + R &gt; N)</th></tr>
+  <tr><td>Dobija se</td><td>dogovoren redosled</td><td>čitanje dodirne svežu repliku</td></tr>
+  <tr><td>Stroga konzistentnost</td><td class="yes">da</td><td class="no">ne (Abadi 2012)</td></tr>
+  <tr><td>Primer</td><td>Group Replication (Paxos)</td><td>Dynamo, Cassandra, Riak</td></tr>
+</table>
+
+<p class="meta">Izvori su u <code>.scratch/replikacija/research/07b-bibliography-verified.md</code>;
+citati su provereni u zapisu 0003. · <strong>Pitaj slobodno</strong> u čatu.</p>
+</body>
+</html>

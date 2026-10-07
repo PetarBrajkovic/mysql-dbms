@@ -94,6 +94,11 @@ Serbian terminology source, never citable** (`../WORKFLOW.md` rule 7).
 - **Restate the topology state inside any question that depends on it.** Same rule as Tema 2's
   sandbox note: which node is primary, what the lag currently is, and which variables are set are not
   shared context unless they are on screen.
+- **He has not learned what tickets 10 and 11 measured** — the agent ran those. Never ask him to
+  apply a sandbox result ("as on ticket 11…") as if he knows it; put the fact in the question stem
+  and let him apply the concept. (Found at lesson 0001, where it cost three wasted questions.)
+- **Letter acronyms block him more than concepts do** (PACELC's PA/EL at lesson 0001). Teach the
+  plain-language questions first; introduce the acronym only as shorthand afterwards.
 - **8.4 terminology changed.** MySQL 8.4 removed the deprecated `MASTER`/`SLAVE` statements and
   variables in favour of `SOURCE`/`REPLICA`. Most material online, and most of the literature, uses
   the old words. The paper uses MySQL 8.4's current vocabulary and says once that the older terms

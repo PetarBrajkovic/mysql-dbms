@@ -288,6 +288,17 @@ table.exp td:first-child { width: 8.5rem; font-weight: 600;
 .try table.exp { margin: 0.4rem 0; }
 /* In the body the first column carries a code identifier, which needs more room than a label. */
 body > table.exp td:first-child { width: 12.5rem; }
+/* Multi-column comparison table with a header row (Tema 3, lesson 0001: consistency ladder, the
+   two PACELC questions, the three replication models, the two quorums). First column is the row
+   label; .yes / .no colour a cell's verdict without relying on colour alone (the word stays). */
+table.cmp { border-collapse: collapse; width: 100%; font-size: 0.9rem; margin: 1.1rem 0; }
+table.cmp th { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.78rem;
+  text-align: left; letter-spacing: 0.03em; background: var(--slide-bg);
+  border: 1px solid var(--rule); padding: 0.45rem 0.6rem; }
+table.cmp td { border: 1px solid var(--rule); padding: 0.45rem 0.6rem; vertical-align: top; }
+table.cmp td:first-child { font-weight: 600; }
+table.cmp .yes { color: #2e6b2e; font-weight: 650; }
+table.cmp .no  { color: var(--accent); font-weight: 650; }
 
 /* --- Figures --------------------------------------------------------------- */
 .fig { margin: 0.9rem 0 1.2rem; text-align: center; }

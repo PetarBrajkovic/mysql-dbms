@@ -56,6 +56,10 @@ Introduced as one of the four session guarantees. [Terry et al. (1994)]
 
 **Group Replication**
 
+> **WRONG, flagged 2026-10-07 (lesson 0003):** the level names and semantics below are incorrect
+> (`BEFORE_ON_PRIMARY_FAILURE` does not exist; `AFTER` is described as `BEFORE`). Take the levels from
+> refman 8.4 only. See `../measurements/0003-theory-framework.md`.
+
 Group Replication uses a consensus protocol (InnoDB Cluster with Paxos-like quorum) to achieve consistency guarantees. MySQL provides four configurable consistency levels:
 
 1. **EVENTUAL** — Default. After a transaction commits on the primary, replicas apply it asynchronously.
@@ -128,7 +132,7 @@ With `AFTER` or `BEFORE_AND_AFTER` consistency levels, Group Replication provide
 Asynchronous MySQL replication is **partition-tolerant and prioritizes availability over consistency during partitions**:
 
 - During normal operation: appears available but is eventually consistent with lag
-- During a network partition: the replica can continue accepting writes (fork), diverging from the primary; both sides remain available
+- During a network partition: the replica can continue accepting writes (fork), diverging from the primary; both sides remain available **[overstated, flagged 0003: only if someone writes to or promotes the replica]**
 - On network heal, conflict resolution is manual or must be handled by the application
 
 During normal operation without partition, asynchronous replication provides eventual consistency with bounded lag (measured in seconds/minutes depending on network and load).
@@ -195,7 +199,7 @@ Examples:
 
 **Quorum arithmetic** (crucial insight):
 - If W + R > N, then any read will overlap with any write (the reader gets the latest version from at least one replica that has the write)
-- If W > N/2, then at most one write quorum can exist at a time (prevents split-brain)
+- If W > N/2, then at most one write quorum can exist at a time (prevents split-brain) **[false for Dynamo, flagged 0003: sloppy quorum, DeCandia §4.6]**
 - Example: N=3, W=2, R=2 → if one replica is down, writes block (need 2/3); reads still work (need 2/3). Read-write overlap guaranteed.
 - Example: N=3, W=1, R=3 → writes fast, but reads must go to all replicas; no quorum overlap, so stale reads possible
 
@@ -485,7 +489,7 @@ reasons below are still valid input to it.
   journal = {ACM SIGACT News (Distributed Computing Column)},
   volume = {32},
   number = {4},
-  pages = {18--25},
+  pages = {51--58},
   month = {December},
   year = {2001}
 }

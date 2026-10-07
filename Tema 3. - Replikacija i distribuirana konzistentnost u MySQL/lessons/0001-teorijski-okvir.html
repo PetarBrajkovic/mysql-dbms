@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 01 — Modeli konzistentnosti, CAP/PACELC i dva kvoruma</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 01 · Poglavlje 2 (Teorijski okvir: modeli konzistentnosti, CAP/PACELC i konsenzus)</p>
+<h1>CAP, PACELC i kvorum slede iz tri jednostavne istine</h1>
+<p class="subtitle">MySQL-ova podešavanja još ne objašnjavamo. Ova lekcija daje rečnik kojim se piše svako kasnije poglavlje:
+šta čitanje sme da vrati, šta CAP zaista tvrdi, šta se plaća kad mreža radi i zašto „kvorum“
+znači dve različite stvari.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Poglavlje 2 definiše pojmove koje kasnija poglavlja koriste bez ponovnog definisanja. Na kraju
+  lekcije treba da umeš bez podsetnika da:
+  <strong>(1)</strong> za dati scenario kažeš koji model konzistentnosti je prekršen;
+  <strong>(2)</strong> objasniš zašto CAP nije „izaberi dva“;
+  <strong>(3)</strong> svako MySQL podešavanje opišeš kao odgovor na drugo pitanje PACELC-a;
+  <strong>(4)</strong> razlikuješ single-leader, multi-leader i leaderless replikaciju;
+  <strong>(5)</strong> na odbrani razdvojiš konsenzus-kvorum od Dynamo-kvoruma.
+</div>
+
+<h2>1 · Tri istine na kojima sve stoji</h2>
+<p><strong>Istina 1.</strong> Sva komunikacija između čvorova odvija se <strong>slanjem poruka</strong>,
+a poruka putuje neko vreme i može da se izgubi. Drugog kanala nema: ni zajedničke memorije ni
+zajedničkog sata. Čak i 3307 i 3308, na istoj mašini, razmenjuju binarni log isključivo preko TCP veze.</p>
+<p><strong>Istina 2.</strong> Čvor koji ne dobije odgovor <strong>ne može da zna</strong> da li je drugi čvor
+pao, spor ili odsečen. Sva tri slučaja izgledaju isto: tišina. Svaki „timeout“ je pretpostavka, a ne
+saznanje.</p>
+<p><strong>Istina 3.</strong> Svake dve većine istih N čvorova imaju <strong>bar jedan zajednički čvor</strong>:
+ako je |A| &gt; N/2 i |B| &gt; N/2, onda je |A| + |B| &gt; N, pa se A i B seku.</p>
+
+<h2>2 · Modeli konzistentnosti: šta čitanje sme da vrati</h2>
+<p>Replikacija znači da isti podatak postoji na više čvorova, a klijent čita sa jednog od njih. Iz
+istine 1 sledi da upis ne stiže na sve kopije istovremeno. <strong>Model konzistentnosti je ugovor koji
+kaže šta čitanje sme da vrati</strong>, i ništa više od toga.</p>
+
+<p>Najjači ugovor je da se sistem ponaša <strong>kao da postoji samo jedna kopija</strong>. To je
+<strong>stroga konzistentnost</strong> (strong consistency, linearizabilnost):</p>
+<div class="slide">
+  „Linearizability provides the illusion that each operation takes effect instantaneously at some
+  point between its invocation and its response.“
+  <span class="sr">Herlihy i Wing, „Linearizability: A Correctness Condition for Concurrent Objects“, ACM TOPLAS 12(3), 1990</span>
+</div>
+<p>Posledica: kad se neki upis <strong>završio</strong> (klijent je dobio OK), svako kasnije čitanje
+<strong>bilo kog</strong> klijenta vidi tu vrednost ili noviju. Stroga konzistentnost ne zamrzava
+vrednost; zabranjuje samo da se ide unazad u odnosu na nešto što se već završilo. Ako je A upisao
+5 (OK u 10:00:10), C upisao 7 (OK u 10:00:20), a B čita u 10:00:30, B sme da dobije samo 7.</p>
+
+<p>Cena: replika mora pre odgovora da <strong>zna</strong> da ima sve završene upise, a to znanje stiže
+samo porukom. Zato postoje slabiji ugovori. Modeli su <strong>ugnežđeni</strong>, pa jači model
+automatski ispunjava sva obećanja slabijih:</p>
+
+<table class="cmp">
+  <tr><th>Model</th><th>Obećanje</th><th>Za koga važi</th></tr>
+  <tr><td>Stroga konzistentnost</td><td>svi vide poslednji završen upis, po stvarnom vremenu</td><td>ceo sistem</td></tr>
+  <tr><td>Uzročna konzistentnost</td><td>ako upis A utiče na upis B, svi vide A pre B; nepovezani upisi smeju da se vide različitim redosledom</td><td>ceo sistem</td></tr>
+  <tr><td>Read-your-writes (čitanje sopstvenih upisa)</td><td>posle tvog upisa, tvoja čitanja vide taj upis</td><td>jedna sesija</td></tr>
+  <tr><td>Monotona čitanja</td><td>pošto si nešto pročitao, nikad više ne vidiš starije stanje</td><td>jedna sesija</td></tr>
+  <tr><td>Konačna konzistentnost</td><td>ako upisa više nema, replike će se na kraju složiti; do tada je sve dozvoljeno</td><td>ceo sistem</td></tr>
+</table>
+
+<p><strong>Uzročna konzistentnost</strong> se oslanja na Lamportovu relaciju „desilo se pre“
+(<a href="https://lamport.azurewebsites.net/pubs/time-clocks.pdf">Lamport, 1978</a>). Ana objavi
+pitanje, Bojan ga vidi i odgovori; niko ne sme da vidi Bojanov odgovor bez Aninog pitanja.</p>
+
+<p>Dve <strong>sesijske garancije</strong> potiču od
+<a href="https://www.cs.utexas.edu/~dahlin/Classes/GradOS/papers/SessionGuaranteesPDIS.pdf">Terryja i saradnika (1994)</a>:</p>
+<div class="slide">
+  „Read Your Writes - read operations reflect previous writes. Monotonic Reads - successive reads
+  reflect a non decreasing set of writes.“
+  <span class="sr">Terry i dr., „Session Guarantees for Weakly Consistent Replicated Data“, PDIS 1994</span>
+</div>
+
+<div class="note">
+  <span class="lbl">Ime je okidač</span>
+  <strong>Read-your-writes</strong>: u imenu je <strong>writes</strong>, pa garanciju pokreće
+  <strong>tvoj upis</strong>; ako nisi ništa upisao, ova garancija nema o čemu da govori.
+  <strong>Monotona čitanja</strong>: „monotono“ kao kod monotone funkcije, samo u jednom smeru;
+  garanciju pokreće <strong>tvoje prethodno čitanje</strong>. Kad se pita koja garancija je
+  prekršena, traži se <strong>najslabiji</strong> model koji tačno to zabranjuje.
+</div>
+
+<h2>3 · CAP: izvodi se iz istina 1 i 2</h2>
+<p><a href="https://www.comp.nus.edu.sg/~gilbert/pubs/BrewersConjecture-SigAct.pdf">Gilbert i Lynch (2002)</a>
+daju tačne definicije:</p>
+<table class="exp">
+  <tr><td>C</td><td>stroga konzistentnost: „there must exist a total order on all operations such that each operation looks as if it were completed at a single instant“</td></tr>
+  <tr><td>A</td><td>dostupnost: „every request received by a non-failing node in the system must result in a response“; odgovor mora stići, a brzina se ne meri</td></tr>
+  <tr><td>P</td><td>particija: „the network will be allowed to lose arbitrarily many messages sent from one node to another“; ovo je opis mreže, a ne svojstvo koje sistem bira</td></tr>
+</table>
+<p><strong>Misaoni eksperiment.</strong> Veza između 3307 i 3309 je pukla, a oba čvora rade. Klijent
+upiše x=5 na 3307 i dobije OK. Drugi klijent traži x od 3309. Čvor 3309 ima tačno dve mogućnosti:
+<strong>da odgovori</strong>, i onda vraća staru vrednost posle završenog upisa, čime gubi C; ili
+<strong>da čeka</strong> 3307, a ako particija traje, živ čvor ne odgovara, čime gubi A. Treće mogućnosti
+nema. To je teorema 1:</p>
+<div class="slide">
+  „It is impossible in the asynchronous network model to implement a read/write data object that
+  guarantees the following properties: Availability; Atomic consistency in all fair executions
+  (including those in which messages are lost).“
+  <span class="sr">Gilbert i Lynch, ACM SIGACT News 33(2), 2002, teorema 1</span>
+</div>
+
+<h3>Četiri pogrešna čitanja</h3>
+<table class="cmp">
+  <tr><th>Pogrešno čitanje</th><th>Zašto je pogrešno</th></tr>
+  <tr><td>„Izaberi dva od tri.“</td><td>P se ne bira; mreža puca svakako. Izbor postoji samo između C i A, i samo dok particija traje.</td></tr>
+  <tr><td>„CAP važi uvek.“</td><td>Izbor nastaje tek kad se poruka izgubi. Dok mreža radi, CAP ništa ne zabranjuje.</td></tr>
+  <tr><td>„Konačna konzistentnost krši CAP.“</td><td>C u CAP-u je stroga konzistentnost. Sistem koji je se odrekne bezbedno je izabrao A.</td></tr>
+  <tr><td>„Ko izabere C, nema dostupnost.“</td><td>Gubi je samo tokom particije, i to samo strana koja ne može da potvrdi da je ažurna.</td></tr>
+</table>
+<div class="slide">
+  „The '2 of 3' formulation was always misleading because it tended to oversimplify the tensions
+  among properties.“
+  <span class="sr">Brewer, „CAP Twelve Years Later: How the Rules Have Changed“, IEEE Computer 45(2), 2012</span>
+</div>
+<p>I peta zamka: C iz CAP-a <strong>nije</strong> C iz ACID-a. ACID-ova konzistentnost znači poštovanje
+ograničenja integriteta, a CAP-ova znači „ponaša se kao jedna kopija“.</p>
+
+<h2>4 · PACELC: šta se plaća kad mreža radi</h2>
+<p>Ako CAP bez particije ništa ne zabranjuje, da li je stroga konzistentnost tada besplatna? Nije.
+Po istini 1, leader koji pre OK hoće da zna da upis postoji i na followeru mora da sačeka povratnu
+poruku. Odgovor <strong>stiže</strong>, samo kasnije. To nije gubitak dostupnosti, već cena u
+<strong>latenciji</strong> (vremenu odziva).</p>
+
+<table class="cmp">
+  <tr><th></th><th>Mreža radi</th><th>Mreža je pukla</th></tr>
+  <tr><td>Na šta se čeka</td><td>potvrdu koja sigurno stiže</td><td>potvrdu koja možda nikad ne stigne</td></tr>
+  <tr><td>Koliko traje</td><td>jedan povratni put</td><td>neograničeno</td></tr>
+  <tr><td>Šta se gubi</td><td>brzina (latencija)</td><td>odgovor (dostupnost)</td></tr>
+</table>
+
+<div class="slide">
+  „If there is a partition (P), how does the system trade off availability and consistency (A and C);
+  else (E), when the system is running normally in the absence of partitions, how does the system
+  trade off latency (L) and consistency (C)?“
+  <span class="sr">Abadi, „Consistency Tradeoffs in Modern Distributed Database System Design“, IEEE Computer 45(2), 2012</span>
+</div>
+
+<p>PACELC je, dakle, <strong>dva pitanja</strong> koja se postavljaju svakom sistemu:</p>
+<table class="cmp">
+  <tr><th></th><th>Pitanje</th><th>Mogući odgovori</th></tr>
+  <tr><td>1. (P-grana, to je CAP)</td><td>Kad mreža pukne, šta radi odsečeni čvor?</td><td><strong>odgovara</strong> (rizikuje zastarelo) ili <strong>odbija</strong> (čuva tačnost)</td></tr>
+  <tr><td>2. (else-grana, Abadijev dodatak)</td><td>Kad mreža radi, da li komit čeka druge čvorove?</td><td><strong>ne čeka</strong> (brzo, rizikuje zastarelo) ili <strong>čeka</strong> (sporije, tačno)</td></tr>
+</table>
+<p>Skraćenica samo beleži oba odgovora: PA/EL znači „odgovara“ i „ne čeka“, a PC/EC znači „odbija“
+i „čeka“. Abadi svrstava Dynamo, Cassandru i Riak (podrazumevano) u PA/EL, a VoltDB/H-Store i
+Megastore u PC/EC. Za ovaj rad je ključna njegova druga tvrdnja: kompromis iz drugog pitanja
+<span class="hi">„is present at all times during system operation, whereas CAP is only relevant in the
+arguably rare case of a network partition“</span>. Svako MySQL podešavanje oblika „čekaj na X pre OK“
+odgovara upravo na drugo pitanje.</p>
+
+<h2>5 · Tri modela replikacije: ko prima upise</h2>
+<p>Prvo projektantsko pitanje kod replikacije je <strong>koliko čvorova sme da primi upis</strong>.
+Kleppmann navodi tri odgovora: <span class="hi">„single-leader, multi-leader, and leaderless replication.
+Almost all distributed databases use one of these three approaches“</span> (DDIA, pogl. 5).</p>
+<table class="cmp">
+  <tr><th>Model</th><th>Ko prima upise</th><th>Posledica</th></tr>
+  <tr><td>Single-leader</td><td>tačno jedan čvor (leader); followeri primenjuju njegov log</td><td>jedan redosled, bez sukoba; problem je pad leadera</td></tr>
+  <tr><td>Multi-leader</td><td>više čvorova nezavisno, pa jedni drugima šalju upise</td><td>dva upisa u isti red čine <strong>sukob</strong>, koji neko mora da razreši</td></tr>
+  <tr><td>Leaderless</td><td>bilo koji čvor; klijent šalje upis na više replika</td><td>nema leadera koji određuje redosled (Dynamo)</td></tr>
+</table>
+<p>Naš sandbox u stanju mirovanja je single-leader: 3307 je leader, a 3308 i 3309 su followeri.
+Nijedan oblik replikacije koji MySQL 8.4 Community dokumentuje nije leaderless u Dynamo stilu.
+Ova tvrdnja o odsustvu proverena je na prva dva stepenika izvora; vidi zapis 0003.</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> topologija pokrenuta (<code>examples\00-setup\topology.ps1 start</code>),
+      u stanju mirovanja (obična asinhrona replikacija, bez grupe). Samo čitanje; ništa se ne upisuje
+      na 3308 i 3309.</p>
+
+    <h3 class="lab">Pokreni ovo na 3307</h3>
+<pre class="sql run"><span class="c">-- Ko su followeri ovog leadera?</span>
+<span class="k">SHOW</span> REPLICAS;</pre>
+
+    <h3 class="lab">Pa ovo na 3308 i na 3309</h3>
+<pre class="sql run"><span class="c">-- Od koga ovaj follower prima log, i da li niti rade?</span>
+<span class="k">SELECT</span> @@port, s.HOST, s.PORT,
+       c.SERVICE_STATE <span class="k">AS</span> prijem, a.SERVICE_STATE <span class="k">AS</span> primena
+<span class="k">FROM</span> performance_schema.replication_connection_configuration s
+<span class="k">JOIN</span> performance_schema.replication_connection_status c <span class="k">USING</span> (CHANNEL_NAME)
+<span class="k">JOIN</span> performance_schema.replication_applier_status a <span class="k">USING</span> (CHANNEL_NAME);</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Na 3307: po jedan red za svakog followera koji je trenutno povezan
+(Port 3308 i/ili 3309, Source_Id 1).
+Na 3308 i 3309: jedan kanal, PORT = 3307, prijem = ON, primena = ON.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> svaki follower ima tačno jedan izvor log-a, i to je
+      isti čvor. To je single-leader po definiciji. Ako vidiš prijem = OFF, follower ne prima ništa i
+      zaostaje neograničeno; to se desilo na 3308 pri pripremi ove lekcije (zapis 0003).</p>
+    <div class="scope">
+      <span class="lbl">Van obima</span>
+      Šta te niti rade i zašto su dve, objašnjava se u Poglavlju 3. Ovde je dovoljno da je 3307 jedini izvor.
+    </div>
+  </div>
+</div>
+
+<h2>6 · Konsenzus: single-leader koji preživi pad leadera</h2>
+<p>Kad leader padne, neki follower mora da preuzme ulogu (failover). Istina 2 tu pravi problem: ako
+3308 sam zaključi „ja sam sad leader“, a 3307 je zapravo živ i samo odsečen, imamo dva leadera, tj.
+<strong>split brain</strong> (razdvajanje grupe na dve nezavisne celine). Čvorovi zato moraju da se
+<strong>slože</strong> oko toga ko je leader i šta je u log-u, i to tako da se dve nezavisne grupe ne mogu
+složiti različito. To je <strong>konsenzus</strong>. Raft ga deli na tri dela:</p>
+<div class="slide">
+  „Leader election: a new leader must be chosen when an existing leader fails … Log replication: the
+  leader must accept log entries from clients and replicate them across the cluster … Safety: … if any
+  server has applied a particular log entry to its state machine, then no other server may apply a
+  different command for the same log index.“
+  <span class="sr">Ongaro i Ousterhout, „In Search of an Understandable Consensus Algorithm“, USENIX ATC 2014, §5</span>
+</div>
+<p>Sva tri dela stoje na istini 3:</p>
+<table class="cmp">
+  <tr><th>Deo</th><th>Pravilo</th><th>Zašto radi</th></tr>
+  <tr><td>Izbor leadera</td><td>svaki čvor ima jedan glas po mandatu; pobeđuje ko dobije većinu</td><td>dve većine dele čvor koji ne može da glasa dvaput, pa nema dva leadera u istom mandatu</td></tr>
+  <tr><td>Replikacija log-a</td><td>ulaz je komitovan kad ga ima većina (§5.3)</td><td>jedan mrtav čvor ne blokira sistem, a odluka ostaje zapamćena</td></tr>
+  <tr><td>Bezbednost</td><td>glas se ne daje kandidatu sa zastarelijim log-om (§5.4.1)</td><td>većina glasača seče većinu koja ima ulaz, pa novi leader ima sve komitovano</td></tr>
+</table>
+<p>Primetimo da protokol <strong>nikad</strong> ne pita „da li je stari leader mrtav“, jer je to po istini 2
+nemoguće znati. Oslanja se samo na presek. MySQL Group Replication radi upravo ovo:</p>
+<div class="slide">
+  „For a transaction to commit, the majority of the group have to agree on the order of a given
+  transaction in the global sequence of transactions. … At the very core of this technology lies an
+  implementation of the Paxos algorithm.“
+  <span class="sr">MySQL 8.4 Reference Manual, 20.1 „Group Replication Background“ (stepenik 1)</span>
+</div>
+
+<h2>7 · Dva kvoruma: ista matematika, različit predmet</h2>
+<p>Profesorov bulet glasi „Quorum-Based sistemi“, a reč „kvorum“ se koristi za dve različite stvari.</p>
+
+<p><strong>Dynamo, N=3 (r1, r2, r3), W=2, R=2.</strong> Upis A (cena=100) ide na r1 i r2, upis B
+(cena=200) na r2 i r3, istovremeno. Na r2 B stigne prvi, a A drugi. Rezultat: r1=100, r2=100, r3=200.
+Oba upisa imaju po dve potvrde, pa su oba klijenta dobila OK. Čitanje sa r2 i r3 dobije 100 i 200.
+Presek je ispunio obećanje, jer je čitanje dodirnulo oba upisa, ali <strong>nijedan čvor nikad nije
+odlučio koji je upis bio prvi</strong>. Dynamo zato čuva obe verzije i spajanje prepušta aplikaciji.</p>
+
+<table class="cmp">
+  <tr><th></th><th>Konsenzus-kvorum (Raft, Paxos, Group Replication)</th><th>Dynamo-kvorum (leaderless, W + R &gt; N)</th></tr>
+  <tr><td>Šta se seče</td><td>većina koja je komitovala ↔ sledeća većina</td><td>skup koji je potvrdio upis ↔ skup koji čita</td></tr>
+  <tr><td>Šta se dobija</td><td><strong>jedan dogovoren redosled</strong> svih upisa</td><td>čitanje <strong>dodirne</strong> bar jednu svežu repliku</td></tr>
+  <tr><td>Istovremeni upisi</td><td>dobijaju dva mesta u log-u (npr. 7 i 8)</td><td>ostaju dve verzije; spaja ih aplikacija</td></tr>
+  <tr><td>Stroga konzistentnost</td><td class="yes">da</td><td class="no">ne, ni uz W + R &gt; N</td></tr>
+</table>
+
+<div class="slide">
+  „… by increasing R + W, they gain more consistency at the expense of latency (although they cannot
+  achieve full consistency as defined by Gilbert and Lynch, even if R + W &gt; N).“
+  <span class="sr">Abadi, IEEE Computer 45(2), 2012, o sistemima Dynamo, Cassandra i Riak</span>
+</div>
+<p>Dynamo uz to koristi i „sloppy quorum“: kad su neke replike nedostupne, piše na <span class="hi">„the
+first N healthy nodes“</span> (DeCandia i dr., SOSP 2007, §4.6), pa ni sam presek više nije zagarantovan.</p>
+
+<div class="note">
+  <span class="lbl">Rečenica za odbranu</span>
+  Oba sistema se oslanjaju na presek skupova čvorova, ali se konsenzus većinom <strong>dogovara o redosledu</strong>
+  transakcija, dok Dynamo-kvorum samo obezbeđuje da čitanje <strong>dodirne</strong> svežu repliku.
+  Group Replication je konsenzus-kvorum.
+</div>
+
+<h2>8 · Provera</h2>
+<div class="quiz">
+  <p>Po jedno pitanje za svaku netrivijalnu tvrdnju lekcije. Odgovori iz glave, pa tek onda proveri.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Korisnik ništa ne menja. Prvo čitanje (sa 3308) pokaže stanje računa 5 000 din, a posle osvežavanja čitanje sa 3309, koja kasni, pokaže 4 200 din. Koja garancija je prekršena?</p>
+    <label><input type="radio"> Read-your-writes</label>
+    <label><input type="radio"> Konačna konzistentnost</label>
+    <label><input type="radio"> Monotona čitanja</label>
+    <label><input type="radio"> Uzročna konzistentnost</label>
+    <p class="why">Okidač je prethodno čitanje, a sledeće je starije. Korisnik ništa nije upisao, pa read-your-writes ne važi; 3309 će sustići, pa je konačna ispunjena.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">2. Korisnik promeni lozinku na 3307, a njegovo prvo sledeće čitanje ode na 3309, koja kasni, i pokaže staru lozinku. Koja garancija je prekršena?</p>
+    <label><input type="radio"> Read-your-writes</label>
+    <label><input type="radio"> Monotona čitanja</label>
+    <label><input type="radio"> Konačna konzistentnost</label>
+    <label><input type="radio"> Nijedna, ovo je dozvoljeno</label>
+    <p class="why">Okidač je sopstveni upis. Monotona čitanja ne može da prekrši prvo čitanje, jer ne postoji ranije stanje od kog bi se išlo unazad.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Ana objavi pitanje, Bojan ga pročita i odgovori. Ceca vidi Bojanov odgovor, a Anino pitanje ne vidi. Koji je najslabiji model koji to zabranjuje?</p>
+    <label><input type="radio"> Monotona čitanja</label>
+    <label><input type="radio"> Read-your-writes</label>
+    <label><input type="radio"> Konačna konzistentnost</label>
+    <label><input type="radio"> Uzročna konzistentnost</label>
+    <p class="why">Anin upis uzročno prethodi Bojanovom, a prekršaj je između upisa različitih klijenata. Cecine sesijske garancije nisu pogođene.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">4. Veza 3307–3309 je pukla. 3309 dobije zahtev za čitanje x, a x je upravo promenjen na 3307. Šta 3309 gubi ako odgovori, a šta ako čeka?</p>
+    <label><input type="radio"> Ako odgovori gubi A, a ako čeka gubi C</label>
+    <label><input type="radio"> Ako odgovori gubi C, a ako čeka gubi A</label>
+    <label><input type="radio"> Ako odgovori gubi P, a ako čeka gubi C</label>
+    <label><input type="radio"> Ako odgovori gubi P, a ako čeka gubi A</label>
+    <p class="why">Odgovor bez poruke sa 3307 vraća staru vrednost posle završenog upisa (gubi C); čekanje kroz particiju znači da živ čvor ne odgovara (gubi A). P se ne bira.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">5. Koja rečenica o CAP-u je tačna?</p>
+    <label><input type="radio"> Sistem može da ima C i A ako se odrekne P</label>
+    <label><input type="radio"> Sistem koji bira C nedostupan je i dok mreža radi</label>
+    <label><input type="radio"> Dok mreža radi, CAP dozvoljava i C i A u isto vreme</label>
+    <label><input type="radio"> Konačna konzistentnost krši ono što CAP dozvoljava</label>
+    <p class="why">Izbor između C i A nastaje samo tokom particije. P nije opcija, a konačna konzistentnost je upravo izbor A.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">6. Mreža radi. Leader kaže OK tek kad follower potvrdi prijem, pa upis traje duplo duže. Šta je kupljeno, a čime je plaćeno?</p>
+    <label><input type="radio"> Kupljena konzistentnost, plaćena latencijom</label>
+    <label><input type="radio"> Kupljena konzistentnost, plaćena dostupnošću</label>
+    <label><input type="radio"> Kupljena dostupnost, plaćena latencijom</label>
+    <label><input type="radio"> Kupljena latencija, plaćena konzistentnošću</label>
+    <p class="why">Mreža radi, pa je ovo drugo pitanje PACELC-a. Odgovor je stigao, samo kasnije, pa dostupnost nije izgubljena.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">7. Kod obične asinhrone replikacije leader kaže OK pre nego što ijedan follower ima upis. Kako sistem odgovara na drugo pitanje PACELC-a?</p>
+    <label><input type="radio"> Odbija upis i čuva tačnost</label>
+    <label><input type="radio"> Odgovara i rizikuje zastarelo</label>
+    <label><input type="radio"> Čeka druge čvorove, sporije je</label>
+    <label><input type="radio"> Ne čeka druge čvorove, brže je</label>
+    <p class="why">Drugo pitanje glasi „da li komit čeka druge čvorove kad mreža radi“. Odbijanje i odgovaranje su odgovori na prvo pitanje, o particiji.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">8. Dva klijenta istovremeno menjaju isti red: jedan na 3307, drugi na 3308, i oba čvora odmah kažu OK. Koji model replikacije ovo omogućava, i šta je novi problem?</p>
+    <label><input type="radio"> Single-leader, a problem je zastarelo čitanje</label>
+    <label><input type="radio"> Multi-leader, a problem je sukob upisa</label>
+    <label><input type="radio"> Multi-leader, a problem je zastarelo čitanje</label>
+    <label><input type="radio"> Single-leader, a problem je sukob upisa</label>
+    <p class="why">Upise prima više čvorova, pa ne postoji jedan redosled. Zastarela čitanja postoje već kod single-leadera, pa nisu novost.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">9. Zašto u Raftu ne mogu postojati dva leadera u istom mandatu?</p>
+    <label><input type="radio"> Novi leader prvo proveri da je stari zaista mrtav</label>
+    <label><input type="radio"> Stari leader mora da potvrdi da odustaje od uloge</label>
+    <label><input type="radio"> Dve većine dele čvor koji ima samo jedan glas</label>
+    <label><input type="radio"> Kandidat sa dužim log-om uvek pobedi kraći</label>
+    <p class="why">Provera da je stari leader mrtav je nemoguća (istina 2), a njegov pristanak možda nikad ne stigne. Presek većina je jedini oslonac.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">10. Šta konsenzus-kvorum ima, a Dynamo-kvorum nema, čak ni uz W + R &gt; N?</p>
+    <label><input type="radio"> Odluku većine o mestu svakog upisa u redosledu</label>
+    <label><input type="radio"> Presek skupa koji je upisao i skupa koji čita</label>
+    <label><input type="radio"> Nastavak rada kad jedna od tri replike padne</label>
+    <label><input type="radio"> Potvrdu upisa od više replika pre nego što stigne OK</label>
+    <p class="why">Ostale tri stvari imaju oba sistema. Samo konsenzus dogovara redosled, i zato je strogo konzistentan; Abadi kaže da Dynamo to ne dostiže ni uz R + W &gt; N.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong> Abadi, <a href="https://www.cs.umd.edu/~abadi/papers/abadi-pacelc.pdf">„Consistency
+  Tradeoffs in Modern Distributed Database System Design“</a> (IEEE Computer, 2012). Ima šest strana i
+  pokriva CAP, njegova pogrešna čitanja, PACELC i Dynamo-kvorum; počni od odeljka „PACELC“. Za modele
+  replikacije: Kleppmann, Designing Data-Intensive Applications, pogl. 5. ·
+  <strong>Vidi još:</strong> <a href="../reference/modeli-konzistentnosti.html">referentna kartica: modeli konzistentnosti, PACELC, dva kvoruma</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §1b i §1d. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu; lekcija je početak, a ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>

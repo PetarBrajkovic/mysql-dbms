@@ -20,6 +20,11 @@ function RootQ([int]$p, [string]$q) {
 
 '### 1. dissolve whatever is running, and clear the persisted read-only flags'
 & $sh --js --no-wizard --file (Join-Path $here '19-gr-down.js')
+# The AdminAPI also PERSISTs skip_replica_start=ON. Left in place, the channel is re-created by
+# step 3 but silently stays OFF after the next topology.ps1 start (found at lesson 0003, on 3308).
+foreach ($p in 3307, 3308, 3309) {
+  RootQ $p "RESET PERSIST IF EXISTS skip_replica_start; RESET PERSIST IF EXISTS skip_slave_start;"
+}
 
 '### 2. drop the throwaway demo objects (on 3307 only - they replicate)'
 RootQ 3307 @"
