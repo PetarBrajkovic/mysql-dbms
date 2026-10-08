@@ -10,21 +10,8 @@ a stale claim; correct it in place.**
 
 ## Subject quirks
 
-- **Live teaching runs in Serbian** for this topic (chosen at ch. 3): the defense is in Serbian, so
-  terminology should lock in the language he will use. MySQL keywords, system variable names and
-  error codes stay English per `GLOSSARY.md` §1. Workspace bookkeeping stays English as usual.
-- **He derives, and will over-derive.** Teaching by derivation works very well on him (records 0003
-  and 0004), but the side effect is that he assumes every fact must follow from something. When a
-  fact is an arbitrary design decision — e.g. `partial_revokes` being schema-level only — say so
-  explicitly, or he will invent a derivation for it.
-- **Two words he rejected as not Serbian, in live teaching: *spina* and *sondažno*.** Use *okosnica*
-  for a chapter's backbone and *provera znanja* for probing. He corrects the agent's Serbian
-  mid-lesson and expects it to stick — typos in quiz stems get flagged too (*povećati* for
-  *povezati*). Proofread every Serbian sentence before sending, not only lesson HTML.
-- **Restate the sandbox state inside any question that depends on it.** He correctly objected that
-  a quiz about `role_doctor`'s privileges was unanswerable from the four statements shown, because
-  the relevant `GRANT` lived in `00-setup/04-roles-and-accounts.sql`. Prior setup is not shared
-  context unless it is on screen.
+- **Arbitrary design decisions to flag as such** (see "The learner" in `../TEACHING.md`):
+  `partial_revokes` being schema-level only is one he would otherwise try to derive.
 
 ## Chapter planning
 

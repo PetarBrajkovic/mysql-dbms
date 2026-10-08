@@ -44,6 +44,29 @@ What a lesson writes is what the next lesson has to read.
 
 ---
 
+## The learner
+
+True of Petar in every topic. A topic's `NOTES.md` holds only what is true of its subject; anything
+learned about him goes here, so a new topic inherits it.
+
+- **Live teaching runs in Serbian**: chat, quiz stems and options, explanations, from the first probe.
+  The defense is in Serbian, so terminology locks in the language he will use. MySQL keywords,
+  variable names and error codes stay English per the topic's `GLOSSARY.md`.
+- **Proofread every Serbian sentence before sending it**, chat and quizzes included, with
+  `serbian-grammar`. He corrects the agent's Serbian mid-lesson and expects the correction to stick;
+  typos in quiz stems get flagged. Words he rejected: *spina* (use *okosnica*), *sondažno* (use
+  *provera znanja*).
+- **He derives, and will over-derive.** Derivation works very well on him, but he assumes every fact
+  follows from something. When a fact is an arbitrary design decision, default or legacy artefact,
+  say so explicitly, or he will invent a derivation for it.
+- **Put the state a question depends on into the question stem.** Sandbox setup, topology state and
+  results of agent-run tickets are not shared context unless they are on screen; he applies the
+  concept, he does not recall what the agent measured.
+- **Plain-language questions before acronyms.** Letter acronyms (PACELC's PA/EL) blocked him where
+  the concept did not. Teach the idea first; introduce the acronym afterwards as shorthand.
+
+---
+
 ## Lesson conventions
 
 Standing across all topics. Set 2026-08-22 to 2026-08-24 for Tema 1 and carried forward.

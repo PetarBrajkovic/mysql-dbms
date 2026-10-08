@@ -10,9 +10,8 @@ a stale claim; correct it in place.**
 
 ## Language — binding on every Serbian line
 
-- **Standard Serbian, ekavica, one variant.** Consult `serbian-grammar` before sending *any* Serbian
-  text: lesson HTML, quiz stems, figure captions, chat replies, and `rad.md` prose alike — not only
-  the paper.
+- **Standard Serbian, ekavica, one variant**, in every Serbian line (the proofreading rule itself is
+  in "The learner", `../TEACHING.md`).
 - **No Croatian or Bosnian forms, ever.** Not lexis, not morphology, not syntax. `optimizuje` not
   `optimizira`, `tačno` not `točno`, `deo`/`pre`/`posle` not `dio`/`prije`/`poslije`, `hiljada` not
   `tisuća`, `uticaj` not `utjecaj`, `redosled` not `redoslijed`, `pisaće` not `pisat će`,
@@ -24,10 +23,6 @@ a stale claim; correct it in place.**
   from a **Serbian normative source** (Matica srpska / SANU, Pravopis) or from established Serbian
   technical usage that has been checked — otherwise the English term stays, glossed once. Never
   invent a calque and never trust a Serbian-looking page's variant without checking it.
-- Carried from Tema 2: the user corrects the agent's Serbian mid-lesson and expects it to stick. He
-  rejected *spina* and *sondažno* as not Serbian — use *okosnica* for a chapter's backbone and
-  *provera znanja* for probing. Proofread every Serbian sentence before sending; typos in quiz stems
-  get flagged.
 
 ## Research rules — how a claim earns its place
 
@@ -86,19 +81,11 @@ Serbian terminology source, never citable** (`../WORKFLOW.md` rule 7).
   prerequisite for almost every measurement, which is why it gets its own task ticket rather than
   being improvised mid-chapter. **Port 3306 is off-limits** — it is Tema 2's `poliklinika` server
   and must keep working.
-- **He derives, and will over-derive** (carried from Tema 2, records 0003/0004). Teaching by
-  derivation works very well on him, but he assumes every fact must follow from something. Replication
-  is full of arbitrary defaults and historical accidents (`binlog_format` defaulting changes,
-  `sync_binlog`, the 8.4 removal of the old `MASTER`/`SLAVE` syntax). When a fact is a design
-  decision or a legacy artefact, say so explicitly, or he will invent a derivation for it.
-- **Restate the topology state inside any question that depends on it.** Same rule as Tema 2's
-  sandbox note: which node is primary, what the lag currently is, and which variables are set are not
-  shared context unless they are on screen.
-- **He has not learned what tickets 10 and 11 measured** — the agent ran those. Never ask him to
-  apply a sandbox result ("as on ticket 11…") as if he knows it; put the fact in the question stem
-  and let him apply the concept. (Found at lesson 0001, where it cost three wasted questions.)
-- **Letter acronyms block him more than concepts do** (PACELC's PA/EL at lesson 0001). Teach the
-  plain-language questions first; introduce the acronym only as shorthand afterwards.
+- **Replication is full of arbitrary defaults and historical accidents** (`binlog_format` default
+  changes, `sync_binlog`, the 8.4 removal of `MASTER`/`SLAVE`). Flag each as a design decision
+  (see "The learner" in `../TEACHING.md`). Topology state a question depends on: which node is
+  primary, current lag, which variables are set. Tickets 10 and 11 were agent-run; he has not
+  learned their results.
 - **8.4 terminology changed.** MySQL 8.4 removed the deprecated `MASTER`/`SLAVE` statements and
   variables in favour of `SOURCE`/`REPLICA`. Most material online, and most of the literature, uses
   the old words. The paper uses MySQL 8.4's current vocabulary and says once that the older terms
