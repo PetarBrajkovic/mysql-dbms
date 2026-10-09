@@ -62,6 +62,10 @@ try {
         --reference-doc="$course/assets/reference-paper.docx" --syntax-highlighting=tango `
         -M title="" -M author="" -o $Out --resource-path=.
     if ($LASTEXITCODE -ne 0) { throw "pandoc exited with code $LASTEXITCODE" }
+    # pandoc ignores the reference doc's 'Table' style and writes its own, so the table grid is
+    # applied to the exported file instead (see style-docx-tables.py).
+    python "$PSScriptRoot/style-docx-tables.py" $Out
+    if ($LASTEXITCODE -ne 0) { throw "style-docx-tables.py exited with code $LASTEXITCODE" }
     Write-Host "Exported $Out (title page + body, IEEE citations)." -ForegroundColor Green
 }
 finally {

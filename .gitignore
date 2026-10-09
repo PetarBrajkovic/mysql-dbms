@@ -24,3 +24,6 @@ Predavanja/
 
 # Obsidian vault config created by the live lesson log
 .obsidian/
+
+# Python bytecode
+__pycache__/

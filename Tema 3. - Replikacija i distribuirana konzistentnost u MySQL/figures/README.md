@@ -37,7 +37,10 @@ compact. Figures are kept for what is genuinely a picture.
 - **Every number in a Tabela traces to a dated, committed measurement record** in
   `../.scratch/replikacija/measurements/NNNN-*.md`. A table is never filled from memory or from a
   gitignored CSV.
-- **First-use check (ch. 4):** native tables have never gone through `../../tools/make-docx.ps1`. The
+- **Done 2026-10-09 (Tabela 3.1):** pandoc ignores the reference doc's `Table` style, so
+  `../../tools/make-docx.ps1` now restyles tables in the exported file via
+  `../../tools/style-docx-tables.py` (thin grid, bold shaded header). Original note:
+  **First-use check (ch. 4):** native tables have never gone through `../../tools/make-docx.ps1`. The
   shared reference doc has never styled a table, so on the first export containing one, open the DOCX
   and check borders and header row. If it needs styling, fix it in `../../tools/build-reference-doc.py`
   (a shared change), never by hand in Word.

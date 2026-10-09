@@ -318,8 +318,9 @@ the operator's to assemble.
   visuals took over prose (CAP thought experiment, Dynamo vs consensus quorum, two-phase commit with
   crash points, and **Tabela 3.1, the paper's first native table**). Measured at **~3.6 + ~4.8 pp**,
   accepted (total 24.9). Rule 1 caught a live trap: refman 8.4 has *Asynchronous Connection Failover*,
-  so no "async has no automatic failover" sentence was allowed. Open for ch. 4: tables render
-  borderless until `build-reference-doc.py` styles them.
+  so no "async has no automatic failover" sentence was allowed. Table borders fixed the same
+  day by a post-export step (`../tools/style-docx-tables.py`), since pandoc ignores the reference
+  doc's table style; only Tema 3's document was re-exported.
 
 ## Not yet specified
 

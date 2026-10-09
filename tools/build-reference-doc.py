@@ -23,6 +23,14 @@ bibliography, the Consolas inline-code font in VerbatimChar) untouched:
     clearly in a justified body. Decided 2026-08-31 when Tema 1 hit its page
     ceiling; see that topic's GLOSSARY.md section 4.
 
+  * Table (the default table style pandoc applies to every pipe table) -> a
+    thin full grid, a little vertical cell padding, and a bold, lightly shaded
+    header row. Pandoc's default draws only one rule under the header, so a
+    measured-results table read as loose text. Added 2026-10-09 for Tema 3's
+    first native table (Tabela 3.1). Re-running this script only rewrites the
+    shared reference doc; already-exported (and hand-finished) rad.docx files
+    of other topics are untouched until their own make-docx.ps1 is re-run.
+
 SQL/code needs no style patch here: inline code already uses the default
 Consolas VerbatimChar, and code BLOCKS are colored by --highlight-style, which
 make-docx.ps1 passes. pandoc generates the SourceCode style on demand from that.
@@ -100,6 +108,39 @@ def set_default_spacing_after(xml: str, twips: int) -> str:
     return patched
 
 
+TABLE_BORDER = '<w:{side} w:val="single" w:sz="4" w:space="0" w:color="808080"/>'
+
+
+def set_table_style(xml: str) -> str:
+    """Give pandoc's default 'Table' style a full thin grid, cell padding and a
+    bold shaded header row. Element order follows the OOXML schema: in tblPr,
+    tblBorders comes after tblInd and before tblCellMar; in a tblStylePr, rPr
+    precedes tcPr."""
+    pat = re.compile(r'(<w:style\b[^>]*w:styleId="Table"[^>]*>)(.*?)(</w:style>)', re.S)
+    m = pat.search(xml)
+    if not m:
+        print("  WARN: table style 'Table' not found, skipped")
+        return xml
+    body = m.group(2)
+    borders = "<w:tblBorders>" + "".join(
+        TABLE_BORDER.format(side=s) for s in ("top", "left", "bottom", "right", "insideH", "insideV")
+    ) + "</w:tblBorders>"
+    body = re.sub(r"\s*<w:tblBorders>.*?</w:tblBorders>", "", body, flags=re.S)
+    # drop any old grid, then pad: before borders are inserted, the first top/bottom is in tblCellMar.
+    # attribute order differs between pandoc's data file and its export, so match either
+    for side in ("top", "bottom"):
+        body = re.sub(r'<w:' + side + r'\b[^>]*/>', f'<w:{side} w:w="40" w:type="dxa"/>', body, count=1)
+    body = re.sub(r"(<w:tblInd\b[^>]*/>)", r"\1" + borders, body, count=1)
+    first_row = (
+        '<w:tblStylePr w:type="firstRow"><w:rPr><w:b/></w:rPr>'
+        '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="EDEDED"/>'
+        '<w:vAlign w:val="bottom"/></w:tcPr></w:tblStylePr>'
+    )
+    body = re.sub(r'<w:tblStylePr w:type="firstRow">.*?</w:tblStylePr>', first_row, body, count=1, flags=re.S)
+    print("  Table -> full thin grid, cell padding, bold shaded header row")
+    return xml[: m.start()] + m.group(1) + body + m.group(3) + xml[m.end():]
+
+
 def set_page_setup(xml: str) -> str:
     """Give the body section an explicit A4 page size and margins. Both elements
     are inserted at the START of w:sectPr, which is where the schema requires
@@ -128,6 +169,7 @@ def main() -> None:
     for sid in ("Figure", "CaptionedFigure", "ImageCaption"):
         styles = set_style_jc(styles, sid, "center")
     styles = set_default_spacing_after(styles, 120)
+    styles = set_table_style(styles)
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:

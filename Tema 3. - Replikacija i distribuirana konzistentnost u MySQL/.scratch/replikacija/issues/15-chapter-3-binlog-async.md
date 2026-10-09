@@ -45,9 +45,10 @@ User reviewed the exported document ("looks good") and accepted the measured len
 ch. 3 ~4.8 pp**, set as the budgets in `GLOSSARY.md` section 2 (paper total 24.9). Final review fixes:
 Tabela 3.1 row 1 softened from "ništa se ne gubi" to the manual's own "najveća postojanost i
 konzistentnost"; Slika 3.2's official-diagram check done (refman 8.4 sections 7.4.4, 17.6.5 and 17.18.2: text
-only, no figure), recorded in `figures/README.md`. Carried forward, not blocking: native tables
-render borderless (shared `build-reference-doc.py` fix, due at ch. 4's first latency table), and
-Slika 3.1's page jump is left for the final Word pass.
+only, no figure), recorded in `figures/README.md`. Table borders fixed the same day: pandoc
+ignores the reference doc's `Table` style, so `../tools/make-docx.ps1` now runs
+`../tools/style-docx-tables.py` on the exported file (Temas 1 and 2 not re-exported, they carry
+hand edits). Slika 3.1's page jump is left for the final Word pass.
 
 Writing-session findings worth keeping:
 - **Rule 1 caught a live trap**: refman 8.4 has *Asynchronous Connection Failover* (a replica
