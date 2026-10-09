@@ -71,8 +71,8 @@ caption; the one natural-lag chart says it is natural.
 | Chapter | Slika | Tabela | What they are |
 |---|---|---|---|
 | 1 Uvod | 0 | 0 | |
-| 2 Teorijski okvir | 1 | 0 | the three replication models (single-leader, multi-leader, leaderless), Mermaid |
-| 3 Binarni log i asinhrona | 2 | 0 | receiver → relay log → applier pipeline (Mermaid); `mysqlbinlog` extract of the unsafe `UPDATE … LIMIT` (`-Raw`) |
+| 2 Teorijski okvir | 3 | 0 | CAP thought experiment; the three replication models; Dynamo vs consensus quorum (all Mermaid; two added 2026-10-09) |
+| 3 Binarni log i asinhrona | 3 | 1 | `mysqlbinlog` extract of the unsafe `UPDATE … LIMIT` (`-Raw`); two-phase commit with crash points (Mermaid, added 2026-10-09); receiver → relay log → applier pipeline (Mermaid); Tabela 3.1 durability matrix, qualitative (what an OS crash loses), not a latency table, which ch. 4 owns |
 | 4 Semisinhrona | 1 | 1 | `AFTER_SYNC` vs `AFTER_COMMIT` sequence diagram marking the visibility point; the durability × semisync 2×2 matrix (ticket 10) |
 | 5 Group Replication | 1 | 2 | certification / first-commit-wins flow (Mermaid); `group_replication_consistency` levels (the climax); quorum-loss outcomes |
 | 6 Geo i ClusterSet | 1 | 1 | ClusterSet topology (Mermaid); controlled switchover vs emergency failover |
@@ -139,7 +139,7 @@ a replication window, and it silently reported the window as absent.
 | Script | Figures it builds | What it asserts |
 |---|---|---|
 | `tools/make-lag-plot.py` *(to be written at ch. 7)* | Slika 7.1 | the two lag series diverge; real lag rises above idle baseline |
-| `examples/02-binlog-async/05-slika-nesiguran-iskaz.ps1` | Slika 3.2 (`-Raw` via `../../tools/make-table-figure.ps1`) | Note 1592 under `STATEMENT`; a decoded `Update_rows` event for `invoices` under `ROW`; the update is reverted and the revert is visible on 3307/3308/3309 |
+| `examples/02-binlog-async/05-slika-nesiguran-iskaz.ps1` | Slika 3.1 (`-Raw` via `../../tools/make-table-figure.ps1`) | Note 1592 under `STATEMENT`; a decoded `Update_rows` event for `invoices` under `ROW`; the update is reverted and the revert is visible on 3307/3308/3309 |
 
 ## Own diagrams vs official ones
 
@@ -147,5 +147,8 @@ One row per drawn diagram: which official diagram was checked, and why ours was 
 
 | Figure | Official diagram checked | Why ours |
 |---|---|---|
-| Slika 3.1 async pipeline source → replica (`03-binlog-01-tok-replikacije`, source `.mmd` beside it) | refman 8.4 §19.2.3 *Replication Threads*: text only, no diagram; §19.4.8 has topology figures (web clients → source → replicas), not the thread pipeline | needs the thread pipeline, the point where the client's OK leaves, and where lag accumulates (measured, ticket 10), all with Serbian labels |
-| Slika 2.1 three replication models (`02-teorija-01-modeli-replikacije`, source `.mmd` beside it) | MySQL 8.4 refman ch. 19-20: none, the three models are literature categories, not MySQL features. Kleppmann DDIA ch. 5 draws them as separate figures (not fetched; copyrighted book art) | needs all three side by side on one visual vocabulary, with Serbian labels; the panel titles stay English per `GLOSSARY.md` §1d (ch. 2 role vocabulary) |
+| Slika 3.3 async pipeline source → replica (`03-binlog-03-tok-replikacije`, source `.mmd` beside it) | refman 8.4 §19.2.3 *Replication Threads*: text only, no diagram; §19.4.8 has topology figures (web clients → source → replicas), not the thread pipeline | needs the thread pipeline, the point where the client's OK leaves, and where lag accumulates (measured, ticket 10), all with Serbian labels |
+| Slika 2.2 three replication models (`02-teorija-02-modeli-replikacije`, source `.mmd` beside it) | MySQL 8.4 refman ch. 19-20: none, the three models are literature categories, not MySQL features. Kleppmann DDIA ch. 5 draws them as separate figures (not fetched; copyrighted book art) | needs all three side by side on one visual vocabulary, with Serbian labels; the panel titles stay English per `GLOSSARY.md` §1d (ch. 2 role vocabulary) |
+| Slika 2.1 CAP thought experiment (`02-teorija-01-cap-misaoni-eksperiment`) | none applies: the experiment is Gilbert & Lynch's proof idea, not a MySQL feature; added 2026-10-09 to replace the proof paragraph (`GLOSSARY.md` §2b) | the two-outcome fork (answer stale = lose C, wait = lose A) with Serbian labels |
+| Slika 2.3 Dynamo vs consensus quorum (`02-teorija-03-dva-kvoruma`) | none applies: DeCandia et al. and Ongaro & Ousterhout draw neither as a side-by-side; added 2026-10-09 to replace the worked-example prose | the 100/100/200 outcome next to one ordered log, same numbers as the text |
+| Slika 3.2 internal two-phase commit, crash points A/B (`03-binlog-02-dvofazno-komitovanje`) | refman 8.4 §7.4.4 *The Binary Log*, §17.6.5 *Redo Log*, §17.18.2 *InnoDB Recovery*: text only, no figure (checked 2026-10-09, researcher, raw HTML searched for img/figure/svg) | the binary-log write as the decision point and the recovery outcome on each side of it |

@@ -1,0 +1,42 @@
+%% Slika 2.3 - Dynamo quorum vs consensus quorum. Rendered via the mermaid render tool (light theme).
+flowchart LR
+  classDef leader fill:#64748b,stroke:#334155,color:#fff
+  classDef rep fill:#e5e7eb,stroke:#6b7280,color:#111
+  classDef cli fill:#fff,stroke:#374151,color:#111
+  classDef warn fill:#fff7ed,stroke:#c2410c,stroke-dasharray:4 3,color:#7c2d12
+  classDef note fill:#fff,stroke:#fff,color:#111
+
+  subgraph L["Dynamo-kvorum (N = 3, W = 2, R = 2)"]
+    direction TB
+    A1["Klijent A"]:::cli
+    B1["Klijent B"]:::cli
+    R1["Replika 1<br/>100"]:::rep
+    R2["Replika 2<br/>100"]:::rep
+    R3["Replika 3<br/>200"]:::rep
+    W1["čitanje sa replika 2 i 3 vraća 100 i 200:<br/>dve verzije, spaja ih aplikacija"]:::warn
+    A1 -- "upiši 100" --> R1
+    A1 -- "upiši 100" --> R2
+    B1 -- "upiši 200" --> R2
+    B1 -- "upiši 200" --> R3
+    R1 ~~~ W1
+    R2 ~~~ W1
+    R3 ~~~ W1
+  end
+
+  subgraph C["Konsenzus-kvorum (većina od 3)"]
+    direction TB
+    A2["Klijent A"]:::cli
+    B2["Klijent B"]:::cli
+    LD["Leader"]:::leader
+    LG[("log: 1. upis 200<br/>2. upis 100")]:::rep
+    N["većina čuva isti log:<br/>jedan redosled, jedna vrednost"]:::note
+    A2 -- "upiši 100" --> LD
+    B2 -- "upiši 200" --> LD
+    LD --> LG
+    LG ~~~ N
+  end
+
+  L ~~~ C
+
+  style L fill:#fff,stroke:#9ca3af
+  style C fill:#fff,stroke:#9ca3af

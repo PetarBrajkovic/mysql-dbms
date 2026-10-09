@@ -1,0 +1,19 @@
+%% Slika 3.2 - internal two-phase commit, redo log vs binary log, crash points A/B. Rendered via the mermaid render tool (light theme).
+flowchart LR
+  classDef leader fill:#64748b,stroke:#334155,color:#fff
+  classDef rep fill:#e5e7eb,stroke:#6b7280,color:#111
+  classDef cli fill:#fff,stroke:#374151,color:#111
+  classDef warn fill:#fff7ed,stroke:#c2410c,stroke-dasharray:4 3,color:#7c2d12
+  S1["1. Priprema<br/>redo log: T pripremljena"]:::rep
+  S2["2. Upis u binarni log<br/>tačka odluke"]:::leader
+  S3["3. Komitovanje<br/>u InnoDB-u"]:::rep
+  S4["Potvrda klijentu"]:::cli
+  X1(("✕")):::warn
+  X2(("✕")):::warn
+  A["Pad A: T nije u binarnom logu<br/>oporavak poništava T<br/>nemaju je ni izvor ni replike"]:::warn
+  B["Pad B: T je u binarnom logu<br/>oporavak komituje T<br/>imaju je i izvor i replike"]:::warn
+  S1 --> X1 --> S2 --> X2 --> S3 --> S4
+  A -.- X1
+  B -.- X2
+  linkStyle 0,1,2,3,4 stroke:#374151
+  linkStyle 5,6 stroke:#c2410c

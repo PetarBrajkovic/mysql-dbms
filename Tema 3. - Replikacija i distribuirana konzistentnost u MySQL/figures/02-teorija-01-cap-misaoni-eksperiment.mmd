@@ -1,0 +1,12 @@
+%% Slika 2.1 - CAP thought experiment. Rendered via the mermaid render tool (light theme).
+graph LR
+  K1["Klijent 1"]:::cli -->|"upiši x = 5, potvrda"| C1["Čvor 1<br/>x = 5 (novo)"]:::rep
+  C1 -.-|"particija: poruke se gube"| C2["Čvor 2<br/>x = 1 (staro)"]:::rep
+  K2["Klijent 2"]:::cli -->|"čitaj x"| C2
+  C2 --> O1["Odgovara odmah:<br/>vraća x = 1<br/>krši C"]:::warn
+  C2 --> O2["Čeka poruku od čvora 1:<br/>odgovor ne stiže dok particija traje<br/>krši A"]:::warn
+  linkStyle 1 stroke:#c2410c,stroke-width:3px,color:#c2410c
+  classDef leader fill:#64748b,stroke:#334155,color:#fff
+  classDef rep fill:#e5e7eb,stroke:#6b7280,color:#111
+  classDef cli fill:#fff,stroke:#374151,color:#111
+  classDef warn fill:#fff7ed,stroke:#c2410c,stroke-dasharray:4 3,color:#7c2d12

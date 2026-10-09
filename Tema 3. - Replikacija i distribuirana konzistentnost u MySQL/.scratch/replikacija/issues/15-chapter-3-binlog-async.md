@@ -1,7 +1,7 @@
 # Chapter 3 - Binarni log, GTID i asinhrona replikacija
 
 Type: task (execution - see the map's execution override)
-Status: open - **writing half claimed** (new session after lesson B)
+Status: **closed** (2026-10-09) - lesson taught, chapter written, cut, measured and pushed
 
 Progress (2026-10-08): the lesson half is split into two lessons, **both taught**. Lesson A
 (`lessons/0002-binarni-log-gtid-asinhrona.html`, record 0004: items 1, 3, 4 and the async-commit
@@ -14,6 +14,40 @@ from live output). **Measured ~5.8 rendered pages against the 4.5 budget.** The 
 **tighten the prose himself** rather than raise the budget or drop Slika 3.2. **Open until**: his cuts
 are in, the chapter is re-measured, the budget line in `GLOSSARY.md` §2 is set to the measured value,
 and the chapter is pushed. Then close and add the map's Decisions-so-far entry.
+
+Progress (2026-10-09, later session): **scope of the cut widened to ch. 2 as well.** The user found
+the paper too text-heavy after two chapters (~10 pp, 3 figures). Decided: `../WRITING.md`'s
+"never trim" rule is **suspended for this topic** (`GLOSSARY.md` §2b); ch. 2 is cut to **~3 pp**, ch. 3
+to **~3.5 pp** (~35 % by pages, more by words, because figures do not shrink); ch. 4-8 get a
+**~450 words/page** cap plus at least one visual per ~1.5 pages. **The user still does the cuts by
+hand.** Prose-to-visual swaps proposed, awaiting his pick: CAP thought experiment (ch. 2), the
+Dynamo-vs-consensus quorum worked example (ch. 2, no picture exists yet), two-phase commit with
+crash points A/B (ch. 3), the durability matrix as a Tabela (ch. 3). **Open until**: cuts in, both
+chapters re-measured, budgets set to measured values, pushed.
+
+Progress (2026-10-09, same session, user reversed himself: "you cut it, I review"): **cut done by
+the agent, uncommitted, awaiting the user's review.** Words: ch. 2 2130 -> 1416, ch. 3 2600 -> 1689
+(both about -34 %); all 16 citation keys still used; no em dash. All four visuals added: Slika 2.1
+CAP, Slika 2.3 Dynamo vs consensus quorum, Slika 3.2 two-phase commit, Tabela 3.1 durability
+matrix (qualitative; ch. 4 keeps the latency matrix). Figures renumbered in reading order (old 2.1 ->
+2.2, old 3.2 -> 3.1, old 3.1 -> 3.3), files and the `05-slika-nesiguran-iskaz.ps1` script
+renamed to match. Pre-cut text kept at `.scratch/rad-before-cut.md`. **Measured in the export:
+ch. 2 ~3.6 pp (budget 3), ch. 3 ~4.8 pp (budget 3.5)**, total 11 pp with title and references
+(was 12). Ch. 3 is over because the new figure and table add ~0.6 pp, and Slika 3.1 still jumps
+and leaves its blank third of p. 6. Dropped outright: NOW()/SYSDATE() mechanism, the 100-commit
+fsync measurement (ch. 4 measures it), the file/position numeric example, Abadi's PA/EL system
+list, sloppy quorum, Raft vote details beyond one sentence each. Native table renders without
+borders (the figures/README first-use check; fix in `build-reference-doc.py`).
+
+## Resolution (2026-10-09)
+
+User reviewed the exported document ("looks good") and accepted the measured lengths: **ch. 2 ~3.6 pp,
+ch. 3 ~4.8 pp**, set as the budgets in `GLOSSARY.md` section 2 (paper total 24.9). Final review fixes:
+Tabela 3.1 row 1 softened from "ništa se ne gubi" to the manual's own "najveća postojanost i
+konzistentnost"; Slika 3.2's official-diagram check done (refman 8.4 sections 7.4.4, 17.6.5 and 17.18.2: text
+only, no figure), recorded in `figures/README.md`. Carried forward, not blocking: native tables
+render borderless (shared `build-reference-doc.py` fix, due at ch. 4's first latency table), and
+Slika 3.1's page jump is left for the final Word pass.
 
 Writing-session findings worth keeping:
 - **Rule 1 caught a live trap**: refman 8.4 has *Asynchronous Connection Failover* (a replica

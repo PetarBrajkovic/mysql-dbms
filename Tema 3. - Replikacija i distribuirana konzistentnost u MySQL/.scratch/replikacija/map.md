@@ -310,6 +310,17 @@ the operator's to assemble.
   07b's Dynamo DOI found to be the OSR reprint and 07b itself truncated. **Measured at ~4.2 pages;
   the user raised ch. 2's budget to ~4.25 rather than trim** (total 25.25).
 
+- [Chapter 3 - Binarni log, GTID i asinhrona replikacija](issues/15-chapter-3-binlog-async.md)
+  (2026-10-09): ch. 3 written from two lessons (binlog/GTID/async; durability/WAL/two-phase commit),
+  then **cut together with ch. 2** after the user found two chapters too text-heavy. **`../WRITING.md`'s
+  "never trim" rule is suspended for this topic** (`GLOSSARY.md` section 2b) and **ch. 4-8 get a
+  ~450 words/page cap plus a visual per ~1.5 pages**. Both chapters lost about a third of their words; four
+  visuals took over prose (CAP thought experiment, Dynamo vs consensus quorum, two-phase commit with
+  crash points, and **Tabela 3.1, the paper's first native table**). Measured at **~3.6 + ~4.8 pp**,
+  accepted (total 24.9). Rule 1 caught a live trap: refman 8.4 has *Asynchronous Connection Failover*,
+  so no "async has no automatic failover" sentence was allowed. Open for ch. 4: tables render
+  borderless until `build-reference-doc.py` styles them.
+
 ## Not yet specified
 
 - ~~**The chapter tickets.**~~ **Graduated at ticket 09** into tickets 14–20, chained

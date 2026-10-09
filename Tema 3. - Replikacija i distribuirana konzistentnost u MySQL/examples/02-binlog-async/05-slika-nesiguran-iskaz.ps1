@@ -8,7 +8,7 @@
 # primary keys, so poliklinika ends exactly as it started on all three nodes.
 #
 # Run from the topic folder:  .\examples\02-binlog-async\05-slika-nesiguran-iskaz.ps1
-# Writes figures\raw\03-binlog-02-nesiguran-iskaz.txt and renders the PNG beside it in figures\.
+# Writes figures\raw\03-binlog-01-nesiguran-iskaz.txt and renders the PNG beside it in figures\.
 
 $ErrorActionPreference = 'Stop'
 $bin   = 'C:\Program Files\MySQL\MySQL Server 8.4\bin'
@@ -82,10 +82,10 @@ $lines = @(
 ) + $compact
 $lines = $lines | ForEach-Object { $_ }   # flatten the nested warning array
 $rawDir = 'figures\raw'; New-Item -ItemType Directory -Force $rawDir | Out-Null
-$rawFile = Join-Path $rawDir '03-binlog-02-nesiguran-iskaz.txt'
+$rawFile = Join-Path $rawDir '03-binlog-01-nesiguran-iskaz.txt'
 [System.IO.File]::WriteAllLines((Join-Path (Get-Location) $rawFile), [string[]]$lines)   # UTF-8, no BOM
 
-& (Join-Path $PSScriptRoot '..\..\..\tools\make-table-figure.ps1') -Raw -RawFile $rawFile -OutBase 'figures\03-binlog-02-nesiguran-iskaz'
+& (Join-Path $PSScriptRoot '..\..\..\tools\make-table-figure.ps1') -Raw -RawFile $rawFile -OutBase 'figures\03-binlog-01-nesiguran-iskaz'
 
 # ---- verify the revert reached every node --------------------------------------------------------
 Start-Sleep -Seconds 2
@@ -95,4 +95,4 @@ foreach ($p in 3307, 3308, 3309) {
     if ([int]$n -ne $want) { throw "Revert not visible on ${p}: $n of $want rows back to unpaid" }
 }
 Remove-Item $cnf
-Write-Host "OK  rows $ids changed and reverted on 3307/3308/3309; figure figures\03-binlog-02-nesiguran-iskaz.png"
+Write-Host "OK  rows $ids changed and reverted on 3307/3308/3309; figure figures\03-binlog-01-nesiguran-iskaz.png"

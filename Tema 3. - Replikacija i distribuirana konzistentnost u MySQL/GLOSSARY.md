@@ -173,16 +173,36 @@ Soft target ~20-25 rendered pages; 24 budgeted below is a starting point, not a 
 | # | Chapter | Page budget | Backing | Professor's bullet |
 |---|---|---|---|---|
 | 1 | Uvod | 1 | — | — |
-| 2 | Teorijski okvir: modeli konzistentnosti, CAP/PACELC i konsenzus | 3 → **4.25 (measured, 2026-10-07)** | memo 07 | — |
-| 3 | Binarni log, GTID i asinhrona replikacija | 4.5 (first draft measured **~5.8**, 2026-10-09; user tightening, then set to measured) | memo 03 | #1, #2 |
+| 2 | Teorijski okvir: modeli konzistentnosti, CAP/PACELC i konsenzus | 3 → 4.25 (measured 2026-10-07) → **~3.6 (cut to it and measured 2026-10-09, §2b)** | memo 07 | — |
+| 3 | Binarni log, GTID i asinhrona replikacija | 4.5 → **~4.8 (first draft ~5.8, cut and measured 2026-10-09, §2b; includes Tabela 3.1 and three figures)** | memo 03 | #1, #2 |
 | 4 | Semisinhrona replikacija i značenje potvrde | 3 | memo 04 | #2 |
 | 5 | Group Replication: kvorum, certification i multi-primary | 5 | memo 05 | #3 |
 | 6 | Geo-distribuirana replikacija i InnoDB ClusterSet | 3 | memo 07 (corrected) | #4 |
 | 7 | Skaliranje čitanja i kašnjenje replikacije | 3.5 | memo 06 | #5 |
 | 8 | Zaključak | 1 | — | — |
 
-**Total: 24 pages as budgeted at ticket 09; 25.25 after ch. 2 was measured.** All five of the professor's bullets are covered by a chapter; none is left
+**Total: 24 pages as budgeted at ticket 09; 25.25 after ch. 2 was measured; 24.9 after the
+2026-10-09 cut was measured (§2b); the cut aimed for 3 + 3.5 and the user accepted the measured
+values.** All five of the professor's bullets are covered by a chapter; none is left
 without one.
+
+### 2b. "Never trim" suspended for this topic (user, 2026-10-09)
+
+`../WRITING.md`'s default "never trim written prose, raise the budget instead" is **suspended for
+Tema 3**. Trigger: after two chapters the paper measured ~10 pages of mostly prose with 3 figures,
+on course for ~40 pages against the ~25 target.
+
+- **Licenses:** cutting already-written prose in ch. 2 and 3 to the budgets above (~35 % by pages;
+  the user cuts by hand), replacing a paragraph with a figure or `Tabela` where one carries the
+  same claim, and a **word cap** on every chapter still to be written.
+- **Word cap for ch. 4-8:** **~450 words of prose per budgeted page**, after subtracting the space
+  the chapter's figures and tables take (measured density so far is ~540 words per prose page, so
+  450 leaves room for spacing and headings). Plus **at least one Slika or Tabela per ~1.5 pages**.
+  Count with `wc -w` on the chapter before export; the rendered page count stays the final word.
+- **Does not license:** shrinking a figure below readability to buy a page (`../WRITING.md`, Tema 1's
+  scar, unchanged), dropping a professor's bullet, or dropping a citation that a kept claim needs.
+  Cutting a sentence that carries a citation means checking the citation is still used elsewhere,
+  or removing its now-orphaned `references.bib` entry.
 
 ### 2a. What each chapter owns, decided at ticket 09
 
@@ -228,6 +248,7 @@ The standing rule ("lessons may re-teach theory freely, the paper stays MySQL-ti
 - **Ch. 2 gets ~3 pages, roughly 10-12 paragraphs.** Consensus conceptual only, no proofs.
   **Measured at writing (2026-10-07): ~4.2 rendered pages, 13 paragraphs plus Slika 2.1.** The user
   chose to raise the budget to ~4.25 rather than trim (`../WRITING.md` default: never trim prose).
+  **Reversed 2026-10-09 (§2b): ch. 2 is cut back to ~3 pages.**
   The overrun is prose, not layout; the figure costs about a quarter page at full width. The
   per-later-chapter rule below (one paragraph plus one citation, then MySQL) is unchanged.
 - **Any concept first needed in a later chapter gets one paragraph plus one citation, and the next
