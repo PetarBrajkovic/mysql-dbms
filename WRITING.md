@@ -27,6 +27,19 @@ terminology and chapter skeleton that this file's rules are applied to.
    `references.bib`.
 8. **Never use the em dash (—)** anywhere in the paper or its figures. Use a comma, colon, or
    parentheses, or restructure the sentence. Applies to `rad.md` and to figure text.
+9. **Research and drawing go to subagents, to save the main session's context.** The main session
+   decides, writes the prose, and checks results; it does not fetch pages or author diagrams itself.
+   - **Source checks, quotes, citations, absence-claim checks** → `researcher`. Batch every claim the
+     chapter needs into one brief (or a few run in parallel), each claim numbered. Ask for, per
+     claim: the **verbatim quote**, the **URL**, the **ladder rung**, and "not found" rather than a
+     guess. A quote a subagent fetched satisfies rule 6; the main session does not re-fetch it.
+   - **Diagrams** → `mermaid-maker` (nodes and edges) or `svg-maker` (geometry, plots), via the
+     `visualize` skill. Brief: the one idea, the exact elements, Serbian labels, the aspect ratio
+     wanted (the paper's width rule above), and **ask it to return the final source verbatim** so it
+     can be saved as `figures/<name>.mmd`. The main session copies the PNG into `figures/` under the
+     paper's naming and looks at it **once**, in the exported DOCX check.
+   - What stays in the main session: prose, decisions, and runs against a live system whose output
+     the chapter cites.
 
 ## Voice and citation density
 

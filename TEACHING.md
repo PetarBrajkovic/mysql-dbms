@@ -120,7 +120,10 @@ skill exists: **use `/teach`**, not `/mattpocock-skills:teach`.
 **Detailed figures in every lesson.** He asked for them (Tema 3, 0005): every shaped node gets an
 annotated figure, and measured numbers become charts. The rule lives in the `teach` skill, §Figures.
 Lesson figures are published by the makers into the topic's `viz/` and embedded as `../viz/<file>.png`;
-`figures/` stays reserved for `rad.md` figures and their naming convention.
+`figures/` stays reserved for `rad.md` figures and their naming convention. **Always through the
+maker subagents** (`mermaid-maker` / `svg-maker`), never authored in the main session, and source
+lookups go to `researcher`: the main session's context is for teaching. Brief format: `WRITING.md`
+rule 9.
 
 **Figures come from live data.** Generated end to end by the agent, never hand-captured. Mechanics in
 `tools/FIGURES.md`. Each topic keeps its own credentials file, gitignored, never passed as a CLI

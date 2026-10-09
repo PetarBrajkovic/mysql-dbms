@@ -86,7 +86,10 @@ real failure in this map's own charting research):
   Gilbert & Lynch's proof, and Abadi on PACELC.
 - Every substantive chapter needs runnable SQL or shell plus at least one captioned figure. **No
   screenshots anywhere** (Tema 1's trap note, carried forward twice now).
-- Subagents run on **haiku** with narrow, specific briefs.
+- Subagents run on **haiku** with narrow, specific briefs. **Research and diagram drawing are always
+  delegated** (`researcher`, `mermaid-maker`, `svg-maker`), never done inline: the main session keeps
+  its context for decisions, prose and live-topology runs (user, 2026-10-09; binding text in
+  `../WRITING.md` rule 9).
 - Git: one repo at the **course** level, `origin` = `github.com/PetarBrajkovic/mysql-dbms.git`. Push
   as part of finishing a chapter.
 - Pacing: one lesson *or* one chapter per session; a lesson and its chapter are written in
