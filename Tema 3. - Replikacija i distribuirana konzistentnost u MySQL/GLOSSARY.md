@@ -135,6 +135,13 @@ never *latencija replikacije*; never *master/slave* as working terms.
 | Process crash vs OS crash | pad procesa `mysqld` / pad operativnog sistema | — | the distinction the matrix rests on |
 | Group commit | grupno komitovanje *(group commit)* | grupno komitovanje | |
 
+### 1b⁗. Added at ticket 15 (ch. 3 writing), taken from Tema 1's locked table for consistency
+
+| Concept | Serbian term (first use) | After first use | Note |
+|---|---|---|---|
+| Storage engine | mehanizam skladištenja *(storage engine)* | motor | Tema 1 `GLOSSARY.md`: never „skladišni motor“, never „mehanizam“ throughout, never „pogon“ |
+| Server layer | serverski sloj | serverski sloj | where the binary log lives, above the engines |
+
 ### 1c. Verbatim - never translated, never declined
 
 Identifiers, keywords and product proper nouns:
@@ -167,7 +174,7 @@ Soft target ~20-25 rendered pages; 24 budgeted below is a starting point, not a 
 |---|---|---|---|---|
 | 1 | Uvod | 1 | — | — |
 | 2 | Teorijski okvir: modeli konzistentnosti, CAP/PACELC i konsenzus | 3 → **4.25 (measured, 2026-10-07)** | memo 07 | — |
-| 3 | Binarni log, GTID i asinhrona replikacija | 4.5 | memo 03 | #1, #2 |
+| 3 | Binarni log, GTID i asinhrona replikacija | 4.5 (first draft measured **~5.8**, 2026-10-09; user tightening, then set to measured) | memo 03 | #1, #2 |
 | 4 | Semisinhrona replikacija i značenje potvrde | 3 | memo 04 | #2 |
 | 5 | Group Replication: kvorum, certification i multi-primary | 5 | memo 05 | #3 |
 | 6 | Geo-distribuirana replikacija i InnoDB ClusterSet | 3 | memo 07 (corrected) | #4 |

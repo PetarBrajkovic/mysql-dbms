@@ -196,3 +196,224 @@ kvorumu, misli se na konsenzus-kvorum, jer na njemu počiva Group Replication, d
 samo kao kontrast. Ovim je zaokružen rečnik kojim se u narednim poglavljima opisuje MySQL: svaki
 njegov mehanizam replikacije biće smešten u jedan od tri modela, opisan modelom konzistentnosti koji
 obezbeđuje i ocenjen prema tome kako odgovara na dva pitanja PACELC-a.
+
+# 3. Binarni log, GTID i asinhrona replikacija
+
+Replikacija u MySQL-u ne prenosi stanje baze, već zapis o promenama. Izvor svaku komitovanu
+transakciju upisuje u binarni log (binary log), a replika te zapise preuzima i izvršava nad
+sopstvenom kopijom podataka. Priručnik binarnom logu pripisuje dve namene: na izvoru on je zapis
+promena koje se šalju replikama, koje te transakcije reprodukuju i time prave iste izmene podataka
+kao izvor, a posle vraćanja rezervne kopije služi za oporavak baze do željenog trenutka
+[@mysql84refman]. Da bi replika ponavljanjem loga stigla u isto stanje kao izvor, moraju da važe tri
+uslova: obe strane polaze od istog početnog stanja, primenjuju iste promene i primenjuju ih istim
+redosledom. Redosled obezbeđuje sam log, jer se transakcija upisuje u binarni log pre nego što se
+oslobode njena zaključavanja, pa log, prema priručniku, sledi redosled komitovanja [@mysql84refman].
+Ovo poglavlje prati jednu transakciju od komitovanja na izvoru do primene na replici i redom
+odgovara na četiri pitanja: šta se tačno upisuje u log, kada je upis postojan, kako replika zna
+dokle je stigla i kada klijent dobija potvrdu.
+
+Od ovog poglavlja uloge čvorova nazivaju se onako kako ih naziva sam MySQL: čvor čiji se binarni log
+šalje drugima je izvor (source), a čvor koji taj log primenjuje je replika (replica). Termini
+*leader* i *follower* iz drugog poglavlja opisuju iste uloge, ali ih dokumentacija koja se u
+nastavku citira ne koristi. Tim koji razvija MySQL naziv izvor obrazlaže time da je asinhrona
+replikacija tok promena: svaka konfiguracija replikacije ima svoj izvor, ali taj naziv ne određuje
+kakvu ulogu server ima u celoj arhitekturi, što je važno kod lančane ili dvosmerne replikacije
+[@gryp2020].[^uloge] Sva merenja u ovom i narednim poglavljima izvedena su na tri instance servera
+MySQL 8.4.11 pokrenute na jednom računaru, na portovima 3307, 3308 i 3309, koje se u nastavku
+nazivaju node1, node2 i node3. Izvor je node1, a node2 i node3 su njegove replike; na sve tri
+instance uključeni su GTID-ovi i podrazumevani format zapisa `ROW`. Kao primer služi baza
+poliklinika, sa tabelama pacijenata, pregleda i računa, kojoj je dodata pomoćna tabela `heartbeat`
+za merenje kašnjenja.
+
+[^uloge]: Starija dokumentacija i veći deo literature ove uloge nazivaju master i slave. MySQL je
+zamenu tih termina započeo 2020. godine [@gryp2020], a u verziji 8.4.0 uklonjene su i naredbe koje
+su ih koristile, pa je, na primer, naredba `SHOW MASTER STATUS` zamenjena naredbom
+`SHOW BINARY LOG STATUS` [@mysql84relnotes]. U ovom radu stari termini se dalje ne koriste.
+
+## Binarni log i formati zapisa
+
+Binarni log se može voditi u tri formata, a razlika među njima je u tome da li se upisuje uzrok
+promene ili njena posledica. U formatu `STATEMENT` izvor upisuje sam SQL iskaz, a replika ga ponovo
+izvršava; to je upisivanje iskaza (statement-based logging). U formatu `ROW` izvor upisuje događaje
+koji opisuju kako su se promenili pojedinačni redovi tabele, a replika te promene kopira; to je
+upisivanje redova (row-based logging), koje je podrazumevani način rada. Format `MIXED` podrazumevano
+upisuje iskaze, a u određenim slučajevima automatski prelazi na upisivanje redova [@mysql84refman].
+Upisivanje iskaza je kompaktnije, jer iskaz koji menja hiljadu redova u logu ostaje jedan iskaz, dok
+upisivanje redova beleži svaki izmenjeni red i zato može da proizvede znatno više podataka
+[@mysql84refman]. Pravac razvoja je ipak jasan: menjanje formata zastarelo je još u verziji 8.0, a
+priručnik najavljuje da će promenljiva `binlog_format` biti uklonjena i da će upisivanje redova
+postati jedini format [@mysql84refman].
+
+## Nesigurni iskazi
+
+Upisivanje iskaza oslanja se na pretpostavku da isti iskaz nad istim podacima daje isti rezultat,
+odnosno da je promena deterministička. Iskaz za koji to ne važi naziva se nesiguran iskaz (unsafe
+statement): njegov rezultat ne zavisi samo od podataka, pa replika koja ga ponovi može da stigne u
+drugačije stanje od izvora. Priručnik kao primer navodi iskaze `UPDATE` i `DELETE` sa klauzulom
+`LIMIT` bez `ORDER BY`, jer redosled redova na koje iskaz deluje nije definisan [@mysql84refman].
+Sličan je slučaj funkcije `SYSDATE()`, dok je funkcija `NOW()` bezbedna: binarni log uz iskaz čuva i
+vremensku oznaku, pa replika dobija vrednost koju je funkcija vratila na izvoru, a `SYSDATE()` tu
+oznaku zanemaruje [@mysql84refman]. Kada naiđe na nesiguran iskaz, server u formatu `STATEMENT`
+izdaje upozorenje, a u formatu `MIXED` takav iskaz automatski upisuje kao redove [@mysql84refman].
+
+Slika 3.2 prikazuje ovu razliku na bazi poliklinika. Iskaz koji dva neplaćena računa za koje je
+`tenant_id = 1` označava kao plaćena sadrži `LIMIT 2` bez `ORDER BY`, pa ne određuje koja dva računa
+menja. U formatu `STATEMENT` server pri izvršavanju izdaje upozorenje 1592 i navodi da skup
+obuhvaćenih redova nije moguće predvideti. U formatu `ROW` u logu ne ostaje nikakav trag klauzule
+`LIMIT`, već samo dva izmenjena reda, svaki sa slikom pre i posle izmene: računi 11 i 18, kojima se
+kolona `paid_status` menja iz vrednosti `unpaid` u `paid`. Replika zato ne bira redove, već primenjuje
+izbor koji je izvor već napravio. Upisivanje redova problem nedeterminizma ne rešava tako što ga
+uklanja, već tako što izbor ostavlja izvoru, a replici šalje samo njegov ishod.
+
+![Slika 3.2: Isti nesiguran iskaz u dva formata binarnog loga, izvršen na izvoru (node1). U formatu STATEMENT server upozorava da skup redova nije predvidiv; u formatu ROW log beleži upravo izmenjene redove, sa slikom pre (WHERE) i posle (SET) izmene. Ispis alata mysqlbinlog sažet je na jedan red po slici reda.](figures/03-binlog-02-nesiguran-iskaz.png){width=90%}
+
+## Postojanost: dva loga i dvofazno komitovanje
+
+Potvrda da je transakcija komitovana ima smisla samo ako transakcija preživi pad sistema, a to zavisi
+od toga kada log zaista stigne na disk. Upis u datoteku najpre dospeva u keš operativnog sistema, u
+radnoj memoriji, a na stabilnu memoriju stiže tek kada ga operativni sistem sam prenese ili kada
+proces to izričito zatraži pozivom `fsync()`, čiji je ekvivalent na Windowsu `FlushFileBuffers`;
+priručnik upravo tako opisuje rad binarnog loga kada server sinhronizaciju prepusti operativnom
+sistemu [@mysql84refman]. Zato se razlikuju dva događaja: pad procesa `mysqld`, pri kome ono što je
+već predato operativnom sistemu ostaje sačuvano, i pad operativnog sistema ili nestanak napajanja,
+pri kome se gubi i sadržaj keša. InnoDB postojanost obezbeđuje tehnikom write-ahead logging (WAL):
+pre izmene stranica sa podacima opis izmene upisuje se u redo log, koji priručnik opisuje kao
+strukturu na disku koja se pri oporavku posle pada koristi da ispravi podatke koje su upisale
+nedovršene transakcije [@mysql84refman]. Redo log se samo dopisuje [@mysql84refman], pa je jedna
+sinhronizacija loga pri komitovanju jeftinija od upisa svih izmenjenih stranica, koje mogu da se
+upišu kasnije.
+
+MySQL, međutim, istu transakciju beleži u dva loga. Redo log pripada mehanizmu skladištenja (storage
+engine) InnoDB i služi njegovom oporavku, dok binarni log vodi serverski sloj, iznad motora, i on
+služi replikaciji. Da binarni log ne zavisi od motora vidi se po tome što priručnik dozvoljava da se
+izmene InnoDB tabele na izvoru repliciraju u MyISAM tabelu na replici [@mysql84refman]. Dva
+nezavisna upisa otvaraju opasnost koja kod jednog loga ne postoji. Ako transakcija posle pada ostane
+u redo logu, a ne i u binarnom logu, izvor je ima, a replike je nikada neće dobiti; ako je obrnuto,
+replike je primenjuju, a izvor ju je izgubio. U oba slučaja izvor i replike trajno se razilaze, a
+nijedan čvor ne prijavljuje grešku.
+
+MySQL ovu opasnost otklanja internim dvofaznim komitovanjem (two-phase commit) između motora InnoDB i
+binarnog loga, koje je u verziji 8.4 uvek uključeno [@mysql84refman]. U prvoj fazi, pripremi
+(prepare), InnoDB transakciju upisuje u redo log kao pripremljenu; zatim se transakcija upisuje u
+binarni log i on se sinhronizuje na disk, a tek tada InnoDB transakciju komituje [@mysql84refman].
+Odluku o ishodu time donosi binarni log: transakcija je komitovana onog trenutka kada je postojano
+upisana u njega. Iz toga neposredno sledi pravilo oporavka. Posle pada server pregleda poslednju
+datoteku binarnog loga, nalaže InnoDB-u da dovrši sve pripremljene transakcije koje su uspešno
+upisane u binarni log i skraćuje binarni log do poslednje ispravne pozicije, tako da log tačno
+odražava sadržaj InnoDB tabela, a replika ne dobija transakciju koja je na izvoru poništena
+[@mysql84refman]. Pripremljena transakcija se, dakle, ne poništava uvek. Redo log izgleda isto bez
+obzira na to da li je pad nastupio pre ili posle upisa u binarni log, pa o sudbini pripremljene
+transakcije može da presudi samo binarni log.
+
+Koliko je ova zaštita stvarno jaka, zavisi od dve promenljive, od kojih svaka za jedan od dva loga
+odgovara na isto pitanje: da li se log pri komitovanju sinhronizuje na disk. Za binarni log to je
+`sync_binlog`. Vrednost 1 sinhronizuje ga pre komitovanja, a vrednost 0 sinhronizaciju prepušta
+operativnom sistemu, pa posle pada operativnog sistema ili nestanka napajanja server može imati
+komitovane transakcije kojih nema u binarnom logu [@mysql84refman]. Za redo log to je
+`innodb_flush_log_at_trx_commit`. Vrednost 1, neophodna za punu usklađenost sa svojstvima ACID,
+upisuje i sinhronizuje log pri svakom komitovanju; vrednost 2 upisuje ga pri komitovanju, a
+sinhronizuje jednom u sekundi; vrednost 0 ga i upisuje i sinhronizuje jednom u sekundi
+[@mysql84refman]. Iz razlike između upisa i sinhronizacije sledi zaključak koji priručnik ne navodi
+doslovno, već se izvodi: uz vrednosti 2 i `sync_binlog = 0` pad samog procesa `mysqld` ne gubi
+komitovane transakcije, jer su oba loga već predata operativnom sistemu, dok ih pad operativnog
+sistema gubi. Najopasnija je kombinacija u kojoj je binarni log sinhronizovan, a redo log nije:
+posle nestanka napajanja binarni log sadrži transakciju čija je priprema izgubljena iz redo loga, pa
+je replike imaju, a izvor ne. I ovo je izveden zaključak, a opisuje upravo razilaženje koje je
+dvofazno komitovanje trebalo da spreči. Za najveću postojanost i konzistentnost priručnik zato
+preporučuje vrednosti `sync_binlog = 1` i `innodb_flush_log_at_trx_commit = 1`, uz upozorenje da ni
+one nisu garancija na operativnim sistemima i diskovima koji na zahtev za sinhronizaciju odgovaraju
+da je obavljena, iako nije [@mysql84refman].
+
+Cena sinhronizacije vidi se i na topologiji ovog rada. Na izvoru je izvršeno po sto jednorednih
+transakcija sa vrednostima 1 i 1, jednom uz binarni log, a jednom uz upisivanje u binarni log
+isključeno za tu sesiju (`sql_log_bin = 0`). Uz binarni log redo log se sinhronizovao po dva puta po
+transakciji, a bez njega nešto više od jednom, dok je komitovanje uz binarni log trajalo približno
+dva i po puta duže. Rezultat je u skladu sa time da se pri dvofaznom komitovanju redo log
+sinhronizuje i u pripremi i pri komitovanju, ali taj unutrašnji raspored sinhronizacija nije
+potvrđen u dokumentaciji, pa se ovde navodi samo kao merenje, izvedeno pod Windowsom na verziji
+8.4.11. Sa vrednošću 2 za redo log broj sinhronizacija pao je gotovo na nulu. Isti izbor između
+postojanosti i vremena odziva, proširen semisinhronom replikacijom, sistematski se meri u četvrtom
+poglavlju.
+
+## GTID i automatsko pozicioniranje
+
+Replika mora da zna dokle je u logu izvora stigla, da bi posle prekida veze nastavila od prave
+transakcije. Tradicionalni način je par koji čine ime datoteke binarnog loga i pozicija u njoj, ali
+taj par je adresa u logu jednog servera, a ne ime transakcije. Na topologiji ovog rada jedna
+transakcija upisana na izvoru završava se u datoteci `node1-bin.000008` na poziciji 640, a ista
+transakcija na replici node3 u datoteci `node3-bin.000010` na poziciji 630, jer svaki server vodi
+sopstveni log sa sopstvenim zapisima. Globalni identifikator transakcije (GTID) to rešava tako što
+transakciji daje ime koje putuje sa njom. GTID se dodeljuje pri komitovanju na izvoru, jedinstven je
+u celoj topologiji i ima oblik `source_id:transaction_id`, gde je prvi deo obično `server_uuid`
+izvora, a drugi redni broj transakcije na njemu [@mysql84refman]. Replicirana transakcija zadržava
+GTID koji je dobila na izvoru, a server preskače svaku transakciju čiji je GTID već izvršio, pa se
+transakcija na jednom serveru primenjuje najviše jednom [@mysql84refman]. Opisana transakcija na oba
+servera nosi isti GTID, sa rednim brojem 16854.
+
+<!--
+  Absence-claim check (../../NOTES.md rule 1), 2026-10-09. The failover sentences below are worded
+  as the manual's positive procedure, not as "MySQL cannot fail over asynchronously":
+  rung 1, refman 8.4 sec. 19.4.8 "Switching Sources During Failover": "you can pick one of the
+  replicas to become the new source", then CHANGE REPLICATION SOURCE TO.
+  rung 1, refman 8.4 "Asynchronous Connection Failover for Sources" EXISTS: with GTIDs and
+  SOURCE_AUTO_POSITION a replica re-points automatically to another source from a stored list.
+  It re-points a connection; it is not documented as promoting a replica. So no sentence here may
+  say asynchronous replication has no automatic failover of any kind. Ch. 5/6 own the automation.
+-->
+GTID-ovi menjaju i način na koji se replika povezuje sa izvorom. Uz opciju
+`SOURCE_AUTO_POSITION = 1` naredbe `CHANGE REPLICATION SOURCE TO` replika ne navodi ni datoteku ni
+poziciju, već pri povezivanju šalje skup GTID-ova koje je već primila ili izvršila, a izvor joj šalje
+sve transakcije iz svog binarnog loga čiji GTID nije u tom skupu [@mysql84refman]. Automatsko
+pozicioniranje je, dakle, razlika dva skupa, a ne traženje adrese. Obe replike u topologiji ovog
+rada pokrenute su upravo tako, od praznog skupa, pa su celu istoriju izvora dobile iz njegovog
+binarnog loga. Priručnik navodi da su GTID-ovi uvedeni da pojednostave upravljanje replikacijom, a
+posebno failover (preuzimanje uloge izvora nakon otkaza) [@mysql84refman]. Pojednostavljeno je
+pozicioniranje, a ne odluka: prema priručniku, kada izvor otkaže, operater bira repliku koja postaje
+novi izvor i ostale replike na nju preusmerava naredbom `CHANGE REPLICATION SOURCE TO`
+[@mysql84refman]. Mehanizmi koji tu odluku donose automatski predmet su petog i šestog poglavlja.
+
+## Niti replikacije i mesto kašnjenja
+
+Put transakcije od izvora do podataka replike prikazan je na slici 3.1 i prolazi kroz tri vrste
+niti. Na izvoru, za svaku povezanu repliku, po jedna nit koja šalje log (binlog dump thread) čita
+binarni log i šalje njegov sadržaj replici. Na replici nit prijema (receiver thread) prima te
+događaje i kopira ih u lokalne datoteke koje čine relay log. Relay log zatim čita koordinator
+primene, koji transakcije raspoređuje nitima primene (applier threads); u verziji 8.4 replika
+podrazumevano ima četiri niti primene [@mysql84refman]. Uz podrazumevanu vrednost
+`replica_preserve_commit_order = ON` niti primene komituju transakcije istim redosledom kojim se
+nalaze u relay logu, pa replika, uz ograničenja koja priručnik navodi, zadržava istu istoriju
+transakcija kao izvor [@mysql84refman]. Na topologiji ovog rada izvor ima dve niti koje šalju log,
+po jednu za svaku repliku, a replika node3 nit prijema, koordinator i četiri niti primene.
+
+![Slika 3.1: Put transakcije pri asinhronoj replikaciji. Klijent dobija potvrdu čim izvor transakciju komituje, bez čekanja replike; nit koja šalje log zatim prenosi događaje replici, gde ih nit prijema upisuje u relay log, a niti primene izvršavaju.](figures/03-binlog-01-tok-replikacije.png){width=90%}
+
+Podela posla između niti objašnjava gde nastaje kašnjenje replikacije (replication lag). Nit prijema
+samo kopira bajtove, dok niti primene moraju da izvrše transakcije koje je na izvoru istovremeno
+izvršavalo mnogo sesija, pa je primena po pravilu sporija od prijema. To pokazuje i merenje na
+topologiji ovog rada. Kada je izvor u naletu upisao četiri hiljade jednorednih transakcija, a
+replika node2 imala samo jednu nit primene, relay log je prestao da raste posle približno tri
+sekunde, dok je kašnjenje primene nastavilo da raste i posle deset sekundi. Nit prijema je tada već
+imala ceo nalet, a zaostajala je samo primena. Kašnjenje se, dakle, gomila iza relay loga, a ne u
+mreži, i to je polazište sedmog poglavlja, koje se bavi merenjem kašnjenja i skaliranjem čitanja.
+
+## Asinhrona potvrda
+
+Ostaje pitanje kada klijent dobija potvrdu. Replikacija u MySQL-u je podrazumevano asinhrona
+[@mysql84refman]: izvor transakciju komituje i klijentu vraća potvrdu, a da nijedna replika ne mora
+da je primi, dok je nit koja šalje log prenosi nezavisno od toga. Posledica se vidi na slici 3.1:
+između potvrde klijentu i prijema na replici postoji prozor u kome komitovana transakcija postoji
+samo na izvoru. Ako izvor u tom prozoru trajno otkaže, na primer zbog kvara diska, replike
+transakciju nikada neće dobiti, jer događaje dobijaju isključivo od niti koja na izvoru šalje log, a
+ne čitanjem njegovih datoteka. Klijent je, međutim, već dobio potvrdu za upis koji više ne postoji ni
+na jednom čvoru. Postojanost iz prethodnih odeljaka tu ne pomaže, jer štiti transakciju samo na
+disku izvora. Kada se jedna od replika zatim unapredi u izvor, sistem se vraća u stanje starije od
+potvrđenog upisa, što je upravo ono što stroga konzistentnost iz drugog poglavlja zabranjuje.
+
+U terminima PACELC-a asinhrona replikacija na drugo pitanje odgovara bez zadrške: dok mreža radi,
+komitovanje ne čeka druge čvorove, pa se bira latencija. Cenu plaćaju klijenti koji čitaju sa
+replika, a pri otkazu izvora i sami potvrđeni upisi. Mehanizam pritom ostaje isti bez obzira na
+podešavanja: izvor uvek isporučuje binarni log, a format zapisa i promenljive `sync_binlog` i
+`innodb_flush_log_at_trx_commit` određuju samo šta je u logu i koliko je on postojan na samom
+izvoru. Ono što se menja nije log, već trenutak u kome pisac dobija potvrdu, a asinhrona replikacija
+taj trenutak postavlja najranije što je moguće. Četvrto poglavlje ga pomera, uvodeći semisinhronu
+replikaciju, u kojoj izvor pre potvrde čeka da bar jedna replika primi transakciju.

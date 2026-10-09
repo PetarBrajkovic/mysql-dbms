@@ -1,0 +1,34 @@
+%% Slika 3.1 - asynchronous replication pipeline, source -> replica. Rendered via the mermaid render tool (light theme).
+%% Only one edge crosses a subgraph border (S --> R), so each subgraph keeps its own LR layout.
+flowchart TB
+  subgraph S["Klijent i izvor (node1, 3307)"]
+    direction LR
+    c["Klijent"]
+    bl[("binarni log")]
+    dump["nit koja šalje log<br/>(Binlog Dump)"]
+    c -- "1. COMMIT" --> bl
+    bl -. "2. OK, bez čekanja replike" .-> c
+    bl --> dump
+  end
+  subgraph R["Replika (node3, 3309)"]
+    direction LR
+    io["nit prijema"]
+    rl[("relay log")]
+    co["koordinator<br/>primene"]
+    w["niti primene (4)"]
+    db[("podaci<br/>replike")]
+    n["ovde se gomila<br/>kašnjenje"]
+    io --> rl --> co --> w --> db
+    w -.- n
+  end
+  S -- "3. događaji iz binarnog loga, mrežom" --> R
+  classDef leader fill:#64748b,stroke:#334155,color:#fff
+  classDef rep fill:#e5e7eb,stroke:#6b7280,color:#111
+  classDef cli fill:#fff,stroke:#374151,color:#111
+  classDef warn fill:#fff7ed,stroke:#c2410c,stroke-dasharray:4 3,color:#7c2d12
+  class bl,dump leader
+  class io,rl,co,w,db rep
+  class c cli
+  class n warn
+  style S fill:#fff,stroke:#9ca3af
+  style R fill:#fff,stroke:#9ca3af

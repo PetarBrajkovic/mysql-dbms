@@ -39,3 +39,9 @@ Binding on every session here: `GLOSSARY.md` (terms are locked - do not re-trans
 budget in `GLOSSARY.md` section 3, the caption honesty rule in section 5, `academic-research-writer`
 for all prose, `serbian-grammar` for every Serbian line, and the two research rules in
 `../../NOTES.md` (**no unverified absence claim**, **walk the source ladder and record the rung**).
+
+**Carried from ch. 3 writing (2026-10-09)**: refman 8.4 documents *Asynchronous Connection Failover*
+(a replica re-points automatically to another source from a stored list; needs GTIDs and
+`SOURCE_AUTO_POSITION`; also a Group-Replication-aware variant). It re-points a connection and is not
+documented as promoting a replica. Any sentence here contrasting "automatic" group failover with
+"manual" async failover must account for it (rule 1). Ch. 3 avoided the claim; see the HTML comment there.

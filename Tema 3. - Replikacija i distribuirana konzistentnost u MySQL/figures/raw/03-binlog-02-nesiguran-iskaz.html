@@ -1,0 +1,28 @@
+﻿<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  body { background: #ffffff; font-family: Consolas, 'Courier New', monospace; padding: 24px; }
+  html, body { overflow: hidden; }
+  pre { font-size: 13px; white-space: pre; margin: 0; }
+</style></head><body>
+<pre>-- isti iskaz, dva formata binarnog loga (izvor 3307, MySQL 8.4.11)
+UPDATE invoices SET paid_status = 'paid'
+  WHERE tenant_id = 1 AND paid_status = 'unpaid' LIMIT 2;
+
+-- (a) binlog_format = STATEMENT: server upozorava,
+--     a u log bi se upisao sam iskaz
+Note 1592 Unsafe statement written to the binary log using statement format
+  since BINLOG_FORMAT = STATEMENT.
+The statement is unsafe because it uses a LIMIT clause.
+This is unsafe because the set of rows included cannot be predicted.
+
+-- (b) binlog_format = ROW: u log se upisuju izmenjeni redovi,
+--     pre (WHERE) i posle (SET) izmene; mysqlbinlog -v, kolone:
+--     @1 invoice_id, @2 patient_id, @3 tenant_id, @4 amount,
+--     @5 paid_status (ENUM po indeksu: 1 = 'unpaid', 2 = 'paid')
+UPDATE `poliklinika`.`invoices`
+  WHERE @1=11 @2=11 @3=1 @4=149.92 @5=1
+  SET @1=11 @2=11 @3=1 @4=149.92 @5=2
+UPDATE `poliklinika`.`invoices`
+  WHERE @1=18 @2=18 @3=1 @4=144.77 @5=1
+  SET @1=18 @2=18 @3=1 @4=144.77 @5=2</pre>
+</body></html>

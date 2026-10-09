@@ -139,6 +139,7 @@ a replication window, and it silently reported the window as absent.
 | Script | Figures it builds | What it asserts |
 |---|---|---|
 | `tools/make-lag-plot.py` *(to be written at ch. 7)* | Slika 7.1 | the two lag series diverge; real lag rises above idle baseline |
+| `examples/02-binlog-async/05-slika-nesiguran-iskaz.ps1` | Slika 3.2 (`-Raw` via `../../tools/make-table-figure.ps1`) | Note 1592 under `STATEMENT`; a decoded `Update_rows` event for `invoices` under `ROW`; the update is reverted and the revert is visible on 3307/3308/3309 |
 
 ## Own diagrams vs official ones
 
@@ -146,4 +147,5 @@ One row per drawn diagram: which official diagram was checked, and why ours was 
 
 | Figure | Official diagram checked | Why ours |
 |---|---|---|
+| Slika 3.1 async pipeline source → replica (`03-binlog-01-tok-replikacije`, source `.mmd` beside it) | refman 8.4 §19.2.3 *Replication Threads*: text only, no diagram; §19.4.8 has topology figures (web clients → source → replicas), not the thread pipeline | needs the thread pipeline, the point where the client's OK leaves, and where lag accumulates (measured, ticket 10), all with Serbian labels |
 | Slika 2.1 three replication models (`02-teorija-01-modeli-replikacije`, source `.mmd` beside it) | MySQL 8.4 refman ch. 19-20: none, the three models are literature categories, not MySQL features. Kleppmann DDIA ch. 5 draws them as separate figures (not fetched; copyrighted book art) | needs all three side by side on one visual vocabulary, with Serbian labels; the panel titles stay English per `GLOSSARY.md` §1d (ch. 2 role vocabulary) |

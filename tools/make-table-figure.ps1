@@ -53,12 +53,17 @@ if ($Raw) {
         $_.Replace('&','&amp;').Replace('<','&lt;').Replace('>','&gt;')
     }) -join "`n"
 
-    $height = [Math]::Max(220, 100 + ($rawLines.Count * 22))
+    # Tight crop sized to the text (13px Consolas: ~7.2px per char, ~15px per line, 24px padding),
+    # so a short extract does not land on a mostly empty 1400px canvas.
+    $maxLen = ($rawLines | Measure-Object -Property Length -Maximum).Maximum
+    $width  = [int](48 + 7.3 * $maxLen + 16)
+    $height = [int](48 + 15.2 * $rawLines.Count + 8)
 
     $page = @"
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
   body { background: #ffffff; font-family: Consolas, 'Courier New', monospace; padding: 24px; }
+  html, body { overflow: hidden; }
   pre { font-size: 13px; white-space: pre; margin: 0; }
 </style></head><body>
 <pre>$escaped</pre>
@@ -76,6 +81,7 @@ if ($Raw) {
     $tableHtml = & mysql --defaults-extra-file="$creds" -D $Database --html -e $sqlText
     if ($LASTEXITCODE -ne 0 -or -not $tableHtml) { throw "mysql produced no output - check mysql-credentials.cnf." }
 
+    $width = 1400
     $rowCount = ($tableHtml | Select-String '<TR>').Count
     $height = [Math]::Max(220, 120 + ($rowCount * 34))
 
@@ -102,7 +108,9 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Parent $pngPath) | Out-Nu
 $edge = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 $edgeProfile = Join-Path $env:TEMP "myflames-edge-headless"
 Write-Host "Rasterizing table to PNG ..."
-& $edge --headless --disable-gpu --user-data-dir="$edgeProfile" --screenshot="$pngPath" --window-size="1400,$height" --default-background-color=FFFFFFFF "file:///$htmlPath"
+& $edge --headless --disable-gpu --user-data-dir="$edgeProfile" --screenshot="$pngPath" --window-size="$width,$height" --default-background-color=FFFFFFFF "file:///$htmlPath"
 
+# Edge can return before the screenshot is flushed (seen on Tema 3), so poll briefly before failing.
+for ($i = 0; $i -lt 20 -and -not (Test-Path $pngPath); $i++) { Start-Sleep -Milliseconds 500 }
 if (-not (Test-Path $pngPath)) { throw "Edge headless did not produce $pngPath" }
 Write-Host "`nDone: $pngPath`n"
