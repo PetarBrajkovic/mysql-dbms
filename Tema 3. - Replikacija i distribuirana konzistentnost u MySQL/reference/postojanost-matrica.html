@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referentni list — Postojanost i matrica sync_binlog × innodb_flush_log_at_trx_commit</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentni list · Poglavlje 3, deo B</p>
+<h1>Postojanost: write, fsync, WAL, dvofazno komitovanje, matrica</h1>
+<p class="subtitle">Sažetak <a href="../lessons/0003-postojanost-wal-dvofazno-komitovanje.html">lekcije 03</a>. MySQL 8.4.</p>
+
+<h2>Dva poziva, dve vrste pada</h2>
+<table class="exp">
+  <tr><td><code>write()</code></td><td>podaci u kešu OS-a (RAM); poziv se vraća odmah</td></tr>
+  <tr><td><code>fsync()</code></td><td>čeka dok uređaj ne javi da je upisano (Windows: <code>FlushFileBuffers</code>)</td></tr>
+  <tr><td>pad procesa <code>mysqld</code></td><td>keš OS-a preživi → sve što je prošlo <code>write</code> je sačuvano</td></tr>
+  <tr><td>pad OS-a / nestanak struje</td><td>keš OS-a nestaje → sačuvano je samo ono što je prošlo <code>fsync</code></td></tr>
+</table>
+
+<h2>WAL i dva loga</h2>
+<table class="exp">
+  <tr><td>WAL</td><td>opis izmene se dopiše u log i dobije <code>fsync</code> pre „OK“; stranice se pišu kasnije; posle pada se log ponavlja</td></tr>
+  <tr><td>redo log</td><td>InnoDB-ov WAL · bajtovi u stranicama · oporavak · briše se do checkpointa · <code>#innodb_redo</code></td></tr>
+  <tr><td>binarni log</td><td>log servera · iskazi ili redovi · replikacija · čuva se dok se ne obriše</td></tr>
+  <tr><td>zašto dva</td><td><strong>istorijska odluka</strong> (više mašina za skladištenje, binarni log iznad njih), ne posledica</td></tr>
+</table>
+
+<h2>Dvofazno komitovanje (internal XA)</h2>
+<pre>COMMIT(T):
+  1  redo.append(T, PREPARED);   redo.fsync()     // phase 1: prepare
+         ⚡ crash A  →  binlog does not contain T
+  2  binlog.append(T);           binlog.fsync()   // phase 2: DECISION POINT
+         ⚡ crash B  →  binlog contains T
+  3  redo.append(T, COMMITTED)                    // records the decision
+  4  return "OK" to client
+
+RECOVER():                                        // on restart after a crash
+  for each T marked PREPARED in redo:
+      if binlog.contains(T):  commit(T)           // crash B
+      else:                   rollback(T)         // crash A</pre>
+<p><strong>Pravilo oporavka:</strong> pripremljen T koji je u binarnom logu → commit; koji nije → rollback.
+  Binarni log odlučuje jer je on jedino što replike dobijaju (K3).</p>
+
+<h2>Matrica</h2>
+<table class="exp">
+  <tr><td><code>innodb_flush_log_at_trx_commit</code></td><td>1 write+fsync po komitovanju (podraz.) · 2 write po komitovanju, fsync ~1/s · 0 write+fsync ~1/s</td></tr>
+  <tr><td><code>sync_binlog</code></td><td>1 fsync po komitovanju (podraz. od 5.7.7) · 0 OS odlučuje · N svakih N grupa</td></tr>
+</table>
+<table class="exp">
+  <tr><td><b>redo / binlog</b></td><td><b>pad OS-a ili struje</b> (pad samo mysqld: ništa, osim pri redo = 0) · <b>µs/komit., naša topologija</b></td></tr>
+  <tr><td>1 / 1</td><td>ništa se ne gubi, logovi usklađeni · 764</td></tr>
+  <tr><td>2 / 1</td><td>binlog ima T, redo izgubio pripremu → replike imaju T, izvor ne (izvedeno) · 355</td></tr>
+  <tr><td>1 / 0</td><td>InnoDB komitovao T koji binlog nema → izvor ima T, replike ne (refman) · 634</td></tr>
+  <tr><td>2 / 0</td><td>do ~1 s izgubljeno + razilaženje u oba smera · 61</td></tr>
+  <tr><td>0 / *</td><td>do ~1 s izgubljeno čak i pri padu samo mysqld (<code>innodb_flush_log_at_timeout</code> = 1)</td></tr>
+</table>
+<p><strong>Merenje (zapis 0005):</strong> pri 1/1 redo log dobija ~2 <code>fsync</code>-a po komitovanju sa binarnim
+  logom, ~1 bez njega (<code>sql_log_bin = 0</code>); vreme ~930 µs naspram ~360 µs.
+  <code>examples/02-binlog-async/04-postojanost.sql</code>.</p>
+
+<p class="meta">
+  <strong>Izvori:</strong>
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/replication-options-binary-log.html#sysvar_sync_binlog">sync_binlog</a> ·
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_flush_log_at_trx_commit">innodb_flush_log_at_trx_commit</a> ·
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/binary-log.html">The Binary Log</a> ·
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/innodb-redo-log.html">Redo Log</a> ·
+  <a href="https://man7.org/linux/man-pages/man2/fsync.2.html">fsync(2)</a>
+</p>
+</body>
+</html>

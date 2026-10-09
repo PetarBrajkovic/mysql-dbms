@@ -110,6 +110,31 @@ and it is this paper's best defence against Croatianisms.
 never *eventualna konzistentnost*; never *sertifikacija* for certification; never *podeljeni mozak*;
 never *latencija replikacije*; never *master/slave* as working terms.
 
+### 1b''. Added at ticket 15 (ch. 3 lesson A, record 0004)
+
+| Concept | Serbian term (first use) | After first use | Note |
+|---|---|---|---|
+| Unsafe statement | nesiguran iskaz *(unsafe statement)* | nesiguran iskaz | refman's "unsafe for statement-based replication" |
+| Deterministic (change) | deterministička promena | — | result depends only on the data it runs on |
+| Statement-based / row-based logging | upisivanje iskaza / upisivanje redova | — | the formats themselves stay `STATEMENT` / `ROW` / `MIXED` |
+| Binlog dump thread | nit koja šalje log *(binlog dump thread)* | nit koja šalje log | source side, one per connected replica |
+| Applier coordinator / workers | koordinator primene / niti primene | — | when `replica_parallel_workers` > 0 |
+| Auto-positioning | automatsko pozicioniranje | — | what `SOURCE_AUTO_POSITION = 1` turns on |
+| Sandbox (the three local instances) | naša topologija *(3307/3308/3309)* | topologija | **never** „pesak za igru“ |
+
+### 1b‴. Added at ticket 15 (ch. 3 lesson B, record 0005)
+
+| Concept | Serbian term (first use) | After first use | Note |
+|---|---|---|---|
+| Two-phase commit (internal XA, InnoDB ↔ binlog) | dvofazno komitovanje *(two-phase commit)* | dvofazno komitovanje | **never** „dvofazna potvrda“: *potvrda* is locked for acknowledgement (§1b). Follows the deck's *komitovanje*. His choice, 0005 |
+| Prepare / prepared transaction | priprema / pripremljena transakcija *(prepare)* | priprema | first phase, written to the redo log |
+| Write-ahead logging | *write-ahead logging (WAL)* | WAL | kept English |
+| Redo log | redo log | redo log | deck keeps Undo/Redo English (§1a) |
+| `write()` / `fsync()` | kept as code | — | Windows equivalent `FlushFileBuffers`, named once |
+| OS page cache | keš operativnog sistema | keš OS-a | |
+| Process crash vs OS crash | pad procesa `mysqld` / pad operativnog sistema | — | the distinction the matrix rests on |
+| Group commit | grupno komitovanje *(group commit)* | grupno komitovanje | |
+
 ### 1c. Verbatim - never translated, never declined
 
 Identifiers, keywords and product proper nouns:

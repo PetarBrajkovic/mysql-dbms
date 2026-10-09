@@ -1,7 +1,12 @@
 # Chapter 3 - Binarni log, GTID i asinhrona replikacija
 
 Type: task (execution - see the map's execution override)
-Status: open
+Status: open - **writing half claimed** (new session after lesson B)
+
+Progress (2026-10-08): the lesson half is split into two lessons, **both taught**. Lesson A
+(`lessons/0002-binarni-log-gtid-asinhrona.html`, record 0004: items 1, 3, 4 and the async-commit
+window); lesson B (`lessons/0003-postojanost-wal-dvofazno-komitovanje.html`, record 0005: item 2,
+durability). Remaining: the writing half.
 Blocked by: 10, 12, 14
 
 ## Question

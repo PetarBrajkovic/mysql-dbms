@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referentna kartica — binarni log, GTID i niti replikacije</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentna kartica · Poglavlje 3</p>
+<h1>Binarni log, GTID i niti replikacije</h1>
+<p class="subtitle">Sažetak <a href="../lessons/0002-binarni-log-gtid-asinhrona.html">lekcije 02</a>.
+Termini prema <a href="../GLOSSARY.md">GLOSSARY.md</a> §1b. Sve provereno na MySQL 8.4.11.</p>
+
+<h2>Tri korena</h2>
+<table class="exp">
+  <tr><td>K1</td><td>Log je niz zapisa o promenama; novi zapis ide samo na kraj, postojeći se ne menjaju.</td></tr>
+  <tr><td>K2</td><td>Isto početno stanje + iste determinističke promene + isti redosled = isto krajnje stanje.</td></tr>
+  <tr><td>K3</td><td>Replika o izvoru zna samo ono što joj stigne porukom preko mreže.</td></tr>
+</table>
+<p><strong>Posledica:</strong> replikacija u MySQL-u je slanje binarnog loga i njegovo ponovno
+izvršavanje na replici. Ne kopira se stanje, nego log.</p>
+
+<h2>Formati binarnog loga</h2>
+<table class="cmp">
+  <tr><th>Format</th><th>Zapis</th><th>Napomena</th></tr>
+  <tr><td><code>STATEMENT</code></td><td>tekst iskaza</td><td>nesiguran iskaz se upisuje uz Note 1592</td></tr>
+  <tr><td><code>ROW</code></td><td>promenjeni redovi; za UPDATE stara i nova vrednost</td><td>podrazumevano od 5.7.7; <code>binlog_row_image = FULL</code></td></tr>
+  <tr><td><code>MIXED</code></td><td>tekst, a redovi za nesigurne iskaze</td><td>—</td></tr>
+</table>
+<p><code>binlog_format</code> je zastarela promenljiva od 8.0.34; ubuduće ostaje samo <code>ROW</code>.</p>
+
+<h2>Bezbedno ili nesigurno u formatu STATEMENT</h2>
+<table class="cmp">
+  <tr><th>Bezbedno</th><th>Nesigurno</th></tr>
+  <tr><td><code>NOW()</code>, <code>CURDATE()</code>, <code>UNIX_TIMESTAMP()</code>, <code>LAST_INSERT_ID()</code> (vrednost se šalje u logu)</td>
+      <td><code>SYSDATE()</code>, <code>UUID()</code>, <code>RAND()</code>, <code>USER()</code>, <code>SLEEP()</code></td></tr>
+  <tr><td><code>WHERE</code> uslov bez <code>LIMIT</code>, i po ne-ključnoj koloni</td>
+      <td><code>LIMIT</code> bez <code>ORDER BY</code> u <code>UPDATE</code>, <code>DELETE</code>, <code>INSERT … SELECT</code></td></tr>
+</table>
+<p><strong>Princip:</strong> iskaz je bezbedan ako mu rezultat zavisi samo od podataka i od vrednosti
+upisanih u log. Spisak funkcija je odluka dizajna:
+<a href="https://dev.mysql.com/doc/refman/8.4/en/replication-rbr-safe-unsafe.html">refman, Safe and Unsafe Statements</a>.</p>
+
+<h2>GTID</h2>
+<table class="exp">
+  <tr><td>oblik</td><td><code>server_uuid:n</code>, npr. <code>92f36f51-b420-11f1-aa37-9c6b001d863b:16854</code></td></tr>
+  <tr><td><code>gtid_executed</code></td><td>skup svih izvršenih GTID-ova; <code>uuid:1-16854</code> = transakcije 1 do 16854</td></tr>
+  <tr><td><code>SOURCE_AUTO_POSITION = 1</code></td><td>replika pošalje svoj skup; izvor pošalje sve iz svog binarnog loga čega u tom skupu nema</td></tr>
+  <tr><td>datoteka + bajt</td><td>adresa u logu <strong>jednog</strong> servera; ne važi na drugom izvoru</td></tr>
+</table>
+
+<h2>Niti</h2>
+<table class="cmp">
+  <tr><th>Nit</th><th>Gde</th><th>Posao</th><th>U <code>performance_schema.threads</code></th></tr>
+  <tr><td>nit koja šalje log</td><td>izvor, po jedna po replici</td><td>čita binarni log i šalje</td><td>komanda <code>Binlog Dump GTID</code></td></tr>
+  <tr><td>nit prijema</td><td>replika</td><td>prepisuje u relay log</td><td><code>thread/sql/replica_io</code></td></tr>
+  <tr><td>koordinator primene</td><td>replika</td><td>deli transakcije nitima primene</td><td><code>thread/sql/replica_sql</code></td></tr>
+  <tr><td>niti primene</td><td>replika</td><td>izvršavaju transakcije</td><td><code>thread/sql/replica_worker</code> (podrazumevano 4)</td></tr>
+</table>
+<p>Kašnjenje je u niti primene: ona ponovo radi pravi posao, a izvor ga je radio iz više sesija uporedo.
+Preuzeto se vidi u <code>replication_connection_status.LAST_QUEUED_TRANSACTION</code>, a primenjeno u
+<code>replication_applier_status_by_worker.LAST_APPLIED_TRANSACTION</code>.</p>
+
+<h2>Naredbe u 8.4 (stari oblici su uklonjeni)</h2>
+<table class="cmp">
+  <tr><th>8.4</th><th>Uklonjeno</th></tr>
+  <tr><td><code>CHANGE REPLICATION SOURCE TO</code></td><td><code>CHANGE MASTER TO</code></td></tr>
+  <tr><td><code>START REPLICA</code> / <code>STOP REPLICA</code></td><td><code>START SLAVE</code> / <code>STOP SLAVE</code></td></tr>
+  <tr><td><code>SHOW REPLICA STATUS</code></td><td><code>SHOW SLAVE STATUS</code></td></tr>
+  <tr><td><code>SHOW BINARY LOG STATUS</code></td><td><code>SHOW MASTER STATUS</code></td></tr>
+  <tr><td><code>RESET BINARY LOGS AND GTIDS</code></td><td><code>RESET MASTER</code></td></tr>
+</table>
+<p><code>SHOW BINLOG EVENTS IN '…'</code> traži privilegiju <code>REPLICATION SLAVE</code> (na našoj topologiji: root, ne dbadmin).</p>
+
+<h2>Asinhrona replikacija u jednoj rečenici</h2>
+<p class="interpret">Izvor klijentu potvrđuje komitovanje pre nego što je bilo koja replika videla
+transakciju. Ako izvor tada nepovratno otkaže, potvrđena transakcija je izgubljena.</p>
+
+<p class="meta">Izvori: <a href="https://dev.mysql.com/doc/refman/8.4/en/replication-implementation.html">refman 8.4, 19.2</a> ·
+<a href="https://dev.mysql.com/doc/refman/8.4/en/replication-gtids-auto-positioning.html">GTID Auto-Positioning</a> ·
+<a href="https://dev.mysql.com/doc/refman/8.4/en/replication-threads.html">Replication Threads</a> ·
+<a href="https://dev.mysql.com/doc/relnotes/mysql/8.4/en/news-8-4-0.html">release notes 8.4.0</a> ·
+<a href="https://dev.mysql.com/blog-archive/mysql-terminology-updates/">MySQL Terminology Updates (2020)</a></p>
+
+<script src="../../assets/copy.js"></script>
+</body>
+</html>

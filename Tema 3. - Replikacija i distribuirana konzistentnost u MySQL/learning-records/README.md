@@ -13,6 +13,8 @@ chapter, never when planning a lesson.
 | [0001](0001-replication-topology.md) | — (ticket 10) | The three-instance sandbox, and what the live servers said about the memos | the topology itself; semisync latency and timeout degradation; applier vs receiver lag; `Seconds_Behind_Source`; read-your-writes |
 | [0002](0002-group-replication.md) | — (ticket 11) | The group, the quorum, the conflicts and a live InnoDB ClusterSet — all of it works locally | Group Replication; quorum loss; multi-primary conflicts; `group_replication_consistency`; geo-distribution and ClusterSet |
 | [0003](0003-theory-framework.md) | 2 (ticket 14, lesson) | Vocabulary from three roots; PACELC as two plain questions; Abadi is the citation for "Dynamo quorums are not linearizable" | consistency models, RYW vs monotonic reads, CAP misreadings, PACELC, replication models, consensus, the two quorums; memo 07's errors |
+| [0004](0004-binlog-gtid-async.md) | 3, part A (ticket 15, lesson) | Replication = binlog shipping + replay; GTID is a name, file+offset an address; async acks before any replica saw it | binlog formats, unsafe statements, GTID / auto-positioning, receiver/applier threads, the rename, async loss window |
+| [0005](0005-durability-wal-2pc.md) | 3, part B (ticket 15, lesson) | write ≠ fsync; WAL/redo; two logs need two-phase commit with the binlog as decision point; the matrix | durability, crash recovery, `sync_binlog` × `innodb_flush_log_at_trx_commit`, process vs OS crash; ch. 4 `AFTER_SYNC` builds on it |
 
 ## Standing constraints these records impose on every later chapter
 
@@ -44,6 +46,14 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   ever OFF after `start`, check `mysqld-auto.cnf` first. (0003)
 - **Memo 07 §1's `group_replication_consistency` levels are wrong** (names and semantics); ch. 5 takes
   them from the refman only. Ch. 2 cites **Abadi 2012** for "Dynamo quorums are not linearizable". (0003)
+- **Ch. 3 is taught as two lessons**: A (0004: binlog, formats, GTID, threads, rename, async) and B
+  (0005: durability, WAL, two-phase commit, the matrix); both taught. Lessons and examples use **root** on the topology:
+  `dbadmin` lacks `REPLICATION SLAVE`, so `SHOW BINLOG EVENTS` fails for it. (0004)
+- In 8.4 only the new statement forms exist (`SHOW BINARY LOG STATUS`, `RESET BINARY LOGS AND GTIDS`,
+  `CHANGE REPLICATION SOURCE TO` …); the MASTER/SLAVE forms were removed in 8.4.0. (0004)
+- Two-phase commit is **„dvofazno komitovanje“**, never „dvofazna potvrda“ (potvrda = acknowledgement).
+  Matrix row 2/1 and the process-crash column are derived, not quoted; the ~2 redo fsyncs per commit
+  with the binlog on is a measurement, not a documented mechanism. (0005)
 - A clean `topology.ps1 stop` is a **graceful leave**, not a failure — it cannot be used to
   demonstrate quorum loss. Losing majority requires killing the process. (0002)
 
@@ -62,6 +72,8 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   COMMIT`, not `ER_TRANSACTION_ROLLBACK_DURING_COMMIT` (3101), and `COUNT_CONFLICTS_DETECTED` never
   moves — measured across four different timings. First-commit-wins and row-level granularity both
   hold. (0002)
+- **Memo 03 is wrong on `NOW()`** (lists it as unsafe; refman: safe, the binlog carries the timestamp)
+  and **overstates GTIDs** ("failover is automatic"; refman: GTIDs *simplify* failover). (0004)
 - **Memo 03, claim 9 (parallel applier 2–4×) is understated** for this workload: measured 8.2×
   (40 507 ms → 4 950 ms at 4 workers). Treat as an optimistic upper bound — independent single-row
   inserts are the ideal case. (0001)

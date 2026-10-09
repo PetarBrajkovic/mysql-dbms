@@ -62,6 +62,13 @@ learned about him goes here, so a new topic inherits it.
 - **Put the state a question depends on into the question stem.** Sandbox setup, topology state and
   results of agent-run tickets are not shared context unless they are on screen; he applies the
   concept, he does not recall what the agent measured.
+- **Explanation first, then the quiz, and the explanation must actually reach him.** He reads the
+  session in Obsidian via `md-log` and wants the Tema 2 rhythm: prose, then one quiz at its end, in the
+  same flow. Explanations go in visible text, never in the quiz `details` field and never only in
+  thinking (thinking never reaches him). Protocol: send each node's explanation as its own text-only
+  message ending with „napiši „dalje““, then send the quiz (short lead-in) after he replies.
+- **No translated metaphors for tooling or process words.** "Pesak za igru" (sandbox) and "radnik"
+  (worker) confused him. Say what it is: "naša topologija (3307/3308/3309)", "nit".
 - **Plain-language questions before acronyms.** Letter acronyms (PACELC's PA/EL) blocked him where
   the concept did not. Teach the idea first; introduce the acronym afterwards as shorthand.
 
@@ -73,8 +80,11 @@ Standing across all topics. Set 2026-08-22 to 2026-08-24 for Tema 1 and carried 
 
 **Language.** Every user-facing learning artifact (`lessons/*.html`, `reference/*.html`) is written
 in **Serbian, Latin script** — headings, explanations, expected results, interpretations, quiz,
-captions. Terms follow the topic's `GLOSSARY.md`. Two carve-outs: (1) **code and server output stay
-as code** (SQL `--` comments may be Serbian, since they are read); (2) **agent/workspace bookkeeping
+captions. Terms follow the topic's `GLOSSARY.md`. Two carve-outs: (1) **code is English, all of it**:
+SQL, scripts and pseudocode, including identifiers (databases, tables, procedures, column aliases)
+and comments; server output stays as the server prints it. His rule (Tema 3, 0005); it replaced the
+older "SQL comments may be Serbian". Pseudocode for a protocol keeps the failure points visible
+inside the step sequence (e.g. `⚡ crash A` between steps), not only in a separate recovery block; (2) **agent/workspace bookkeeping
 stays English** — `NOTES.md`, `learning-records/*`, `RESOURCES.md`, `.scratch/**`, commit messages.
 Sources may be in any language; the agent translates.
 
@@ -106,6 +116,11 @@ lesson copy is for learning, the `examples/` copy is the citable artifact.
 `assets/lesson.css`; the markup contract is in that script's header comment. Four options, all the
 same length, no formatting tell, immediate per-question feedback. This is why the personal wrapper
 skill exists: **use `/teach`**, not `/mattpocock-skills:teach`.
+
+**Detailed figures in every lesson.** He asked for them (Tema 3, 0005): every shaped node gets an
+annotated figure, and measured numbers become charts. The rule lives in the `teach` skill, §Figures.
+Lesson figures are published by the makers into the topic's `viz/` and embedded as `../viz/<file>.png`;
+`figures/` stays reserved for `rad.md` figures and their naming convention.
 
 **Figures come from live data.** Generated end to end by the agent, never hand-captured. Mechanics in
 `tools/FIGURES.md`. Each topic keeps its own credentials file, gitignored, never passed as a CLI

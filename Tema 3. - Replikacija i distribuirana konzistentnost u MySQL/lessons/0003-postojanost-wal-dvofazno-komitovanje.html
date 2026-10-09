@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 03 — Postojanost: WAL, fsync i dvofazno komitovanje</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 03 · Poglavlje 3, deo B (Binarni log, GTID i asinhrona replikacija)</p>
+<h1>„OK“ znači onoliko koliko ima fsync-ova pre njega</h1>
+<p class="subtitle">Lekcija 02 je ostavila otvoreno pitanje: da li izvor koji se sruši i ponovo pokrene
+  i dalje ima transakciju koju je potvrdio. Ova lekcija ga zatvara, od RAM-a do matrice
+  <code>sync_binlog</code> × <code>innodb_flush_log_at_trx_commit</code>.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Poglavlje 3 mora da objasni šta komitovanje na izvoru zaista garantuje pre nego što se ijedna replika
+  pojavi u priči. Posle ove lekcije treba da umeš bez podsetnika: <strong>(1)</strong> zašto <code>write</code>
+  nije <code>fsync</code> i koja vrsta pada briše šta; <strong>(2)</strong> zašto baza dopisuje u log umesto da
+  upisuje stranice (WAL, redo log); <strong>(3)</strong> zašto dva loga traže dvofazno komitovanje i koje je
+  pravilo oporavka; <strong>(4)</strong> šta svaka ćelija matrice gubi i koliko košta.
+</div>
+
+<h2>1 · Program ne piše na disk, nego traži od OS-a da piše</h2>
+<p>RAM je nepostojan, a disk postojan. To je polazna tačka. Ali „upisano u datoteku“ ne znači „na disku“.
+  Program ima dva različita poziva:</p>
+<table class="exp">
+  <tr><td><code>write()</code></td><td>OS kopira podatke u svoj keš u RAM-u i odmah vraća „uspelo“; na disk ih prepisuje kasnije, kad sam odluči</td></tr>
+  <tr><td><code>fsync()</code></td><td>OS gura keš te datoteke na disk i ne vraća se dok uređaj ne javi da je upisano (na Windowsu: <code>FlushFileBuffers</code>)</td></tr>
+</table>
+<div class="slide">
+  The call blocks until the device reports that the transfer has completed.
+  <span class="sr">Linux man-pages, fsync(2)</span>
+</div>
+<p>Keš OS-a pripada <strong>operativnom sistemu</strong>, a ne procesu <code>mysqld</code>. Zato
+  <span class="hi">„pad“ nije jedna stvar</span>:</p>
+<table class="exp">
+  <tr><td>posle <code>write</code>, pre <code>fsync</code></td><td>preživi pad procesa <code>mysqld</code>; ne preživi pad OS-a ni nestanak struje</td></tr>
+  <tr><td>posle <code>fsync</code></td><td>preživi oba</td></tr>
+</table>
+<figure class="fig">
+  <img src="../viz/viz-l03-write-fsync-padovi-1791542373980.png"
+       alt="Tri sloja odozgo nadole: proces mysqld, keš operativnog sistema u RAM-u i disk. Strelica write() vodi iz procesa u keš i vraća se odmah; strelica fsync() vodi iz keša na disk i čeka potvrdu diska. Desno dve kolone: pri padu procesa mysqld gubi se samo memorija procesa, a keš OS-a i disk preživljavaju; pri padu OS-a ili nestanku struje gube se memorija procesa i keš OS-a, a preživljava samo disk.">
+  <figcaption><b>Slika 1</b> — Ono što je prošlo samo <code>write()</code> preživi pad procesa <code>mysqld</code>, ali ne i pad OS-a. Izvor: <a href="https://man7.org/linux/man-pages/man2/fsync.2.html">fsync(2)</a>.</figcaption>
+</figure>
+
+<h2>2 · Disk piše u blokovima, pa je raštrkano pisanje skupo</h2>
+<p>Disk ne upisuje bajtove nego cele blokove, a InnoDB radi sa stranicama od 16 KB. Cena upisa zavisi od toga
+  <strong>koliko različitih blokova</strong> diraš, ne od toga koliko bajtova menjaš. Hiljadu zapisa od 100 B
+  dopisanih na kraj jedne datoteke staje u dvadesetak blokova. Isti zapisi razbacani po datoteci znače
+  hiljadu celih blokova. SSD nema glavu koja se pomera, ali ni on ne piše manje od bloka.</p>
+<p>Red ima svoje mesto: stranicu u B+ stablu po primarnom ključu. Transakcija koja menja tri reda u tri
+  tabele dira tri stranice na tri mesta. Upisati ih sa <code>fsync</code> pri svakom komitovanju znači
+  raštrkano, sinhrono pisanje celih stranica dok klijent čeka.</p>
+<figure class="fig">
+  <img src="../viz/viz-l03-blokovi-x-y-1791542385720.png"
+       alt="Dve datoteke od po 16 blokova. U redu X, dvanaest zapisa od 100 B dopisano je jedan za drugim i staje u prva tri bloka, pa se upisuju 3 bloka. U redu Y, istih dvanaest zapisa razbacano je po datoteci, svaki u svoj blok, pa se upisuje 12 blokova.">
+  <figcaption><b>Slika 2</b> — Ista količina podataka, četiri puta više upisanih blokova: cena zavisi od broja različitih blokova, ne od broja bajtova.</figcaption>
+</figure>
+
+<h2>3 · Write-ahead logging: dopiši opis, stranice kasnije</h2>
+<p>Obećanje „OK“ traži da na disku bude <strong>informacija</strong> o izmeni, a ne baš izmenjena stranica.
+  Zato baza pre „OK“ dopiše kratak opis izmene na kraj loga i pozove <code>fsync</code> samo za log.
+  Stranice upisuje kasnije, grupno. Posle pada ponovi opise iz loga nad stranicama. To je
+  <strong>write-ahead logging (WAL)</strong>, a u InnoDB-u se taj log zove <strong>redo log</strong>.</p>
+<div class="slide">
+  The redo log is a disk-based data structure used during crash recovery to correct data written by
+  incomplete transactions. […] Redo log data is appended as data modifications occur, and the oldest
+  data is truncated as the checkpoint progresses.
+  <span class="sr">MySQL 8.4 Reference Manual, 17.6.5 Redo Log</span>
+</div>
+<figure class="fig">
+  <img src="../viz/viz-l03-wal-redo-v2-1791542559122.png"
+       alt="Dva panela. Levo, komitovanje T: opis izmena T se dopisuje na kraj redo loga, redo log dobija fsync i to je na disku, izmenjene stranice P1, P2 i P3 ostaju u RAM-u i idu na disk kasnije, grupno, a klijent dobija OK. Desno, posle pada: opis T iz redo loga se ponavlja nad stranicama P1, P2 i P3, koje se tako dovode u stanje svih komitovanih izmena.">
+  <figcaption><b>Slika 3</b> — WAL: pre „OK“ ide samo jeftino dopisivanje i jedan <code>fsync</code> loga; stranice se pišu kasnije, a posle pada se obnavljaju iz loga.</figcaption>
+</figure>
+
+<h2>4 · Dva loga: istorijska odluka, ne posledica</h2>
+<p><strong>Ovo se ne izvodi ni iz čega.</strong> MySQL je od početka imao više mašina za skladištenje.
+  Binarni log je pripadao serveru, iznad svih mašina, i služio je za replikaciju. Redo log pripada InnoDB-u
+  i služi za oporavak. Zato ih danas ima dva, i svako komitovanje mora da upiše T u oba.</p>
+<table class="exp">
+  <tr><td>binarni log</td><td>sloj servera · iskazi ili redovi (<code>ROW</code>) · replikacija · čuva se dok se ne obriše</td></tr>
+  <tr><td>redo log</td><td>sloj InnoDB-a · bajtovi u stranicama · oporavak od pada · briše se do checkpointa</td></tr>
+</table>
+
+<h2>5 · Dva odvojena upisa → izvor i replike se razilaze</h2>
+<p>Između dva odvojena upisa uvek postoji trenutak u kome je jedan gotov, a drugi nije. Ako je prvi
+  konačan i pad dođe pre drugog:</p>
+<table class="exp">
+  <tr><td>redo pa ⚡ pa binlog</td><td>oporavak obnovi T iz redo loga, ali binarni log ga nema → <strong>izvor ima T, replike nikad</strong></td></tr>
+  <tr><td>binlog pa ⚡ pa redo</td><td>replike dobiju T iz binarnog loga, ali InnoDB ga nema → <strong>replike imaju T, izvor ne</strong></td></tr>
+</table>
+<p>Prekršen je K2 iz lekcije 02 (iste promene), i to tiho: ništa ne poredi dva stanja.</p>
+
+<h2>6 · Dvofazno komitovanje: jedna tačka odluke</h2>
+<pre><span class="k">COMMIT</span>(T):
+  1  redo.append(T, PREPARED);   redo.fsync()     <span class="c">// phase 1: prepare</span>
+         <span class="em">⚡ crash A  →  binlog does not contain T</span>
+  2  binlog.append(T);           binlog.fsync()   <span class="c">// phase 2: DECISION POINT</span>
+         <span class="em">⚡ crash B  →  binlog contains T</span>
+  3  redo.append(T, COMMITTED)                    <span class="c">// records the decision</span>
+  4  <span class="k">return</span> "OK" to client
+
+<span class="k">RECOVER</span>():                                        <span class="c">// on restart after a crash</span>
+  <span class="k">for each</span> T marked PREPARED in redo:
+      <span class="k">if</span> binlog.contains(T):  commit(T)           <span class="c">// crash B</span>
+      <span class="k">else</span>:                   rollback(T)         <span class="c">// crash A</span></pre>
+<figure class="fig">
+  <img src="../viz/viz-l03-dvofazno-komitovanje-v2-1791542519617.png"
+       alt="Vremenska linija od četiri koraka: redo prima T kao pripremljen uz fsync; binarni log prima T uz fsync, označeno kao tačka odluke; redo prima T kao komitovan; OK klijentu. Pad A je između prvog i drugog koraka: binarni log nema T, oporavak radi rollback, replike nemaju T, izvor i replike su usklađeni. Pad B je između drugog i trećeg koraka: binarni log ima T, oporavak radi commit, replike dobijaju T, izvor i replike su usklađeni. Napomena: redo log u oba slučaja izgleda isto, razliku vidi samo binarni log.">
+  <figcaption><b>Slika 4</b> — Dvofazno komitovanje: oba pada ostavljaju isti redo log, a pravilo oporavka koje pita binarni log drži izvor i replike usklađenim u oba slučaja. Izvor: refman 8.4, The Binary Log.</figcaption>
+</figure>
+<p>Pri padu A i pri padu B redo log kaže isto: „pripremljen“. Razliku vidi samo binarni log. A binarni log
+  je jedino što replike ikada dobiju (K3). Zato je pravilo oporavka:
+  <span class="hi">pripremljen T koji je u binarnom logu se komituje, a koji nije, poništava se</span>.
+  Izvor se povinuje svom binarnom logu, i time ostaje usklađen sa replikama.</p>
+<div class="slide">
+  The MySQL server then tells InnoDB to complete any prepared transactions that were successfully written
+  to the binary log, and truncates the binary log to the last valid position.
+  <span class="sr">MySQL 8.4 Reference Manual, The Binary Log</span>
+</div>
+
+<h2>7 · Matrica: da li log dobija fsync pri komitovanju</h2>
+<table class="exp">
+  <tr><td><code>innodb_flush_log_at_trx_commit</code></td><td><b>1</b> write + fsync pri svakom komitovanju (podrazumevano) · <b>2</b> write pri komitovanju, fsync oko jednom u sekundi · <b>0</b> write + fsync oko jednom u sekundi</td></tr>
+  <tr><td><code>sync_binlog</code></td><td><b>1</b> fsync pri svakom komitovanju (podrazumevano od 5.7.7) · <b>0</b> MySQL ne zove fsync, OS odlučuje · <b>N</b> posle svakih N grupa komitovanja</td></tr>
+</table>
+<p>Podrazumevano 1/1 je <strong>odluka</strong>, ne posledica: do 5.7.7 <code>sync_binlog</code> je
+  podrazumevano bio 0. Posledice se izvode iz odeljaka 1 i 6:</p>
+<table class="exp">
+  <tr><td>1 / 1</td><td>pad mysqld: ništa · pad OS-a: ništa; „OK“ znači da je T na disku u oba loga</td></tr>
+  <tr><td>redo 1, binlog 0</td><td>pad mysqld: ništa · pad OS-a: binarni log može da izgubi T koji je InnoDB komitovao → izvor ima T, replike nikad</td></tr>
+  <tr><td>redo 2, binlog 1</td><td>pad mysqld: ništa · pad OS-a: redo gubi pripremu, binarni log ima T → replike imaju T, izvor ne (izvedeno)</td></tr>
+  <tr><td>redo 0</td><td>i pad samog mysqld briše do ~1 s komitovanih transakcija</td></tr>
+</table>
+<div class="slide">
+  For the greatest possible durability and consistency in a replication setup that uses InnoDB with
+  transactions, use these settings: sync_binlog=1. innodb_flush_log_at_trx_commit=1.
+  <span class="sr">MySQL 8.4 Reference Manual, Binary Logging Options and Variables (sync_binlog)</span>
+</div>
+<p>Red „redo 1, binlog 0“ priručnik navodi doslovno. Red „redo 2, binlog 1“ i kolonu „pad mysqld“
+  priručnik ne razlaže red po red; izvedeni su iz <code>write</code>/<code>fsync</code> i dvofaznog
+  komitovanja. Cena na našoj topologiji (zapis 0001, 300 komitovanja po ćeliji, asinhrono):</p>
+<figure class="fig">
+  <img src="../viz/viz-l03-matrica-latencija-1791542399304.png"
+       alt="Stubičasti grafikon latencije po komitovanju za četiri ćelije matrice: redo 1 i binlog 1, 764 mikrosekunde, zeleno, ništa se ne gubi; redo 2 i binlog 1, 355 mikrosekundi, narandžasto, replike imaju T a izvor ne; redo 1 i binlog 0, 634 mikrosekunde, narandžasto, izvor ima T a replike ne; redo 2 i binlog 0, 61 mikrosekunda, crveno, do oko jedne sekunde izgubljeno plus razilaženje. Posledice važe za pad OS-a ili nestanak struje.">
+  <figcaption><b>Slika 5</b> — Svaki izbačeni <code>fsync</code> skraćuje komitovanje i otvara jedan oblik gubitka ili razilaženja pri padu OS-a. Podaci: naša topologija, MySQL 8.4.11, 300 komitovanja po ćeliji, asinhrono (zapis 0001).</figcaption>
+</figure>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> topologija pokrenuta (<code>topology.ps1 start</code>), konekcija na
+      <strong>3307 kao root</strong>. Skripta privremeno menja <code>innodb_flush_log_at_trx_commit</code>,
+      vraća ga na 1 i briše probnu bazu <code>durability_lab</code>. Ceo fajl: <code>examples/02-binlog-async/04-postojanost.sql</code>.</p>
+
+    <h3 class="lab">Pokreni ovo (skraćeno: jedno od tri merenja)</h3>
+<pre class="sql run"><span class="k">SELECT</span> @@sync_binlog, @@innodb_flush_log_at_trx_commit, @@innodb_flush_method;
+
+<span class="c">-- after CREATE DATABASE durability_lab, table writes and procedure hundred_commits from the file:</span>
+<span class="k">SELECT</span> VARIABLE_VALUE <span class="k">INTO</span> @f0 <span class="k">FROM</span> performance_schema.global_status
+ <span class="k">WHERE</span> VARIABLE_NAME = <span class="s">'Innodb_os_log_fsyncs'</span>;
+<span class="k">SET</span> @t0 = <span class="fn">NOW</span>(6);
+<span class="k">CALL</span> hundred_commits();   <span class="c">-- 100 INSERTs, each its own commit</span>
+<span class="k">SELECT</span> VARIABLE_VALUE - @f0 <span class="k">AS</span> redo_fsyncs_per_100,
+       <span class="fn">TIMESTAMPDIFF</span>(MICROSECOND, @t0, <span class="fn">NOW</span>(6)) / 100 <span class="k">AS</span> us_per_commit
+<span class="k">FROM</span> performance_schema.global_status <span class="k">WHERE</span> VARIABLE_NAME = <span class="s">'Innodb_os_log_fsyncs'</span>;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">1 / 1 i unbuffered (Windows). Tri rezima iz fajla, otprilike:
+  no binlog, 1/1    redo_fsyncs_per_100 ≈ 100-130 (~1 po komitovanju), us_per_commit par stotina
+  binlog, 1/1       redo_fsyncs_per_100 ≈ 200 (~2 po komitovanju),     us_per_commit 2-3 puta veći
+  binlog, redo=2    redo_fsyncs_per_100 ≈ 0-5,                         us_per_commit opet par stotina</pre>
+
+<figure class="fig">
+  <img src="../viz/viz-l03-fsync-merenje-v2-1791542537633.png"
+       alt="Dva horizontalna stubičasta grafikona za tri režima na 3307. Broj fsync-ova redo loga na 100 komitovanja: bez binarnog loga 127, oko jedan po komitovanju; sa binarnim logom pri 1/1 200, oko dva po komitovanju; sa binarnim logom i redo 2, samo 1. Mikrosekundi po komitovanju: 355, 932 i 356.">
+  <figcaption><b>Slika 6</b> — Kad binarni log učestvuje, redo log dobija dva <code>fsync</code>-a po komitovanju umesto jednog, a komitovanje je oko 2,6 puta sporije. Izmereno na 3307, MySQL 8.4.11 (zapis 0005).</figcaption>
+</figure>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> kad binarni log učestvuje, redo log dobija dva
+      <code>fsync</code>-a po komitovanju umesto jednog, a ukupno vreme raste dva do tri puta. To se slaže sa
+      slikom dvofaznog komitovanja (priprema i commit, plus <code>fsync</code> binarnog loga), ali tačan raspored
+      <code>fsync</code>-ova unutar grupnog komitovanja nije potvrđen izvorom, pa se u radu navodi kao merenje,
+      ne kao opis mehanizma. Pri vrednosti 2 redo log gotovo ne zove <code>fsync</code>, i to je cena koju ćelija
+      „2/1“ plaća rizikom iz odeljka 7.</p>
+  </div>
+</div>
+
+<h2>8 · Provera</h2>
+<div class="quiz">
+  <p>Bez gledanja gore. Svako pitanje proverava jedan čvor lekcije.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. mysqld pozove write() za zapis o T, bez fsync(), i vrati „OK“. Zatim se sruši Windows. Šta je sa zapisom?</p>
+    <label><input type="radio"> Sigurno je sačuvan, jer se write() ne vraća dok zapis nije na disku</label>
+    <label><input type="radio"> Sigurno je sačuvan, jer pad OS-a ne briše keš koji pripada OS-u</label>
+    <label><input type="radio"> Možda je izgubljen, jer je posle write() bio samo u kešu OS-a u RAM-u</label>
+    <label><input type="radio"> Možda je izgubljen, jer je posle write() bio samo u memoriji mysqld</label>
+    <p class="why">write() predaje podatke kešu OS-a u RAM-u; pad OS-a briše RAM. Pad samo procesa mysqld bi ih ostavio.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">2. T menja po jedan red u tri stranice od 16 KB, ukupno ~300 B. Šta košta upis stranica sa fsync pri komitovanju?</p>
+    <label><input type="radio"> Tri cele stranice na tri različita mesta, sinhrono, dok klijent čeka</label>
+    <label><input type="radio"> Tri dela od po 100 bajtova na tri mesta, sinhrono, dok klijent čeka</label>
+    <label><input type="radio"> Tri cele stranice na tri različita mesta, kasnije, kad OS odluči</label>
+    <label><input type="radio"> Jedna cela stranica na kraju datoteke, sinhrono, dok klijent čeka</label>
+    <p class="why">Jedinica upisa je stranica, a stranice imaju svoja mesta u B+ stablima; „OK“ čeka fsync.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Koji dizajn daje postojano „OK“ bez čekanja na raštrkani upis stranica?</p>
+    <label><input type="radio"> Pre „OK“ opis izmena dopiši u log bez fsync; stranice kasnije</label>
+    <label><input type="radio"> Pre „OK“ stranice upiši na mesta bez fsync; log se ne vodi</label>
+    <label><input type="radio"> Pre „OK“ stranice dopiši u log i fsync; na mesta ih ne vraćaj</label>
+    <label><input type="radio"> Pre „OK“ opis izmena dopiši u log i fsync; stranice kasnije</label>
+    <p class="why">WAL: dopisivanje je jeftino, fsync loga čini „OK“ postojanim, a posle pada se opisi ponove nad stranicama.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">4. Posle pada 3307, iz kog loga se obnavljaju stranice, a koji se šalje replikama?</p>
+    <label><input type="radio"> Stranice iz binarnog loga; replikama se šalje redo log</label>
+    <label><input type="radio"> Stranice iz redo loga; replikama se šalje binarni log</label>
+    <label><input type="radio"> Stranice iz redo loga; replikama se šalje redo log</label>
+    <label><input type="radio"> Stranice iz binarnog loga; replikama se šalje binarni log</label>
+    <p class="why">Redo log je InnoDB-ov WAL za oporavak; binarni log je log servera za replikaciju. Dva loga su istorijska odluka.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">5. Bez koordinacije: T je u redo logu sa fsync, pa pad pre binarnog loga. Posle restarta?</p>
+    <label><input type="radio"> Izvor ima T, a replike ga nikad ne dobiju; trajno se razlikuju</label>
+    <label><input type="radio"> Izvor nema T, a replike ga dobiju; trajno se razlikuju</label>
+    <label><input type="radio"> Izvor ima T, a replike ga dobiju iz redo loga; svi se slažu</label>
+    <label><input type="radio"> Izvor nema T, a ni replike ga ne dobiju; svi se slažu</label>
+    <p class="why">Oporavak obnavlja T iz redo loga, a replike vide samo binarni log (K3). K2 je prekršen.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">6. Oporavak zatekne T kao „pripremljen“ u redo logu. Koje pravilo čuva usklađenost sa replikama?</p>
+    <label><input type="radio"> Pripremljen T se uvek poništava, jer nije komitovan</label>
+    <label><input type="radio"> Pripremljen T se uvek komituje, jer su izmene sačuvane</label>
+    <label><input type="radio"> Ako je T u binarnom logu, poništi ga; ako nije, komituj</label>
+    <label><input type="radio"> Ako je T u binarnom logu, komituj ga; ako nije, poništi</label>
+    <p class="why">Binarni log je tačka odluke jer je on jedino što replike dobijaju. „Uvek poništi“ razilazi izvor i replike ako je pad došao posle upisa u binarni log.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">7. sync_binlog = 1, innodb_flush_log_at_trx_commit = 2. „OK“ za T, pa nestanak struje. Šta je moguće?</p>
+    <label><input type="radio"> Binlog nema T, InnoDB ima pripremu; izvor ima T, replike ne</label>
+    <label><input type="radio"> Binlog ima T, InnoDB ima pripremu; svi se slažu kao pri padu mysqld</label>
+    <label><input type="radio"> Binlog ima T, InnoDB je izgubio pripremu; replike imaju T, izvor ne</label>
+    <label><input type="radio"> Binlog nema T, InnoDB je izgubio pripremu; T nema niko, svi se slažu</label>
+    <p class="why">Binarni log je dobio fsync; priprema u redo logu je bila samo u kešu OS-a, koji nestanak struje briše.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">8. sync_binlog = 0, innodb_flush_log_at_trx_commit = 2. „OK“ za T, pa se ubije samo mysqld. Šta je sa T?</p>
+    <label><input type="radio"> Izgubljen iz oba loga, jer nijedan upis nije dobio fsync pre „OK“</label>
+    <label><input type="radio"> Sačuvan u oba loga, jer su oba upisa u kešu OS-a, koji je preživeo</label>
+    <label><input type="radio"> Sačuvan samo u redo logu, jer InnoDB ima keš, a binarni log nema</label>
+    <label><input type="radio"> Izgubljen ako je u poslednjoj sekundi, jer se fsync radi jednom u sekundi</label>
+    <p class="why">Keš OS-a pripada OS-u, ne procesu. Bez fsync opasan je samo pad OS-a ili nestanak struje.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong> MySQL 8.4 Reference Manual, opis promenljive
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/replication-options-binary-log.html#sysvar_sync_binlog"><code>sync_binlog</code></a>
+  (tri vrednosti i šta svaka gubi), zatim
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_flush_log_at_trx_commit"><code>innodb_flush_log_at_trx_commit</code></a>
+  i odeljak o oporavku u <a href="https://dev.mysql.com/doc/refman/8.4/en/binary-log.html">The Binary Log</a>. ·
+  <strong>Vidi još:</strong> <a href="../reference/postojanost-matrica.html">referentni list: postojanost i matrica</a>,
+  <a href="0002-binarni-log-gtid-asinhrona.html">lekcija 02 (binarni log, GTID, asinhrona)</a>,
+  <a href="../reference/binarni-log-gtid-niti.html">referentni list: binarni log, GTID, niti</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §1b‴. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu — lekcija je početak, ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>

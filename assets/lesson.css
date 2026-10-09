@@ -5,6 +5,13 @@
    generous margins, serif body for reading, print-friendly.
    ========================================================================== */
 
+/* Libron (https://github.com/nicoverbruggen/libron, v0.30) - body typeface.
+   Files live in ./fonts/ next to this stylesheet. */
+@font-face { font-family: "Libron"; src: url("fonts/Libron-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Libron"; src: url("fonts/Libron-Italic.woff2") format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: "Libron"; src: url("fonts/Libron-Bold.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Libron"; src: url("fonts/Libron-BoldItalic.woff2") format("woff2"); font-weight: 700; font-style: italic; font-display: swap; }
+
 :root {
   --ink:        #1a1a1a;
   --ink-soft:   #4a4a4a;
@@ -28,10 +35,9 @@ body {
   padding: 3rem 1.5rem 6rem;
   background: var(--paper);
   color: var(--ink);
-  /* Georgia leads: it's built for on-screen reading (sturdy strokes, tall
-     x-height) and is present on every Windows install, so it's what actually
-     renders here. Charter/Iowan are nicer upgrades for anyone on macOS. */
-  font-family: Georgia, Charter, "Iowan Old Style", Cambria, "Times New Roman", serif;
+  /* Libron leads (bundled in ./fonts/). Georgia is the fallback - and covers
+     the few glyphs Libron lacks, e.g. the arrow. */
+  font-family: "Libron", Georgia, Charter, "Iowan Old Style", Cambria, "Times New Roman", serif;
   line-height: 1.72;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

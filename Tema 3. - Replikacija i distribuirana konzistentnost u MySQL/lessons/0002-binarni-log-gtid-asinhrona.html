@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 02 — MySQL replikuje log, a ne stanje</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 02 · Poglavlje 3 (Binarni log, GTID i asinhrona replikacija)</p>
+<h1>MySQL replikuje log, a ne stanje</h1>
+<p class="subtitle">Prethodna lekcija je dala rečnik: modele konzistentnosti i dva PACELC pitanja. Ova
+lekcija prvi put ulazi u MySQL i odgovara na pitanje šta zapravo putuje između servera, kako replika
+zna dokle je stigla i šta „komitovano“ znači kad niko ne čeka repliku.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Ovo je mehanizam na kome stoji svako kasnije poglavlje rada. Posle lekcije treba bez podsetnika da
+  umeš da objasniš: <strong>(1)</strong> zašto je replikacija u MySQL-u slanje binarnog loga i njegovo
+  ponovno izvršavanje; <strong>(2)</strong> razliku između formata <code>STATEMENT</code>, <code>ROW</code>
+  i <code>MIXED</code> i šta čini iskaz nesigurnim; <strong>(3)</strong> zašto pozicija „datoteka + bajt“
+  ne preživljava promenu izvora, a GTID preživljava; <strong>(4)</strong> ko radi šta na replici i
+  zašto kasni baš nit primene; <strong>(5)</strong> zašto se uloge zovu izvor i replika;
+  <strong>(6)</strong> šta znači „komitovano“ kod asinhrone replikacije.
+  Postojanost (<code>sync_binlog</code>, <code>innodb_flush_log_at_trx_commit</code>, dvofazna potvrda)
+  je tema sledeće lekcije.
+</div>
+
+<h2>1 · Tri korena</h2>
+<p>Sve u ovoj lekciji izvodi se iz tri tvrdnje koje važe bez izuzetka.</p>
+
+<table class="exp">
+  <tr><td>K1 · log</td><td><strong>Log</strong> je niz zapisa o promenama, u kome se novi zapis uvek
+    dodaje na kraj, a postojeći zapisi se nikad ne menjaju. Zato svaki zapis ima svoje mesto u
+    redosledu, a ko je pročitao zapise 1–100 zna da se oni više neće promeniti.</td></tr>
+  <tr><td>K2 · ponavljanje</td><td>Ako dva servera krenu od <strong>istog početnog stanja</strong> i
+    izvrše <strong>iste determinističke promene</strong> <strong>istim redom</strong>, završiće u istom
+    stanju. Deterministička promena je ona čiji rezultat zavisi samo od podataka nad kojima se
+    izvršava.</td></tr>
+  <tr><td>K3 · poruke</td><td>Replika je poseban proces, sa svojom memorijom i svojim diskom. O izvoru
+    ne zna ništa osim onoga što joj stigne kao <strong>poruka preko mreže</strong>.</td></tr>
+</table>
+
+<p>Redosled iz K2 nije formalnost. Oba servera kreću od x = 100, a promene su x · 2 i x + 10.
+Redosled „puta dva, pa plus deset“ daje 210, a obrnuti 220. Zato je redosled deo samog loga.</p>
+
+<p>K3 važi i na našoj topologiji, iako su sva tri servera na istom računaru. Replikacija je napravljena
+za servere na različitim mašinama. 3309 nikad ne otvara datoteke servera 3307; na njega se povezuje
+preko TCP veze, kao klijent sa korisničkim imenom i lozinkom. Bitna je veza, a ne udaljenost.</p>
+
+<h2>2 · Šta putuje: binarni log</h2>
+<p>Recimo da baza ima 50 GB, a svake sekunde se menja nekoliko redova. Replika je jednom napunjena istim
+podacima, dakle ima isto početno stanje. Po K2 joj onda treba još samo <strong>isti niz promena, istim
+redom</strong>, a taj niz je upravo izvorov log (K1). Šalje se samo ono što je novo: nekoliko redova, a
+ne 50 GB.</p>
+
+<p>MySQL taj log zove <strong>binarni log</strong> <span class="dim">(binary log)</span>. U njega se upisuju
+promene (<code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, DDL), a <code>SELECT</code> ne, jer
+ništa ne menja. U MySQL-u 8.4 binarni log je podrazumevano uključen.</p>
+
+<p class="interpret"><span class="hi">Replikacija u MySQL-u je slanje binarnog loga i njegovo ponovno
+izvršavanje na replici.</span> Ne kopira se stanje, nego log.</p>
+
+<p>Naše replike 3308 i 3309 su primer za to. Nisu napunjene kopiranjem baze: sva tri servera su krenula
+od praznog stanja, a replike su izvršile ceo izvorov binarni log od prve transakcije. Rezultat su tri
+identične baze, a nijedan bajt podataka nije kopiran direktno.</p>
+
+<h2>3 · Šta piše u zapisu: STATEMENT, ROW, MIXED</h2>
+<p>Kad se izvrši <code>UPDATE invoices SET paid_status='paid' WHERE tenant_id=1</code>, šta tačno upisati
+u log? Postoje dva prirodna odgovora: <strong>uzrok</strong> (tekst iskaza) ili <strong>posledica</strong>
+(promenjeni redovi, sa starim i novim vrednostima). Ako iskaz pogodi milion redova, tekst i dalje ima
+pedesetak bajtova, a zapis po redovima ima milion stavki. Cena teksta je u tome što replika mora
+<strong>sama ponovo da izračuna posledicu</strong>, a to po K2 daje isti rezultat samo ako je iskaz
+deterministički.</p>
+
+<table class="cmp">
+  <tr><th>Format</th><th>Šta piše u zapisu</th><th>Prednost</th><th>Cena</th></tr>
+  <tr><td><code>STATEMENT</code></td><td>tekst iskaza (uzrok)</td><td>kompaktan</td><td>tačan samo za
+    determinističke iskaze</td></tr>
+  <tr><td><code>ROW</code></td><td>promenjeni redovi (posledica)</td><td>uvek tačan, replika ništa ne
+    bira</td><td>veći log</td></tr>
+  <tr><td><code>MIXED</code></td><td>tekst, a za nesigurne iskaze redovi</td><td>kompaktan i
+    tačan</td><td>zavisi od toga da li server prepozna nesiguran iskaz</td></tr>
+</table>
+
+<p>Kod formata <code>ROW</code> zapis za <code>UPDATE</code> nosi i staru i novu vrednost reda
+(<code>binlog_row_image = FULL</code>, podrazumevano), a kolone se vode po rednom broju
+(<code>@1</code>, <code>@2</code>…), ne po imenu.
+<a href="https://dev.mysql.com/doc/refman/8.4/en/replication-formats.html">[refman: Replication Formats]</a>
+<a href="https://dev.mysql.com/doc/refman/8.4/en/replication-options-binary-log.html">[refman: binlog_row_image]</a></p>
+
+<div class="note">
+  <span class="lbl">Odluka dizajna, ne izvođenje</span>
+  Do MySQL-a 5.7.7 podrazumevani format je bio <code>STATEMENT</code>, a od 5.7.7 je <code>ROW</code>, i
+  tako je i u 8.4. U 8.0.34 je sama promenljiva <code>binlog_format</code> proglašena zastarelom:
+  priručnik kaže da za nove postavke treba koristiti samo upisivanje redova. Pravac se razume iz
+  tabele iznad, ali godine i verzije su istorija i pamte se, a ne izvode.
+</div>
+
+<h2>4 · Nesigurni iskazi</h2>
+<p>Iskaz je <strong>nesiguran</strong> <span class="dim">(unsafe)</span> ako u formatu <code>STATEMENT</code>
+na replici može da da drugačiji rezultat nego na izvoru. Klasičan primer je <code>LIMIT</code> bez
+<code>ORDER BY</code>: <strong>koje</strong> redove iskaz izabere zavisi od redosleda pretrage, a ne samo
+od podataka. Uslov <code>WHERE tenant_id = 1</code> bez <code>LIMIT</code> nije problem, iako
+<code>tenant_id</code> nije primarni ključ. On nad istim podacima uvek izdvaja isti skup redova, a
+redosled pretrage utiče samo na to kojim putem se do njih stigne.</p>
+
+<div class="slide">
+  <q>Statement-based replication of LIMIT clauses in DELETE, UPDATE, and INSERT ... SELECT statements is
+  unsafe since the order of the rows affected is not defined.</q>
+  <span class="sr">MySQL 8.4 Reference Manual, Replication and LIMIT</span>
+</div>
+
+<p>Funkcija <code>NOW()</code> izgleda nedeterministički, jer zavisi od sata. MySQL ju je ipak učinio
+bezbednom jednim trikom: <strong>izvor u log upisuje i svoje vreme</strong>, a replika ga koristi umesto
+sopstvenog sata. Nedeterminizam je dolazio od jednog malog ulaza, pa se taj ulaz poslao zajedno sa
+iskazom.</p>
+
+<div class="slide">
+  <q>For NOW(), the binary log includes the timestamp. This means that the value as returned by the call
+  to this function on the source is replicated to the replica.</q>
+  <span class="sr">MySQL 8.4 Reference Manual, Replication and System Functions</span>
+</div>
+
+<p class="interpret"><b>Opšti princip:</b> iskaz je bezbedan ako sve od čega mu zavisi rezultat replika
+ima isto kao izvor, odnosno iste podatke ili vrednost upisanu u log.</p>
+
+<p>Koje su funkcije nesigurne, odluka je dizajna. <code>SYSDATE()</code> je namerno napravljena da
+ignoriše vreme upisano u log, pa je nesigurna; <code>UUID()</code> i <code>RAND()</code> su takođe na
+spisku nesigurnih.
+<a href="https://dev.mysql.com/doc/refman/8.4/en/replication-rbr-safe-unsafe.html">[refman: Determination
+of Safe and Unsafe Statements]</a></p>
+
+<div class="slide">
+  <q>Unlike NOW(), the SYSDATE() function is not replication-safe because it is not affected by SET
+  TIMESTAMP statements in the binary log and is nondeterministic if statement-based logging is used.</q>
+  <span class="sr">MySQL 8.4 Reference Manual, Replication and System Functions</span>
+</div>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> topologija pokrenuta (<code>examples\00-setup\topology.ps1 start</code>),
+      konekcija na <strong>3307 kao root</strong>. Sve je u transakciji koja se završava sa
+      <code>ROLLBACK</code>, pa se ništa ne upisuje i ništa ne šalje replikama. Isto je i u
+      <code>examples/02-binlog-async/01-formati-i-nesigurni-iskazi.sql</code>.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="k">USE</span> poliklinika;
+<span class="k">SET SESSION</span> binlog_format = <span class="s">'STATEMENT'</span>;  <span class="c">-- samo za ovu sesiju</span>
+<span class="k">START TRANSACTION</span>;
+
+<span class="c">-- LIMIT bez ORDER BY: koje redove izabrati zavisi od redosleda pretrage</span>
+<span class="k">UPDATE</span> invoices <span class="k">SET</span> paid_status = <span class="s">'paid'</span> <span class="k">WHERE</span> tenant_id = 1 <span class="k">LIMIT</span> 5;
+<span class="k">SHOW WARNINGS</span>;
+
+<span class="c">-- Isti uslov bez LIMIT: uvek isti skup redova</span>
+<span class="k">UPDATE</span> invoices <span class="k">SET</span> paid_status = <span class="s">'paid'</span> <span class="k">WHERE</span> tenant_id = 1;
+<span class="k">SHOW WARNINGS</span>;
+
+<span class="k">ROLLBACK</span>;
+<span class="k">SET SESSION</span> binlog_format = <span class="s">'ROW'</span>;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Posle prvog UPDATE: jedan red, Level = Note, Code = 1592, poruka
+"Unsafe statement written to the binary log using statement format ...
+ The statement is unsafe because it uses a LIMIT clause. This is unsafe
+ because the set of rows included cannot be predicted."
+Posle drugog UPDATE: prazan rezultat, nema upozorenja.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> server sam razlikuje „izbor podskupa po redosledu“ od
+      „izbora skupa po uslovu“, tačno onako kako smo izveli iz K2. U formatu <code>STATEMENT</code>
+      nesiguran iskaz se <strong>ne odbija</strong>, nego se upisuje uz upozorenje. U formatu
+      <code>MIXED</code> isti iskaz bi bio upisan kao redovi.</p>
+  </div>
+</div>
+
+<h2>5 · Pozicija, GTID i SOURCE_AUTO_POSITION</h2>
+<p>Iz K1 sledi da replici treba samo jedna oznaka, „dokle sam stigla“, da bi posle restarta nastavila
+bez preskakanja i ponavljanja. Ostaje pitanje kako tu oznaku zapisati.</p>
+
+<p>Binarni log je na disku niz datoteka, pa je najprirodnija oznaka <strong>ime datoteke + bajt</strong>,
+na primer <code>binlog.000003 : 1045</code>. To je bio i prvi način. Ali ta oznaka je <strong>adresa u
+logu jednog servera</strong>. Kad izvor A otkaže i replika B postane izvor, B ima svoj binarni log, koji
+piše sam: drugačije numeriše datoteke, otvara novu datoteku posle svakog restarta, svaka datoteka ima
+svoje zaglavlje, a B može imati i sopstvene transakcije. Ista transakcija je kod njega na drugom mestu.
+Kao kad dvoje ljudi prepisuje istu knjigu u svoje sveske: tekst je isti, a „sveska 3, strana 37“ nije
+isto mesto.</p>
+
+<p>Rešenje je da <strong>transakcija dobije ime koje putuje sa njom</strong>, umesto da se pamti njena
+adresa. To je <strong>GTID</strong> <span class="dim">(global transaction identifier)</span>:</p>
+
+<p style="text-align:center; font-size:1.15rem"><code>GTID = server_uuid : n</code><br>
+<small>prvi deo: koji server je napravio transakciju · drugi deo: koja je po redu kod njega</small></p>
+
+<p>Svaki server sam dodeljuje imena svojim transakcijama, pa nema potrebe za dogovorom, a sudar je
+nemoguć. Replika zadržava originalni GTID. Skup svih izvršenih transakcija server čuva u
+<code>gtid_executed</code>, sažeto zapisan: <code>92f36f51-…:1-16854</code> znači „transakcije 1 do 16854
+sa tog servera“.
+<a href="https://dev.mysql.com/doc/refman/8.4/en/replication-gtids-concepts.html">[refman: GTID Concepts]</a></p>
+
+<p><code>SOURCE_AUTO_POSITION = 1</code> je opcija naredbe <code>CHANGE REPLICATION SOURCE TO</code> i znači
+„pozicioniraj se automatski“. Replika pri povezivanju pošalje svoj skup GTID-ova, a izvor joj pošalje
+<strong>sve što on ima, a ona nema</strong> (razlika skupova). Zato se adresa
+(<code>SOURCE_LOG_FILE</code>, <code>SOURCE_LOG_POS</code>) uz ovu opciju ne zadaje.</p>
+
+<div class="slide">
+  <q>The source responds by sending all transactions recorded in its binary log whose GTID is not included
+  in the GTID set sent by the replica.</q>
+  <span class="sr">MySQL 8.4 Reference Manual, GTID Auto-Positioning</span>
+</div>
+
+<pre class="sql"><span class="c">-- Stari nacin: pozicija je ADRESA u izvorovom logu</span>
+<span class="k">CHANGE REPLICATION SOURCE TO</span>
+  SOURCE_HOST = <span class="s">'127.0.0.1'</span>, SOURCE_PORT = 3307,
+  SOURCE_LOG_FILE = <span class="s">'binlog.000003'</span>, SOURCE_LOG_POS = 1045;
+
+<span class="c">-- GTID nacin: pozicija je SKUP IMENA koje replika vec ima</span>
+<span class="k">CHANGE REPLICATION SOURCE TO</span>
+  SOURCE_HOST = <span class="s">'127.0.0.1'</span>, SOURCE_PORT = 3307,
+  SOURCE_AUTO_POSITION = 1;</pre>
+
+<p>GTID-ovi <strong>pojednostavljuju</strong> promenu izvora, jer pozicioniranje postaje automatsko. Sam
+izbor novog izvora, međutim, nije automatski; to neko mora da uradi. Priručnik kaže da su GTID-ovi
+uvedeni <q>for the purpose of simplifying in general management of the replication data flow and of
+failover activities in particular</q>.
+<a href="https://dev.mysql.com/doc/refman/8.4/en/replication-gtids-failover.html">[refman: Using GTIDs for
+Failover and Scaleout]</a></p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> topologija pokrenuta; dve konekcije kao <strong>root</strong>, na
+      3307 i na 3309 (<code>SHOW BINLOG EVENTS</code> traži privilegiju <code>REPLICATION SLAVE</code>, koju
+      <code>dbadmin</code> nema). Upisuje se jedan red u instrumentalnu tabelu <code>heartbeat</code>; sme da
+      ostane. Isto je u <code>examples/02-binlog-async/02-gtid-i-pozicije.sql</code>.</p>
+
+    <h3 class="lab">Pokreni ovo na 3307</h3>
+<pre class="sql run"><span class="k">USE</span> poliklinika;
+<span class="k">INSERT INTO</span> heartbeat (ts, node) <span class="k">VALUES</span> (<span class="fn">NOW</span>(6), <span class="s">'primer-gtid'</span>);
+<span class="k">SHOW BINARY LOG STATUS</span>;            <span class="c">-- zapamti File</span>
+<span class="k">SHOW BINLOG EVENTS IN</span> <span class="s">'node1-bin.000008'</span>;  <span class="c">-- ime iz prethodnog reda</span></pre>
+
+    <h3 class="lab">Pa ovo na 3309</h3>
+<pre class="sql run"><span class="k">SHOW BINARY LOG STATUS</span>;
+<span class="k">SHOW BINLOG EVENTS IN</span> <span class="s">'node3-bin.000010'</span>;  <span class="c">-- ime iz prethodnog reda</span>
+<span class="k">SELECT</span> @@GLOBAL.gtid_executed;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Na kraju oba ispisa isti niz od pet dogadjaja: Gtid -> Query (BEGIN) ->
+Table_map (poliklinika.heartbeat) -> Write_rows -> Xid (COMMIT).
+U redu Gtid na oba servera ISTI GTID, npr. '92f36f51-...:16854'.
+Ali razlicita datoteka (node1-bin.000008 naspram node3-bin.000010) i
+razliciti End_log_pos (pri merenju: 640 na 3307, 630 na 3309).
+Server_id tih dogadjaja je 1 i na 3309, jer je transakcija nastala na 3307.
+gtid_executed je isti na sva tri servera kad replike stignu izvor.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> ovo je analogija sa sveskama, izmerena: isto ime
+      transakcije, različita adresa. Adresa zato ne preživljava promenu izvora, a ime preživljava. U
+      <code>gtid_executed</code> ćeš videti i dva UUID-a koja nisu UUID nijednog od tri servera. Potiču iz
+      ranije sesije sa Group Replication-om (tiket 11) i tema su poglavlja 5.
+      <code>SHOW BINARY LOG STATUS</code> je naziv iz 8.4; stari <code>SHOW MASTER STATUS</code> više ne
+      postoji.</p>
+  </div>
+</div>
+
+<h2>6 · Niti: ko šta radi</h2>
+<p>Replika ima dva posla različite prirode: da <strong>preuzme</strong> zapise preko mreže i da ih
+<strong>izvrši</strong> nad svojim podacima. Rade ih odvojene niti, i to s razlogom. Ako izvršavanje kasni
+10 s, a izvor tada otkaže, sve što je već preuzeto ostaje sačuvano na replici. Da su oba posla u jednoj
+niti, poslednjih 10 s transakcija ne bi bilo ni preuzeto.</p>
+
+<pre class="out">IZVOR (3307)                                     REPLIKA (3309)
+binarni log -> nit koja salje log --mreza--> nit prijema -> relay log -> nit primene -> podaci
+               (binlog dump thread)          (receiver)                 (applier)</pre>
+
+<table class="exp">
+  <tr><td>nit koja šalje log</td><td>na izvoru, po jedna za svaku povezanu repliku; čita binarni log i
+    šalje zapise. U <code>performance_schema.threads</code> kao <code>Binlog Dump GTID</code>.</td></tr>
+  <tr><td>nit prijema</td><td>na replici; samo prepisuje primljene zapise u <strong>relay log</strong>,
+    lokalnu datoteku istog formata kao binarni log. Ranije zvana „I/O thread“;
+    <code>thread/sql/replica_io</code>.</td></tr>
+  <tr><td>nit primene</td><td>na replici; čita relay log redom i izvršava transakcije. Ranije zvana
+    „SQL thread“. Kad je <code>replica_parallel_workers</code> &gt; 0, <code>replica_sql</code> je
+    koordinator, a posao rade <code>replica_worker</code> niti.</td></tr>
+</table>
+<p><a href="https://dev.mysql.com/doc/refman/8.4/en/replication-threads.html">[refman: Replication Threads]</a></p>
+
+<p><strong>Zašto kasni baš nit primene.</strong> Uporedi posao po transakciji: nit prijema samo prepiše
+nekoliko stotina bajtova, a nit primene mora da uradi sve što je izvor uradio (da nađe redove, uzme
+zaključavanja, ažurira indekse, upiše na disk). Zatim uporedi broj niti: ako na izvoru 16 klijenata
+upisuje istovremeno, taj pravi posao radi 16 sesija <strong>uporedo</strong>. Jedna nit primene mora da
+ga uradi <strong>redom</strong>, pa zaostaje čak i kad je svaka pojedinačna transakcija jednako brza.
+Problem nije brzina jedne niti, nego broj niti. Zato postoji <code>replica_parallel_workers</code>, čija je
+podrazumevana vrednost u 8.4 jednaka 4.
+<a href="https://dev.mysql.com/doc/refman/8.4/en/replication-options-replica.html">[refman:
+replica_parallel_workers]</a></p>
+
+<p>Na našoj topologiji (tiket 10, sa jednom niti primene): posle naleta od 4 000 transakcija relay log je
+<strong>prestao da raste posle 3 s</strong>, jer je nit prijema već sve preuzela, a kašnjenje je nastavilo
+da raste do 10 s, jer je nit primene još radila. Sa 4 niti primene isti nalet je sustignut oko 8 puta
+brže. To je gornja granica, jer su to bile međusobno nezavisne transakcije, što je idealan slučaj.</p>
+
+<div class="try">
+  <div class="hd">Probaj u Workbench-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> topologija pokrenuta, konekcija kao root. Samo čitanje. Isto je
+      u <code>examples/02-binlog-async/03-niti-replikacije.sql</code>.</p>
+
+    <h3 class="lab">Na 3307</h3>
+<pre class="sql run"><span class="k">SELECT</span> THREAD_ID, PROCESSLIST_COMMAND
+<span class="k">FROM</span> performance_schema.threads
+<span class="k">WHERE</span> PROCESSLIST_COMMAND <span class="k">LIKE</span> <span class="s">'Binlog Dump%'</span>;</pre>
+
+    <h3 class="lab">Na 3309</h3>
+<pre class="sql run"><span class="k">SELECT</span> THREAD_ID, NAME <span class="k">FROM</span> performance_schema.threads
+<span class="k">WHERE</span> NAME <span class="k">IN</span> (<span class="s">'thread/sql/replica_io'</span>, <span class="s">'thread/sql/replica_sql'</span>, <span class="s">'thread/sql/replica_worker'</span>);
+
+<span class="k">SELECT</span> SERVICE_STATE, LAST_QUEUED_TRANSACTION        <span class="c">-- dokle je stigla nit prijema</span>
+<span class="k">FROM</span> performance_schema.replication_connection_status;
+
+<span class="k">SELECT</span> WORKER_ID, LAST_APPLIED_TRANSACTION           <span class="c">-- dokle je stigla svaka nit primene</span>
+<span class="k">FROM</span> performance_schema.replication_applier_status_by_worker;</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Na 3307: dva reda "Binlog Dump GTID", po jedan za svaku repliku (3308 i 3309).
+Na 3309: jedna replica_io, jedna replica_sql i cetiri replica_worker niti.
+LAST_QUEUED_TRANSACTION i LAST_APPLIED_TRANSACTION nose GTID izvora (92f36f51-...);
+u mirovanju su isti, jer je nit primene stigla nit prijema.</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> svaka strelica sa slike iznad je jedna nit koju možeš
+      da vidiš. Dve kolone, „preuzeto“ i „primenjeno“, razdvajaju dva posla. Kad se razlikuju, zaostatak
+      je između njih, u relay logu. To je osnova merenja kašnjenja u poglavlju 7.</p>
+  </div>
+</div>
+
+<h2>7 · Izvor i replika</h2>
+<p>Starija literatura zove uloge master i slave. MySQL ih je preimenovao u source i replica (kod nas
+<strong>izvor</strong> i <strong>replika</strong>), u nekoliko koraka: 8.0.22 je uveo <code>START REPLICA</code>
+i <code>SHOW REPLICA STATUS</code>, 8.0.23 <code>CHANGE REPLICATION SOURCE TO</code>, a 8.0.26 preimenovane
+promenljive. U <strong>8.4 su stari oblici uklonjeni</strong>: <code>CHANGE MASTER TO</code>,
+<code>START SLAVE</code>, <code>SHOW SLAVE STATUS</code>, <code>SHOW MASTER STATUS</code> i slični više ne
+rade. Sve ovo je istorija.
+<a href="https://dev.mysql.com/doc/relnotes/mysql/8.4/en/news-8-4-0.html">[release notes 8.4.0]</a></p>
+
+<p>Razlog je naveden na zvaničnom MySQL blogu. Prvi deo razloga je društveni (<q>The origins of these words
+are negative.</q>). Drugi deo objašnjava baš izbor reči „source“ i vezuje se za odeljak 2:</p>
+
+<div class="slide">
+  <q>MySQL Asynchronous Replication is a change stream. Each replication configuration has a source and
+  does not imply what role a server should have in the overall database architecture.</q>
+  <span class="sr">K. Gryp, „MySQL Terminology Updates“, MySQL Blog, jul 2020</span>
+</div>
+
+<p>„Izvor“ je dakle <strong>relativan pojam</strong>: server od kog ova replika dobija tok promena. On ne
+znači „server koji prima upise“. U lancu 3307 → 3308 → 3309 izvor za 3309 je 3308, iako 3308 ne prima
+upise od klijenata i sam je replika. U Group Replication-u reč „primary“ ima posebno značenje, pa bi ista
+reč za dva pojma stvarala zabunu. U radu se od poglavlja 3 koriste samo izvor i replika, a master/slave
+se pominje jednom, u fusnoti.</p>
+
+<h2>8 · Šta znači „komitovano“ kod asinhrone replikacije</h2>
+<p>Redom, za jednu transakciju na 3307:</p>
+<ol>
+  <li>Klijent pošalje <code>COMMIT</code>.</li>
+  <li>3307 upiše transakciju u svoj binarni log i komituje je.</li>
+  <li>3307 klijentu vrati „OK“.</li>
+  <li><strong>Tek posle toga</strong> nit koja šalje log šalje zapis replikama, nit prijema ga upisuje u
+    relay log, a nit primene ga kasnije izvršava.</li>
+</ol>
+<p>Između koraka 2 i 3 izvor ne čeka nikakvu poruku od replike. Po K3 bez poruke ne može ni da zna šta
+replika ima, a u asinhronoj replikaciji takvu poruku niko ne šalje: log ide samo od izvora ka replici.</p>
+
+<p class="interpret"><span class="hi">Asinhrona replikacija: izvor klijentu potvrđuje komitovanje pre nego
+što je bilo koja replika videla transakciju.</span></p>
+
+<p>U jeziku PACELC-a, kad mreža radi, asinhrona replikacija bira <strong>ne čekati</strong>. Komitovanje
+zato ne plaća ništa u latenciji, a cena se plaća konzistentnošću na dva načina:</p>
+<ul>
+  <li><strong>Zastarelost:</strong> replike zaostaju dok nit primene ne stigne, a otuda i anomalija
+    read-your-writes, koju smo izmerili na 3309.</li>
+  <li><strong>Gubitak potvrđene transakcije:</strong> ako izvor nepovratno otkaže posle koraka 3, a pre
+    koraka 4, transakcija je postojala samo u njegovom binarnom logu. Replika do nje ne može da dođe,
+    jer preuzimanje nije čitanje tuđe datoteke, nego razgovor sa živim procesom koji šalje. Klijent je
+    dobio „OK“ za nešto što više nijedan server nema. Ako se stari izvor kasnije ipak vrati sa ispravnim
+    diskom, ta transakcija je kod njega, a novi izvor je nema. Dva servera se razilaze, i to operator
+    mora da rešava.</li>
+</ul>
+
+<div class="note">
+  <span class="lbl">Okosnica rada, prvi put konkretno</span>
+  MySQL ne garantuje da replika ima ono što je klijentu potvrđeno. On nudi mesta na kojima operator bira
+  koliko se čeka. Asinhrona replikacija je izbor „ne čeka se uopšte“. Poglavlje 4 (semisinhrona
+  replikacija) je prvo podešavanje kojim se čekanje dodaje.
+</div>
+
+<h2>9 · Provera</h2>
+<div class="quiz">
+  <p>Jedno pitanje za svaki netrivijalni korak lekcije. Odgovori iz glave, pa tek onda proveri.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Na izvoru se izvrši UPDATE koji promeni jedan red. Šta MySQL-ova replikacija šalje replici?</p>
+    <label><input type="radio"> Izmenjene stranice tabele sa diska, koje replika kopira preko svojih</label>
+    <label><input type="radio"> Periodični snimak cele baze, koji replika učitava umesto stare</label>
+    <label><input type="radio"> Zapis o promeni iz binarnog loga, koji replika ponovo izvršava</label>
+    <label><input type="radio"> Upit od replike ka izvoru pri svakom čitanju, bez lokalne kopije</label>
+    <p class="why">Replikacija je slanje loga i njegovo ponovno izvršavanje. Replika već ima isto početno stanje, pa joj po K2 treba samo isti niz promena istim redom.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">2. Format je STATEMENT. Koji od ovih iskaza je bezbedan za replikaciju?</p>
+    <label><input type="radio"> INSERT INTO t (vreme) VALUES (NOW())</label>
+    <label><input type="radio"> INSERT INTO t (vreme) VALUES (SYSDATE())</label>
+    <label><input type="radio"> INSERT INTO t (oznaka) VALUES (UUID())</label>
+    <label><input type="radio"> UPDATE t SET x = 1 WHERE y = 2 LIMIT 3</label>
+    <p class="why">Izvor u log upisuje svoje vreme, pa NOW() na replici vraća vreme izvora. SYSDATE() to vreme namerno ignoriše, UUID() je na spisku nesigurnih, a LIMIT bez ORDER BY bira podskup po redosledu pretrage.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Server radi sa binlog_format = MIXED. Kako će upisati UPDATE … LIMIT 5 bez ORDER BY?</p>
+    <label><input type="radio"> Kao tekst iskaza, jer je MIXED podrazumevano tekstualni</label>
+    <label><input type="radio"> Kao tekst iskaza, uz upozorenje 1592 klijentu</label>
+    <label><input type="radio"> Neće ga upisati, jer MIXED odbija nesigurne iskaze</label>
+    <label><input type="radio"> Kao promenjene redove, jer je iskaz nesiguran</label>
+    <p class="why">MIXED upisuje tekst dok je iskaz bezbedan, a za nesiguran iskaz prelazi na upisivanje redova. Upozorenje 1592 i upisivanje teksta ponašanje su formata STATEMENT.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">4. Izvor A je otkazao, a B je postao novi izvor. Zašto pozicija „binlog.000003 : 1045“ iz A-ovog loga ne pomaže replici C?</p>
+    <label><input type="radio"> B briše svoj binarni log kad postane izvor, pa počinje od nule</label>
+    <label><input type="radio"> B piše svoj binarni log, pa je ista transakcija kod njega na drugom mestu</label>
+    <label><input type="radio"> B ne čuva transakcije koje je dobio od A, nego samo svoje nove</label>
+    <label><input type="radio"> B čuva iste datoteke kao A, ali ih numeriše od kraja ka početku</label>
+    <p class="why">Datoteka i bajt su adresa u logu jednog servera. B numeriše datoteke, otvara nove i ima zaglavlja nezavisno od A, pa ista transakcija ima drugu adresu (na 3307 i 3309 izmereno: različita datoteka, različit End_log_pos).</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">5. Replika C ima skup A:1-200. Novi izvor B u binarnom logu ima A:1-180 i B:1-10. C se poveže sa SOURCE_AUTO_POSITION = 1. Šta B šalje?</p>
+    <label><input type="radio"> A:181-200 i B:1-10</label>
+    <label><input type="radio"> A:1-180 i B:1-10</label>
+    <label><input type="radio"> Samo B:1-10</label>
+    <label><input type="radio"> Ništa, jer C ima više transakcija od B</label>
+    <p class="why">B šalje ono što on ima, a C nema. A:181-200 B uopšte nema, pa ne može ni da ih pošalje; A:1-180 C već ima. Ostaje B:1-10.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">6. Na izvoru 12 sesija istovremeno komituje. Na replici je replica_parallel_workers = 1, a relay log je prestao da raste. Gde je zaostatak?</p>
+    <label><input type="radio"> U relay logu: nit prijema je sve preuzela, a nit primene izvršava redom</label>
+    <label><input type="radio"> Na izvoru: nit koja šalje log čeka da replika potvrdi prethodni zapis</label>
+    <label><input type="radio"> U mreži: zapisi su poslati, ali nit prijema ih prima jedan po jedan</label>
+    <label><input type="radio"> Nigde: kad relay log ne raste, replika je stigla izvor</label>
+    <p class="why">Relay log ne raste jer je preuzimanje završeno. Zaostatak je u onome što je preuzeto, a nije primenjeno: jedna nit primene radi redom ono što je 12 sesija radilo uporedo.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">7. Topologija je lanac 3307 → 3308 → 3309, a klijenti upisuju samo na 3307. Šta je izvor za 3309?</p>
+    <label><input type="radio"> 3307, jer on prima upise od svih klijenata</label>
+    <label><input type="radio"> I 3307 i 3308, jer oba imaju iste podatke</label>
+    <label><input type="radio"> Nijedan, jer je 3308 replika pa ne može biti izvor</label>
+    <label><input type="radio"> 3308, jer od njega 3309 dobija tok promena</label>
+    <p class="why">Izvor je relativan pojam: server od kog ova replika dobija tok promena. Reč „source“ namerno ne govori ništa o tome ko prima upise u celom sistemu.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">8. Asinhrona replikacija. Klijent dobije „OK“ na 3307, a 3307 zatim zauvek otkaže pre nego što je zapis poslat. 3308 postaje izvor. Šta je sa transakcijom?</p>
+    <label><input type="radio"> Sačuvana je: 3308 je preuzme iz 3307-ovog binarnog loga</label>
+    <label><input type="radio"> Izgubljena je: klijent je dobio „OK“, a nijedna replika je nema</label>
+    <label><input type="radio"> Sačuvana je: 3307 pre otkaza pošalje sve što replike nemaju</label>
+    <label><input type="radio"> Izgubljena je, ali klijent nije dobio „OK“, jer izvor čeka repliku</label>
+    <p class="why">Izvor potvrđuje pre slanja. Zapis je bio samo u 3307-ovom binarnom logu, a preuzimanje je razgovor sa živim procesom, ne čitanje tuđe datoteke. Otkaz nije najavljen, pa ništa nije poslato na kraju.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong>
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/replication-implementation.html">MySQL 8.4 Reference
+  Manual, 19.2 Replication Implementation</a>. Počni od „Replication Formats“, pa „Replication Threads“,
+  a za GTID pročitaj „GTID Concepts“ i „GTID Auto-Positioning“ u 19.1.3. Izvori su na engleskom; lekcija
+  je na srpskom. ·
+  <strong>Vidi još:</strong> <a href="../reference/binarni-log-gtid-niti.html">referentna kartica: binarni
+  log, GTID i niti</a>, <a href="0001-teorijski-okvir.html">lekcija 01 (teorijski okvir)</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §1b i §1d. ·
+  <strong>Sledeća lekcija:</strong> postojanost: <code>sync_binlog</code>,
+  <code>innodb_flush_log_at_trx_commit</code> i dvofazna potvrda redo log ↔ binarni log. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu. Lekcija je početak, a ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>
