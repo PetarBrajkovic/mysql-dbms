@@ -322,6 +322,19 @@ the operator's to assemble.
   day by a post-export step (`../tools/style-docx-tables.py`), since pandoc ignores the reference
   doc's table style; only Tema 3's document was re-exported.
 
+- [Chapter 4 - Semisinhrona replikacija i značenje potvrde](issues/16-chapter-4-semisync.md)
+  (2026-10-11): **written at exactly 3.0 pages, the first chapter on budget at first draft** under
+  the ~450 words/page cap. The measurement debt from ticket 11 was paid in the lesson, and **the
+  argument got stronger, not weaker**: the `AFTER_COMMIT` anomaly reproduced (a reader saw a row the
+  failover erased; the anomaly is the *reader's*, since the writer got an error), and the old source
+  **rejoins with zero errors and diverges silently**. Memo 04 had predicted "replication errors";
+  in fact ER 1885 only covers the new source's UUID. `AFTER_SYNC` does not rescue it, because 2PC
+  recovery commits the never-acked transaction. Silent degradation uses the six signals that held live,
+  plus `_clients` named as a non-signal, since two records disagree on it. Failover and switchover are
+  now jointly defined. Rule 1 caught one more absence claim (no ack-aware binlog truncation), which was
+  checked on four rungs and then kept out of the wording. Slika 4.1 had to be redrawn after the DOCX
+  check: the first draft was 9:1.
+
 ## Not yet specified
 
 - ~~**The chapter tickets.**~~ **Graduated at ticket 09** into tickets 14–20, chained
@@ -356,6 +369,8 @@ the operator's to assemble.
   staged crash, which is a chapter-4 session, not a group session. They now ride on
   [Chapter 4 - Semisinhrona replikacija](issues/16-chapter-4-semisync.md) as a named prerequisite
   rather than a ticket of their own, because the measurement and the prose want the same session.
+  **Paid at ticket 16** (lesson session, 2026-10-11): claims 2 and 3 hold, claim 6 holds in substance
+  but not in mechanism. Nothing from the memos is left awaiting the live topology.
 - ~~**Whether any figure that samples a sub-millisecond window can be driven by the existing script
   shape.**~~ **Settled at ticket 12**: mysqlsh JS with held sessions for sub-second windows. Ticket 11 found that one client process per sample (~20 ms of start-up) is slower than the
   replication window it is trying to observe, and silently reports that the window does not exist.

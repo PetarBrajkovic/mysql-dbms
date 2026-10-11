@@ -108,7 +108,22 @@ emptied. Valid only because nothing was written on 3308 while promoted (3308 ⊂
 - "Errant transaction": no refman definition; Shell 8.4 uses "extra transactions" / "Errant
   transactions detected". Use *višak transakcija* and define it in our own words.
 
-## For the writing session
+## Used in the writing session (2026-10-11)
+
+- **Tabela 4.1 row 1/1 = means of the three repeat pairs** in record 0001 (async 899/913/926 → 913,
+  semisync 914/912/915 → 914), not the single 764/978 reading, which overstated the gap; caption
+  says so. Rows 2-4 are the single 0001 readings.
+- **`_clients` disagreed between runs**: 0001 saw 2 → 0, this record saw it stay 2. Ch. 4 states both,
+  which is the reason it is called not a reliable signal.
+- **5.7.2 history verified** (rung 2, 5.7.2 release notes): older versions are "equivalent to a
+  setting of AFTER_COMMIT"; cited as `mysql572relnotes`. "Only behaviour" was not claimed.
+- **Absence claim checked, then avoided**: rung 1 (refman 19.4.10, 7.4.4), rung 2 (8.0/8.4
+  release-note indexes, weak), rung 4 (MySQL Bug #99370: "expected behavior, a limitation"). The
+  prose states the measured behaviour and the manual's "should be discarded" instead; the check is
+  recorded as an HTML comment above that paragraph in `rad.md`. MariaDB does truncate
+  (`init_rpl_role`, MDEV-33465), not used.
+
+## For the writing session (as planned by the lesson)
 
 - Tabela 4.1 = the 2×2 latency matrix from record 0001 (async vs semisync), first native table.
 - Figures available in `viz/` (lesson versions): `viz-l04-tacke-cekanja-*`, `viz-l04-prozor-vidljivosti-*`,

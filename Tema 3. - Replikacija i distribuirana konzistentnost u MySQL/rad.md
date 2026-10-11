@@ -322,3 +322,136 @@ otkazu izvora, sami potvrđeni upisi. Format zapisa i promenljive `sync_binlog` 
 što se menja nije log, već trenutak u kome pisac dobija potvrdu, a asinhrona replikacija taj
 trenutak postavlja najranije što je moguće. Četvrto poglavlje ga pomera, uvodeći semisinhronu
 replikaciju, u kojoj izvor pre potvrde čeka da bar jedna replika primi transakciju.
+
+# 4. Semisinhrona replikacija i značenje potvrde
+
+Semisinhrona replikacija pomera trenutak potvrde: pre nego što klijentu vrati odgovor, izvor čeka
+da bar jedna replika potvrdi prijem transakcije [@mysql84refman]. Lako ju je pročitati kao
+podešavanje brzine, a ovo poglavlje pokazuje da je reč o odluci o konzistentnosti, polazeći od
+pitanja šta potvrda (acknowledgement) zapravo obećava. Replika potvrđuje prijem tek pošto događaje
+upiše u relay log i sinhronizuje ga na disk [@mysql84refman]. Potvrda, dakle, znači da transakcija
+postoji na disku još jednog čvora, a ne da ju je replika primenila, pa čitanje sa replike i posle
+potvrde može da vrati staru vrednost.
+
+U verziji 8.4 semisinhronu replikaciju ostvaruju dva dodatka (plugin), jedan na izvoru i jedan na
+replici, koji se instaliraju naredbom `INSTALL PLUGIN`; na Windowsu su to biblioteke
+`semisync_source.dll` i `semisync_replica.dll`, a na sistemima Unix odgovarajuće datoteke sa
+nastavkom `.so`. Dodaci su podrazumevano isključeni i uključuju se promenljivama
+`rpl_semi_sync_source_enabled` i `rpl_semi_sync_replica_enabled`. Izvor podrazumevano čeka potvrdu jedne
+replike [@mysql84refman].
+
+## Tačka čekanja: AFTER_SYNC i AFTER_COMMIT
+
+Treće poglavlje pokazalo je da o ishodu transakcije odlučuje upis u binarni log. Šta drugi klijenti
+vide, međutim, ne određuje binarni log, već komitovanje u InnoDB-u, koje u dvofaznom komitovanju
+dolazi posle njega. Odluka i vidljivost su dva različita trenutka, pa izvor potvrdu može da čeka na
+dva mesta, prikazana na slici 4.1. Tačku čekanja (wait point) bira promenljiva
+`rpl_semi_sync_source_wait_point`. Uz podrazumevanu vrednost `AFTER_SYNC` izvor čeka posle
+sinhronizacije binarnog loga, a pre komitovanja u InnoDB-u, pa svi klijenti transakciju vide
+istovremeno, tek pošto ju je replika potvrdila. Uz `AFTER_COMMIT` izvor čeka posle komitovanja u
+InnoDB-u, pa drugi klijenti transakciju vide pre klijenta koji ju je upisao [@mysql84refman]. Verzije
+starije od 5.7.2, u kojoj je izbor uveden, ponašale su se kao `AFTER_COMMIT` [@mysql572relnotes].
+
+![Slika 4.1: Koraci komitovanja transakcije T na izvoru pri semisinhronoj replikaciji i dve tačke na kojima izvor može da čeka potvrdu replike. Aktivna je samo jedna, zavisno od vrednosti promenljive rpl_semi_sync_source_wait_point.](figures/04-semisync-01-tacke-cekanja.png){width=100%}
+
+Interval u kome drugi klijenti vide transakciju, a nijedna replika je nema, u ovom radu naziva se
+prozor vidljivosti. Na jednom računaru on traje koliko povratno putovanje (round-trip time) do
+replike, prekratak da bi se pouzdano izmerio, pa je u merenju veštački produžen: na obe replike
+zaustavljena je nit prijema, tako da potvrda nije stizala, a istek vremena postavljen je na tri
+sekunde. Druga sesija na izvoru proveravala je postojanje novog reda u razmacima kraćim od jedne
+milisekunde. Uz `AFTER_SYNC` red je postao vidljiv u istom trenutku u kome je pisac dobio
+potvrdu, pa prozora nije bilo. Uz `AFTER_COMMIT` druga sesija videla je red posle pet milisekundi,
+tri sekunde pre pisca, dok ga nijedna replika nije imala.
+
+## Čitanje koje failover poništava
+
+Prozor postaje anomalija kada izvor u njemu otkaže. U drugom merenju, uz `AFTER_COMMIT`, druga
+sesija pročitala je novi red dok je pisac još čekao potvrdu. Proces izvora zatim je prinudno
+zaustavljen, a node2 unapređen u izvor. Pisac je dobio grešku o prekinutoj vezi, ali reda nema ni
+na node2 ni na node3: klijent je pročitao podatak koji je sistem posle failovera izgubio. Anomaliju,
+dakle, ne trpi pisac, već čitalac. Ona krši strogu konzistentnost, ali i znatno slabija monotona
+čitanja, jer čitalac koji se posle failovera poveže na novi izvor vidi stanje starije od već
+viđenog. Priručnik ovu mogućnost navodi izričito: uz `AFTER_COMMIT` klijenti mogu da uoče gubitak
+podataka u odnosu na ono što su videli na izvoru [@mysql84refman]. Razlika između dve tačke čekanja
+zato nije razlika u brzini, već u tome da li sistem sme da pokaže ono što ne može da sačuva.
+
+<!--
+  Absence-claim check (../../NOTES.md rule 1), 2026-10-11, researcher. The paragraph below states
+  measured behaviour plus the manual's positive instruction ("should be discarded"); it does NOT
+  say "MySQL has no mechanism that discards never-acked binlog transactions on recovery".
+  rung 1, refman 8.4 sec. 19.4.10: failed source "should not be reused ... It could have
+  transactions that were not acknowledged by any replica"; sec. 7.4.4: the only binlog truncation
+  on recovery is to the last valid position (XID-based, not ack-based).
+  rung 2, 8.0 / 8.4 release-note indexes: no semisync recovery feature (index-level, weak).
+  rung 4, MySQL Bug #99370 (closed): Oracle calls keeping un-acked transactions "expected behavior,
+  a limitation that applies to the whole concept of semi-sync". MariaDB does truncate (init_rpl_role,
+  MDEV-33465): contrast only, not used.
+  rung 5, live topology: measurement 0006 M3/M4, both wait points.
+-->
+Failover je u trećem poglavlju definisan kao preuzimanje uloge izvora nakon otkaza, a njegova
+suprotnost je switchover (planirana promena uloga). Pri switchoveru stari izvor je dostupan, pa se
+pre promene usklađuje sa novim i postaje replika, dok failover unapređuje repliku bez usklađivanja
+sa starim izvorom [@mysqlshell84]. Zato priručnik propisuje da otkazali semisinhroni izvor ne treba
+ponovo koristiti, već ga treba odbaciti, jer može da sadrži transakcije koje nijedna replika nije
+potvrdila [@mysql84refman].
+
+Merenje pokazuje da ovo važi i uz `AFTER_SYNC`. Ponovo pokrenut node1 imao je izgubljeni red pri
+obe tačke čekanja. Uz `AFTER_SYNC` transakcija je u trenutku pada bila pripremljena i upisana u
+binarni log, pa ju je oporavak, po pravilu dvofaznog komitovanja, komitovao, iako je nijedna
+replika nije potvrdila niti ju je iko video. Stari izvor tako ima višak transakcija (errant
+transactions), sa GTID-om koji novi izvor nema. Povezan zatim kao replika na node2 uz automatsko
+pozicioniranje, node1 je pokrenuo obe niti bez ijedne greške, a kontrolni zbirovi tabele na dva
+čvora su se razlikovali. MySQL odbija repliku koja ima više transakcija od izvora samo kada te
+transakcije nose identifikator samog izvora [@mysql84refman], a ovaj višak nosi identifikator
+starog izvora, pa je razilaženje tiho. Višak nije moguće ni jednostavno proslediti novom izvoru:
+dva čvora čiji su se logovi razišli postaju dva izvora upisa, odnosno multi-leader replikacija iz
+drugog poglavlja, sa sukobom koji niko ne razrešava.
+
+## Istek vremena i tiha degradacija
+
+Izvor ne čeka potvrdu neograničeno. Ako je nijedna replika ne pošalje u roku
+`rpl_semi_sync_source_timeout`, podrazumevano deset sekundi, izvor se vraća na asinhronu
+replikaciju, a semisinhronoj se vraća tek kada ga neka replika sustigne [@mysql84refman]. Klijent
+pri tome ne dobija grešku, već uobičajenu potvrdu. Na topologiji ovog rada, uz istek vremena od
+jedne sekunde i zaustavljene niti prijema, prvo komitovanje čekalo je punu sekundu i uspelo, a već
+drugo trajalo je manje od milisekunde, kao asinhrono. Tiha degradacija nije kvar, već podrazumevani
+izbor: kada replike nisu dostupne, izvor bira dostupnost, a ne konzistentnost.
+
+Pošto klijent degradaciju ne vidi, uočavanje je posao operatera. U merenjima su je pokazali
+sledeći znaci: promenljiva statusa `Rpl_semi_sync_source_status` prelazi sa `ON` na `OFF`;
+rastu `Rpl_semi_sync_source_no_tx`, broj nepotvrđenih transakcija, i
+`Rpl_semi_sync_source_no_times`, broj isključivanja semisinhrone replikacije; brojač potvrđenih
+transakcija `Rpl_semi_sync_source_yes_tx` prestaje da raste; u logu grešaka pojavljuje se
+upozorenje MY-011153 o isteku vremena; a jedno komitovanje traje koliko ceo istek vremena. Broj
+povezanih semisinhronih replika, `Rpl_semi_sync_source_clients`, nije pouzdan znak: u jednom
+merenju pao je na nulu, a u drugom je ostao 2, iako su obe niti prijema bile zaustavljene.
+
+## Cena potvrde
+
+Prema priručniku, semisinhrona replikacija komitovanje produžava najmanje za jedno povratno
+putovanje do replike po protokolu TCP/IP [@mysql84refman]. Tabela 4.1 prikazuje prosečno trajanje
+komitovanja za četiri kombinacije postojanosti iz tabele 3.1, bez semisinhrone replikacije i sa
+njom. U prva tri reda razlika je mala i nema stalan smer, a ponovljena merenja za prvi red
+pokazuju da je manja od njihovog rasipanja: povratno putovanje na jednom računaru kraće je od
+sinhronizacija diska koje komitovanje ionako čeka. Tek kada se obe sinhronizacije isključe, cena
+potvrde postaje vidljiva i trajanje komitovanja se udvostručuje. Sa rastojanjem između čvorova
+raste i povratno putovanje, čemu se vraća šesto poglavlje.
+
+| `sync_binlog` | `innodb_flush_log_at_trx_commit` | Asinhrona (µs) | Semisinhrona, `AFTER_SYNC` (µs) |
+|:---:|:---:|---:|---:|
+| 1 | 1 | 913 | 914 |
+| 1 | 2 | 355 | 406 |
+| 0 | 1 | 634 | 533 |
+| 0 | 2 | 61 | 124 |
+
+Table: Tabela 4.1: Prosečno trajanje komitovanja jednoredne transakcije na izvoru (node1), sa dve replike na istom računaru, MySQL 8.4.11. Svaka ćelija je prosek 300 komitovanja; prvi red je prosek tri naizmenično ponovljena para merenja.
+
+Semisinhrona replikacija na drugo pitanje PACELC-a odgovara drugačije od asinhrone: komitovanje
+čeka jedan drugi čvor. Garancija koju time dobija uža je, međutim, nego što naziv sugeriše.
+Potvrda znači da je transakcija na disku jedne replike, a ne da je primenjena; važi samo dok ne
+istekne vreme čekanja; uz `AFTER_COMMIT` ne sprečava čitanje koje failover poništava; i ni uz
+jednu tačku čekanja ne čini otkazali izvor ponovo upotrebljivim. Tačku čekanja, broj potvrda i
+istek vremena bira operater, a od tog izbora, i od toga da li prati znake degradacije, zavisi koju
+konzistentnost sistem zaista pruža. Peto poglavlje prelazi na Group Replication, u kojoj komitovanje
+znači da se o mestu transakcije u redosledu složila većina grupe.
+

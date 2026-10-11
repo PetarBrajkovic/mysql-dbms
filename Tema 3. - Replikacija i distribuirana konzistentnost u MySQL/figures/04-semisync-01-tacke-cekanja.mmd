@@ -1,0 +1,26 @@
+block-beta
+  columns 6
+  S1["Priprema u<br/>redo logu"] S2["Upis i fsync<br/>binarnog loga"] W1["AFTER_SYNC:<br/>čeka se potvrda"] S4["Komitovanje<br/>u InnoDB-u<br/>(T postaje vidljiva)"] W2["AFTER_COMMIT:<br/>čeka se potvrda"] S6["OK klijentu"]
+  space:6
+  space R["Replika: relay log<br/>i fsync, pa potvrda"]:2 space:3
+  space:3 N["Prozor vidljivosti pod AFTER_COMMIT:<br/>drugi vide T, nijedna replika je nema"]:2 space
+
+  S1 --> S2
+  S2 --> W1
+  W1 --> S4
+  S4 --> W2
+  W2 --> S6
+  S2 -."događaji".-> R
+  R -."potvrda".-> W1
+  R -."potvrda".-> W2
+  S4 -.- N
+  W2 -.- N
+
+  classDef step fill:#dbeafe,stroke:#3b82f6,color:#111
+  classDef wait fill:#fef3c7,stroke:#d97706,stroke-dasharray:5 4,color:#111
+  classDef rep fill:#dcfce7,stroke:#16a34a,color:#111
+  classDef note fill:#fee2e2,stroke:#dc2626,color:#111
+  class S1,S2,S4,S6 step
+  class W1,W2 wait
+  class R rep
+  class N note

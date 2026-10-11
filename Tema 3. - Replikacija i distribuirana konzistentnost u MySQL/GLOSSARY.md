@@ -187,7 +187,7 @@ Soft target ~20-25 rendered pages; 24 budgeted below is a starting point, not a 
 | 1 | Uvod | 1 | — | — |
 | 2 | Teorijski okvir: modeli konzistentnosti, CAP/PACELC i konsenzus | 3 → 4.25 (measured 2026-10-07) → **~3.6 (cut to it and measured 2026-10-09, §2b)** | memo 07 | — |
 | 3 | Binarni log, GTID i asinhrona replikacija | 4.5 → **~4.8 (first draft ~5.8, cut and measured 2026-10-09, §2b; includes Tabela 3.1 and three figures)** | memo 03 | #1, #2 |
-| 4 | Semisinhrona replikacija i značenje potvrde | 3 | memo 04 | #2 |
+| 4 | Semisinhrona replikacija i značenje potvrde | 3 → **3.0 (measured 2026-10-11, ~1180 words + Slika 4.1 + Tabela 4.1; on budget, nothing raised)** | memo 04 | #2 |
 | 5 | Group Replication: kvorum, certification i multi-primary | 5 | memo 05 | #3 |
 | 6 | Geo-distribuirana replikacija i InnoDB ClusterSet | 3 | memo 07 (corrected) | #4 |
 | 7 | Skaliranje čitanja i kašnjenje replikacije | 3.5 | memo 06 | #5 |
