@@ -99,7 +99,8 @@ bold for the rest.
 **Readability.** Body type is Georgia-first at 19.5px / line-height 1.72 — it renders on this Windows
 box and has a tall x-height. Keep type comfortably large; if a lesson feels cramped, bump the size
 before shrinking the content. Open question if the user raises it: whether he would prefer a humanist
-sans-serif (Segoe UI). Offered, not chosen.
+sans-serif (Segoe UI). Offered, not chosen. **Column width stays 42rem**: a wide breakout for
+figures/code (62rem, text at 42rem) was tried at Tema 3 lesson 04 and he rejected it; do not re-offer.
 
 **Copy buttons.** Every block `<pre>` gets the „Kopiraj" button from `assets/copy.js`; every lesson
 links that script. Block code only, not inline `<code>`.

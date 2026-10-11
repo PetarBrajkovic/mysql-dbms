@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 04 · Šta semisinhrona potvrda zaista znači</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 04 · Poglavlje 4 (Semisinhrona replikacija i značenje potvrde)</p>
+<h1>Potvrda kaže „imam je u relay logu“, i ništa više</h1>
+<p class="subtitle">Lekcija 0003 je završila pravilom oporavka: binarni log odlučuje. Ova lekcija stavlja
+  čekanje na repliku u isti niz komitovanja i meri, na živoj topologiji, šta se dešava kada izvor padne
+  usred tog čekanja.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Poglavlje 4 postoji da ubije jedno pogrešno čitanje: da je semisinhrona replikacija opcija za podešavanje
+  performansi. Posle ove lekcije treba da umeš bez podsetnika da kažeš
+  <strong>(1)</strong> šta tačno potvrda tvrdi i zašto baš to;
+  <strong>(2)</strong> gde čekaju <code>AFTER_SYNC</code> i <code>AFTER_COMMIT</code>, i zašto samo
+  <code>AFTER_COMMIT</code> otvara prozor u kome klijent čita transakciju koju failover zatim briše;
+  <strong>(3)</strong> zašto se stari izvor posle failover-a ne vraća, iako ga MySQL ne odbija;
+  <strong>(4)</strong> šta se dešava na isteku vremena i po čemu operator to primećuje;
+  <strong>(5)</strong> zašto je cena potvrde pitanje udaljenosti replike.
+</div>
+
+<h2>1 · Ko na replici sme da kaže „imam“</h2>
+<p>Na replici rade dve odvojene niti, i <strong>samo jedna od njih razgovara sa izvorom</strong>.
+  <strong>Nit prijema</strong> (receiver) preuzima događaje iz binarnog loga izvora i upisuje ih u
+  lokalnu datoteku, <code>relay log</code>. <strong>Nit primene</strong> (applier) ne zna za izvor: čita
+  <code>relay log</code> sa lokalnog diska i menja tabele. Podela na dve niti je odluka u dizajnu, a ne
+  nužnost. Preuzimanje je brzo, a primena spora, pa replika može da ima sve preuzeto, a ništa primenjeno
+  (zapis 0001: <code>relay log</code> je narastao na 2,9 MB za 3 s, a primena je kasnila još 10 s).</p>
+
+<p>Za transakciju T na replici zato postoje tri stanja: <strong>(a)</strong> stigla je u memoriju niti
+  prijema, <strong>(b)</strong> upisana je u <code>relay log</code> i nad njim je urađen fsync,
+  <strong>(c)</strong> primenjena je i vidljiva na replici. Potvrda (acknowledgement) mora da preživi pad
+  i mora da bude jeftina, jer klijent čeka. Stanje (a) ne preživljava pad procesa, a stanje (c) je
+  nepotrebno sporo. Ostaje <strong>(b)</strong>, i MySQL bira upravo njega:</p>
+
+<div class="slide">
+  <q>The replica acknowledges receipt of a transaction's events only after the events have been written
+  to its relay log and flushed to disk.</q>
+  <span class="sr"><a href="https://dev.mysql.com/doc/refman/8.4/en/replication-semisync.html">MySQL 8.4
+  Reference Manual, 19.4.10 Semisynchronous Replication</a></span>
+</div>
+
+<p>Iz toga sledi ono što potvrda <span class="hi">ne</span> znači: ne znači da je replika primenila T,
+  pa ni da je T vidljiva na replici. Priručnik to kaže izričito: potvrda je samo
+  <q>an acknowledgement from the replicas, not that the events have been fully executed and committed
+  on the replica side</q>.</p>
+
+<h2>2 · Odluka i vidljivost su dva različita trenutka</h2>
+<p>Na izvoru se komitovanje odvija u nizu koji znaš iz lekcije 0003. Na dva pitanja o tom nizu odgovaraju
+  dva različita dela sistema:</p>
+
+<table class="exp">
+  <tr><td>„Šta će biti sa T ako server sada padne?“</td><td>odgovara <strong>binarni log</strong>: ako je
+    T u njemu, oporavak je komituje (pravilo dvofaznog komitovanja)</td></tr>
+  <tr><td>„Šta sesija B vidi ako sada čita?“</td><td>odgovara <strong>InnoDB</strong>: obično čitanje
+    vidi samo transakcije koje je InnoDB već komitovao; pripremljenu transakciju ne vidi i ne čeka
+    na nju</td></tr>
+</table>
+
+<p>Sesija B nikad ne čita binarni log, nego tabele kroz InnoDB. Zato upis u binarni log ne može da
+  učini red vidljivim. Vidljivim ga čini samo komitovanje u InnoDB-u. Između koraka „komitovanje u
+  InnoDB-u“ i „OK klijentu“ prolazi vreme, i ako se tu ubaci čekanje, drugi već vide T, a pisac još
+  nije dobio OK.</p>
+
+<h2>3 · Dva mesta za čekanje</h2>
+<p>Izvor čeka potvrdu negde u svom nizu komitovanja. Pre upisa u binarni log ne može, jer nema šta da
+  pošalje (nit koja šalje log šalje ono što je u binarnom logu). Posle odgovora klijentu ne sme, jer bi
+  to bila asinhrona replikacija. Ostaju <strong>tačno dva mesta</strong>, i
+  <code>rpl_semi_sync_source_wait_point</code> bira jedno od njih:</p>
+
+<figure class="fig">
+  <img src="../viz/viz-l04-tacke-cekanja-1791747054613.png"
+       alt="Dve kolone sa istim nizom od četiri koraka: priprema u redo logu, upis i fsync binarnog loga
+            (oznaka: odluka, posle pada oporavak komituje T), komitovanje u InnoDB-u (oznaka: vidljivost,
+            druge sesije čitaju T), OK klijentu. U koloni AFTER_SYNC žuto polje 'čeka potvrdu replike'
+            stoji između upisa u binarni log i komitovanja u InnoDB-u, a zelena napomena kaže da niko ne
+            vidi T pre potvrde. U koloni AFTER_COMMIT žuto polje stoji između komitovanja u InnoDB-u i
+            odgovora klijentu, a crvena zagrada preko komitovanja i čekanja nosi natpis: prozor, drugi
+            vide T, replika je još nema.">
+  <figcaption><b>Slika 1</b>: Dve tačke čekanja razlikuje samo to da li je čekanje pre ili posle
+    komitovanja u InnoDB-u. Samo <code>AFTER_COMMIT</code> otvara prozor u kome drugi vide T koju
+    nijedna replika nema. Izvor: MySQL 8.4 Reference Manual, 19.4.10 i opis promenljive
+    <code>rpl_semi_sync_source_wait_point</code>.</figcaption>
+</figure>
+
+<div class="slide">
+  <q>After the commit and before replica acknowledgment, other clients can see the committed transaction
+  before the committing client.</q>
+  <span class="sr"><a href="https://dev.mysql.com/doc/refman/8.4/en/replication-options-source.html#sysvar_rpl_semi_sync_source_wait_point">MySQL
+  8.4 Reference Manual, <code>rpl_semi_sync_source_wait_point</code>, o vrednosti AFTER_COMMIT</a></span>
+</div>
+
+<p>Podrazumevana vrednost je <code>AFTER_SYNC</code>. Promenljiva je dinamička, pa se režim menja bez
+  ponovnog pokretanja servera. Istorijska napomena, kao činjenica, a ne kao nešto što iz nečega sledi:
+  pre MySQL-a 5.7.2 jedini način rada je bio onaj koji se danas zove <code>AFTER_COMMIT</code>.</p>
+
+<div class="try">
+  <div class="hd">Pokreni u PowerShell-u: prozor vidljivosti</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> topologija pokrenuta u asinhronom stanju
+      (<code>examples\00-setup\topology.ps1 start</code>); port 3306 se ne dira. Skripta sama zaustavlja i
+      ponovo pokreće niti prijema; posle nje je semisinhrona replikacija i dalje uključena.</p>
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run">cd examples\03-semisync
+<span class="c"># semisync ON, 2 clients, AFTER_SYNC</span>
+.\01-semisync-on.ps1
+<span class="c"># writer = its own mysqlsh process; reader = held session polling 3307</span>
+.\02-window.ps1 -WaitPoint AFTER_SYNC -Id 1001
+.\02-window.ps1 -WaitPoint AFTER_COMMIT -Id 1002</pre>
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">wait_point          : AFTER_SYNC          wait_point          : AFTER_COMMIT
+writer_result       : OK                  writer_result       : OK
+writer_commit_ms    : ~timeout            writer_commit_ms    : ~timeout
+B_first_sees_row_ms : ~timeout            B_first_sees_row_ms : nekoliko ms
+window_ms           : 0                   window_ms           : ~timeout
+is the row on the replicas? 3308 : 0 / 3309 : 0  (u oba slučaja)</pre>
+    <p class="interpret"><b>Kako se ovo čita:</b> potvrda je namerno zadržana, jer su niti prijema
+      zaustavljene, pa pisac čeka do isteka vremena. Pod <code>AFTER_COMMIT</code> sesija B sve to vreme
+      čita red koji postoji samo na 3307. Pod <code>AFTER_SYNC</code> ga vidi tek kad pisac dobije
+      odgovor. Uzgred se vidi i istek vremena: pisac dobija <strong>OK</strong>, a ne grešku (odeljak 6).</p>
+  </div>
+</div>
+
+<figure class="fig">
+  <img src="../viz/viz-l04-prozor-vidljivosti-1791747042983.png"
+       alt="Dve vremenske trake na zajedničkoj osi od 0 do 3200 ms od slanja COMMIT-a. AFTER_SYNC: siva
+            traka 'A čeka potvrdu' do 3012 ms, gde A dobija OK i gde B prvi put vidi red; prozor 0 ms,
+            zeleno. AFTER_COMMIT: B prvi put vidi red na 5 ms, A dobija OK na 3010 ms, interval između je
+            crven, sa natpisom: prozor 3005 ms, B vidi red koji nijedna replika nema. Napomena: u oba
+            merenja replike 3308 i 3309 imaju 0 kopija reda tokom celog čekanja.">
+  <figcaption><b>Slika 2</b>: Pod <code>AFTER_COMMIT</code> druga sesija je 3005 ms čitala red koji
+    nijedna replika nije imala; pod <code>AFTER_SYNC</code> prozor je 0 ms. Potvrda je namerno zadržana
+    (niti prijema zaustavljene, timeout 3000 ms); čitač je proveravao svakih 0,14 ms. Izmereno na našoj
+    topologiji, MySQL 8.4.11, <code>examples/03-semisync/02-window.ps1</code>.</figcaption>
+</figure>
+
+<h2>4 · Pad usred čekanja: šta failover briše</h2>
+<p><strong>Failover</strong> (preuzimanje uloge izvora nakon otkaza) i <strong>switchover</strong>
+  (planirana promena uloga) definišu se jedan naspram drugog. Kod switchover-a je izvor ispravan:
+  operator ga zaustavi, sačeka da replika primi sve i tek onda zameni uloge, pa nijedna potvrda ne ostaje
+  „u letu“. Kod failover-a izvor je otkazao i ništa nije predao. Samo failover zato može da izgubi ono
+  što je bilo u prozoru.</p>
+
+<p>Isti eksperiment, ali sa pravim padom: dok pisac čeka potvrdu, proces <code>mysqld</code> na 3307 se
+  ubija, a 3308 postaje novi izvor. Izvedeno dva puta, jednom pod svakim režimom:</p>
+
+<figure class="fig">
+  <img src="../viz/viz-l04-pad-i-failover-1791747051999.png"
+       alt="Dva panela sa istih pet koraka. AFTER_COMMIT, id 2001: A šalje COMMIT i čeka; B čita 3307
+            posle 1,5 s i vidi red (crveno); proces mysqld na 3307 ubijen, A dobija grešku veze; failover
+            na 3308, red na 3308 je 0, B je videla podatak koji je failover izbrisao (crveno); stari izvor
+            posle oporavka ima red, višak GTID 17679, povezan kao replika od 3308 sa Yes/Yes i nula
+            grešaka, ali se podaci razlikuju (žuto). AFTER_SYNC, id 3001: isti koraci, ali B ne vidi red
+            (zeleno) i niko nije video izgubljeno (zeleno); stari izvor ipak ima red, višak GTID 17682,
+            i povezivanje opet prolazi bez greške. Donji natpis: AFTER_SYNC štiti klijente, ali nijedan
+            režim ne čini stari izvor ponovo upotrebljivim.">
+  <figcaption><b>Slika 3</b>: Pod <code>AFTER_COMMIT</code> failover je izbrisao red koji je druga sesija
+    već pročitala; pod <code>AFTER_SYNC</code> niko nije video izgubljeno, ali u oba slučaja stari izvor
+    posle oporavka ima transakciju koju novi izvor nema. Pad procesa izazvan namerno
+    (<code>Stop-Process -Force</code>), potvrda zadržana. Izmereno na našoj topologiji, MySQL 8.4.11,
+    <code>examples/03-semisync/03-crash-failover.ps1</code> i <code>04-rejoin.ps1</code>.</figcaption>
+</figure>
+
+<p>Pisac A ni u jednom slučaju nije dobio OK (<q>Lost connection to MySQL server during query</q>), pa
+  njemu ništa potvrđeno nije izgubljeno. Anomalija je kod <strong>čitaoca</strong>: pod
+  <code>AFTER_COMMIT</code> sesija B je pročitala red koji posle failover-a ne postoji ni na jednom
+  serveru koji radi. To je <span class="hi">anomalija konzistentnosti, a ne napomena o
+  performansama</span>: pitanje nije koliko je <code>AFTER_COMMIT</code> brži, nego šta je B smela da
+  vidi. Priručnik:</p>
+
+<div class="slide">
+  <q>… it is possible for such clients to see a loss of data relative to what they saw on the source.</q>
+  <span class="sr"><a href="https://dev.mysql.com/doc/refman/8.4/en/replication-options-source.html#sysvar_rpl_semi_sync_source_wait_point">MySQL
+  8.4 Reference Manual, <code>rpl_semi_sync_source_wait_point</code>, o vrednosti AFTER_COMMIT</a></span>
+</div>
+
+<h2>5 · Stari izvor se ne vraća, iako ga MySQL ne odbija</h2>
+<p>Pod <code>AFTER_SYNC</code> je transakcija u trenutku pada bila samo <strong>pripremljena</strong> i
+  upisana u binarni log, i niko je nije video (B je pročitala 0). Posle ponovnog pokretanja red ipak
+  postoji na 3307. To je pravilo oporavka iz lekcije 0003: pripremljena transakcija koja je u binarnom
+  logu komituje se. <strong>Oporavak ne zna za potvrdu.</strong> Zato <code>AFTER_SYNC</code> štiti
+  klijente, ali ne i stari izvor:</p>
+
+<div class="slide">
+  <q>… the source cannot be restarted in this scenario and must be discarded, because its binary log
+  might contain uncommitted transactions that would cause a conflict with the replica.</q>
+  <span class="sr"><a href="https://dev.mysql.com/doc/refman/8.4/en/replication-options-source.html#sysvar_rpl_semi_sync_source_wait_point">MySQL
+  8.4 Reference Manual, <code>rpl_semi_sync_source_wait_point</code>, o vrednosti AFTER_SYNC</a></span>
+</div>
+
+<p>„Must be discarded“ je pravilo za operatora, ne nešto što server sprovodi. Kada smo stari izvor
+  povezali kao repliku novog (<code>SOURCE_AUTO_POSITION = 1</code>), obe niti su radile, nije bilo
+  nijedne greške i <code>Seconds_Behind_Source</code> je bio 0, a <code>CHECKSUM TABLE</code> se
+  razlikovao. Provera po GTID-u to ne hvata. Greška <code>ER_REPLICA_HAS_MORE_GTIDS_THAN_SOURCE</code>
+  (1885) javlja se samo kada replika ima GTID-ove sa UUID-om <strong>samog izvora</strong> koje izvor
+  nema (<a href="https://dev.mysql.com/doc/refman/8.4/en/replication-gtids-auto-positioning.html">19.1.3.3</a>).
+  Višak na starom izvoru nosi njegov sopstveni UUID, pa ga provera ne vidi. Operator ga nalazi sam:</p>
+
+<pre class="sql run"><span class="c">-- On the new source (3308): what does the old source have that we do not?</span>
+<span class="k">SELECT</span> <span class="fn">GTID_SUBTRACT</span>(<span class="s">'&lt;gtid_executed of 3307&gt;'</span>, @@gtid_executed) <span class="k">AS</span> extra_on_old_source;</pre>
+<pre class="out">extra_on_old_source
+92f36f51-b420-11f1-aa37-9c6b001d863b:17682</pre>
+
+<p>Zašto novi izvor ne bi jednostavno „preuzeo“ višak? Zato što je pisac dobio grešku, a ispravna
+  aplikacija tada ponavlja upis, i to na novom izvoru. Spajanje dva loga koja su se razdvojila zahteva
+  rešavanje sukoba, a to je problem sistema sa više leadera. Replikacija sa jednim izvorom ga izbegava
+  baš tako što podaci teku samo u jednom smeru.</p>
+
+<div class="try">
+  <div class="hd">Pokreni u PowerShell-u: pad, failover, povratak</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> <code>01-semisync-on.ps1</code> je pokrenut (semisinhrona
+      replikacija ON, 2 klijenta). <strong>Ubija proces</strong> na 3307 i menja uloge; posle obavezno
+      pokreni <code>09-restore.ps1</code>, koji vraća asinhrono stanje mirovanja i proverava da su
+      <code>gtid_executed</code> na sva tri čvora identični.</p>
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="c"># kill 3307 mid-wait, promote 3308</span>
+.\03-crash-failover.ps1 -WaitPoint AFTER_COMMIT -Id 2001
+<span class="c"># restart 3307, attach it to 3308</span>
+.\04-rejoin.ps1 -Id 2001
+<span class="c"># back to: 3307 source, async, no errant GTIDs</span>
+.\09-restore.ps1</pre>
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">B reads id=2001 on 3307 : 1           (pod AFTER_SYNC: 0)
+writer A: "result":"ERROR", "Lost connection to MySQL server during query"
+after failover ... NEW source 3308 : 0
+old source after recovery holds id : 1
+extra_on_old_source                : &lt;UUID 3307&gt;:N   old_is_subset_of_new : 0
+Replica_IO_Running: Yes   Replica_SQL_Running: Yes   Last_IO_Errno: 0   Last_SQL_Errno: 0
+CHECKSUM TABLE: 3307 se razlikuje od 3308 i 3309</pre>
+    <p class="interpret"><b>Kako se ovo čita:</b> svi indikatori kanala su zeleni, a podaci se razlikuju.
+      Sistem ne odbija stari izvor; odbacivanje je odluka operatora.</p>
+  </div>
+</div>
+
+<h2>6 · Istek vremena: OK bez potvrde</h2>
+<p>Bez isteka vremena bi jedna mrtva replika zaustavila sve upise na izvoru. MySQL zato posle
+  <code>rpl_semi_sync_source_timeout</code> milisekundi (podrazumevano 10000) prestaje da čeka, komituje,
+  vraća <strong>običan OK</strong> i prelazi u asinhroni režim. To je izbor dostupnosti umesto
+  konzistentnosti, isto pitanje kao prvo pitanje PACELC-a iz lekcije 0001, i to je
+  <strong>odluka u dizajnu</strong>, a ne nešto što iz nečega sledi. Operator može da postavi ogroman
+  istek vremena i time praktično izabere čekanje.</p>
+
+<div class="slide">
+  <q>If a timeout occurs without any replica having acknowledged the transaction, the source reverts to
+  asynchronous replication. When at least one semisynchronous replica catches up, the source returns to
+  semisynchronous replication.</q>
+  <span class="sr"><a href="https://dev.mysql.com/doc/refman/8.4/en/replication-semisync.html">MySQL 8.4
+  Reference Manual, 19.4.10 Semisynchronous Replication</a></span>
+</div>
+
+<figure class="fig">
+  <img src="../viz/viz-l04-tiha-degradacija-1791747084403.png"
+       alt="Tri trake preko šest faza: normalno, replike nedostupne, istek vremena, asinhrono bez
+            upozorenja, replike se vraćaju, ponovo semisinhrono. Traka klijenta: svaki COMMIT dobija OK;
+            prvi posle nestanka replika čeka ceo timeout (izmereno 1 004 293 µs uz timeout 1000 ms),
+            sledeći traje 782 µs; natpis: klijent nikad ne dobija grešku. Traka statusa: ON, pa OFF na
+            isteku vremena, pa ON kad se replike vrate. Traka no_tx: 0, raste tokom asinhrone faze i ostaje
+            visok i kad se status vrati na ON; natpis: jedini trajni trag. Desno lista signala za
+            operatora, i crveno: clients nije signal, ostao je 2 sa zaustavljenim nitima prijema.">
+  <figcaption><b>Slika 4</b>: Istek vremena je nevidljiv za klijenta; status se sam vraća na ON, a trag
+    ostaje samo u brojačima. Vremenska osa je šematska; brojevi su izmereni na našoj topologiji, MySQL
+    8.4.11 (zapis 0001 i <code>examples/03-semisync/02-window.ps1</code>).</figcaption>
+</figure>
+
+<p>Klijent ne može da primeti istek vremena. Može samo operator, i to ako gleda. Signali koji su se
+  danas videli na 3307:</p>
+
+<table class="exp">
+  <tr><td><code>Rpl_semi_sync_source_status</code></td><td>ON ili OFF: samo trenutno stanje; ujutru je
+    opet ON, čak i ako je noću bio OFF</td></tr>
+  <tr><td><code>Rpl_semi_sync_source_no_tx</code></td><td>broj komitova bez potvrde, <strong>trajni
+    trag</strong> (izmereno 0 → 1 → 2)</td></tr>
+  <tr><td><code>Rpl_semi_sync_source_no_times</code></td><td>koliko puta se izvor prebacio u asinhroni
+    režim (izmereno 0 → 1 → 2)</td></tr>
+  <tr><td><code>Rpl_semi_sync_source_yes_tx</code></td><td>broj potvrđenih komitova; prestaje da raste</td></tr>
+  <tr><td><code>Rpl_semi_sync_source_wait_sessions</code></td><td>sesije koje upravo čekaju potvrdu</td></tr>
+  <tr><td>log grešaka, <code>MY-011153</code></td><td><q>Timeout waiting for reply of binlog …</q></td></tr>
+  <tr><td>vreme komitovanja</td><td>nagli skok na vrednost isteka vremena (izmereno 3010 ms i 3012 ms)</td></tr>
+  <tr><td><code>Rpl_semi_sync_source_clients</code></td><td><span class="hi">nije pouzdan signal</span>:
+    ostao je 2, iako su obe niti prijema bile zaustavljene</td></tr>
+</table>
+
+<div class="note">
+  <span class="lbl">Ispravka memoa 04</span>
+  Memo navodi brojač <code>Rpl_semi_sync_source_timeouted</code>. On ne postoji ni u priručniku za 8.4
+  ni na živom serveru (<code>SHOW STATUS LIKE 'Rpl_semi_sync%'</code> na 3307 izlistava 14 promenljivih,
+  među kojima nema te). Lista signala iznad je napravljena iznova, iz onoga što server zaista prikazuje.
+</div>
+
+<h2>7 · Cena potvrde je pitanje udaljenosti</h2>
+<p>Usporenje je <q>at least the TCP/IP roundtrip time to send the commit to the replica and wait for the
+  acknowledgment of receipt by the replica</q>
+  (<a href="https://dev.mysql.com/doc/refman/8.4/en/replication-semisync.html">19.4.10</a>). Komitovanje
+  je zbir: fsync binarnog loga, fsync redo loga, pa povratno putovanje do replike. Prva dva sabirka bira
+  matrica iz lekcije 0003, a treći mreža.</p>
+
+<pre class="out">t(commit) ≈ t(fsync binary log) + t(fsync redo log) + t(round trip to the replica)</pre>
+
+<figure class="fig">
+  <img src="../viz/viz-l04-cena-potvrde-1791747069767.png"
+       alt="Grupisani stubičasti grafikon, mikrosekunde po komitovanju, asinhrono (sivo) i semisinhrono
+            (plavo), za četiri kombinacije sync_binlog i innodb_flush_log_at_trx_commit: 1/1 764 i 978
+            (u granicama šuma), 1/2 355 i 406 (+14 %), 0/1 634 i 533 (nije vidljivo), 0/2 bez fsync-a 61
+            i 124 (+103 %, crveno). Okvir: replika na 1000 km ima povratno putovanje od najmanje oko 10 ms,
+            više od oba fsync-a zajedno.">
+  <figcaption><b>Slika 5</b>: Na loopback-u se potvrda gubi pored dva fsync-a, a bez njih udvostručuje
+    vreme komitovanja (61 → 124 µs). Nijedan broj o ceni ne važi bez podešavanja postojanosti uz koje je
+    izmeren. Izmereno na našoj topologiji, MySQL 8.4.11, 300 komitovanja po polju (zapis 0001).</figcaption>
+</figure>
+
+<p>Na jednoj mašini je povratno putovanje desetine mikrosekundi. Svetlost u optičkom vlaknu prelazi oko
+  200 000 km/s, pa za repliku udaljenu 1000 km povratno putovanje iznosi najmanje oko 10 ms, desetak puta
+  više od oba fsync-a zajedno. Operator, dakle, ne bira samo da li je potvrda uključena, nego
+  <strong>koliko daleko je replika koja mora da potvrdi</strong>. Odatle vodi poglavlje 6.</p>
+
+<h2>8 · Okosnica, ovaj put izmerena</h2>
+<p>MySQL ovde nudi četiri podesive tačke: <code>rpl_semi_sync_source_wait_point</code>,
+  <code>rpl_semi_sync_source_timeout</code>, <code>rpl_semi_sync_source_wait_for_replica_count</code>
+  (podrazumevano 1) i udaljenost replike. Na dva mesta je sistem ćutao dok je garancija nestajala: posle
+  isteka vremena (OK bez upozorenja) i pri povratku starog izvora (zeleni indikatori, različiti podaci).
+  U oba slučaja primećivanje je posao operatora. <span class="hi">Konzistentnost je odluka operatora, a
+  ne svojstvo sistema.</span></p>
+
+<h2>9 · Provera</h2>
+<div class="quiz">
+  <p>Svako pitanje navodi stanje topologije od koga zavisi. Odgovori iz glave, pa tek onda proveri.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Izvor je dobio potvrdu za T od replike 3308. Šta je ta potvrda utvrdila o T na 3308?</p>
+    <label><input type="radio"> Nit primene je primenila T na tabele replike</label>
+    <label><input type="radio"> Nit prijema je primila T u svoju memoriju</label>
+    <label><input type="radio"> Nit prijema je upisala T u relay log, uz fsync</label>
+    <label><input type="radio"> Replika je komitovala T u svom binarnom logu</label>
+    <p class="why">Potvrda se šalje u stanju (b): T je u relay logu, na disku. Primena dolazi kasnije i
+      nije deo potvrde.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">2. Na izvoru je T upisana u binarni log (uz fsync), ali je InnoDB još nije komitovao.
+      Sesija B čita tabelu. Šta važi?</p>
+    <label><input type="radio"> B ne vidi T, a posle pada oporavak komituje T</label>
+    <label><input type="radio"> B vidi T, a posle pada oporavak komituje T</label>
+    <label><input type="radio"> B ne vidi T, a posle pada oporavak poništava T</label>
+    <label><input type="radio"> B čeka na T, a posle pada oporavak komituje T</label>
+    <p class="why">Vidljivost određuje InnoDB, a oporavak binarni log. To su dva različita pitanja.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Semisinhrona replikacija, potvrda još nije stigla, pisac A čeka OK. U kom režimu
+      sesija B na izvoru već vidi T?</p>
+    <label><input type="radio"> U oba režima, jer je T u binarnom logu</label>
+    <label><input type="radio"> Samo u AFTER_SYNC, jer je to podrazumevani režim</label>
+    <label><input type="radio"> Ni u jednom, jer A još nije dobio OK</label>
+    <label><input type="radio"> Samo u AFTER_COMMIT, jer je InnoDB već komitovao T</label>
+    <p class="why">AFTER_COMMIT čeka posle komitovanja u InnoDB-u, pa je T vidljiva pre potvrde.
+      Izmereno: prozor 3005 ms naspram 0 ms.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">4. AFTER_COMMIT, niti prijema zaustavljene. B je pročitala red koji A upisuje; 3307
+      tada padne i 3308 postaje izvor. Šta važi?</p>
+    <label><input type="radio"> A dobija OK, a red postoji na 3308</label>
+    <label><input type="radio"> A dobija grešku, a red ne postoji na 3308</label>
+    <label><input type="radio"> A dobija OK, a red ne postoji na 3308</label>
+    <label><input type="radio"> A dobija grešku, a red postoji na 3308</label>
+    <p class="why">Pisac nije dobio OK, pa njemu ništa nije obećano. Ali B je videla podatak koji je
+      failover izbrisao: to je anomalija.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">5. AFTER_SYNC, izvor 3307 je ubijen dok je T čekala potvrdu; failover je na 3308. Šta je
+      sa T na 3307 posle ponovnog pokretanja?</p>
+    <label><input type="radio"> Poništena, jer InnoDB nije komitovao T</label>
+    <label><input type="radio"> Pripremljena, dok ne stigne potvrda replike</label>
+    <label><input type="radio"> Komitovana, jer je T u binarnom logu</label>
+    <label><input type="radio"> Obrisana iz binarnog loga pri oporavku</label>
+    <p class="why">Pravilo oporavka ne zna za potvrdu: T je u binarnom logu, pa se komituje. Stari izvor
+      zato ima višak.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">6. Stari izvor 3307 ima GTID sa sopstvenim UUID-om koji 3308 nema. Šta se dešava kad
+      ga povežemo kao repliku od 3308 sa SOURCE_AUTO_POSITION = 1?</p>
+    <label><input type="radio"> Kanal radi bez greške, a podaci se razlikuju</label>
+    <label><input type="radio"> Kanal staje sa greškom 1885 o višku GTID-ova</label>
+    <label><input type="radio"> 3308 preuzima višak od 3307 i podaci se slažu</label>
+    <label><input type="radio"> 3307 sam poništava višak i podaci se slažu</label>
+    <p class="why">Greška 1885 važi samo za GTID-ove sa UUID-om novog izvora. Izmereno: Yes/Yes, 0 grešaka,
+      CHECKSUM se razlikuje.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">7. Ujutru: <code>Rpl_semi_sync_source_status</code> = ON, <code>no_tx</code> = 4120
+      (juče 0), nijedna prijavljena greška. Šta operator može da zaključi?</p>
+    <label><input type="radio"> 4120 komitova je odbijeno sa greškom</label>
+    <label><input type="radio"> Ništa, jer je status ON pa je sve potvrđeno</label>
+    <label><input type="radio"> 4120 transakcija je izgubljeno na replikama</label>
+    <label><input type="radio"> 4120 komitova je dobilo OK bez potvrde</label>
+    <p class="why">no_tx je trajni trag perioda bez garancije; status pokazuje samo trenutno stanje.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">8. Izvor i replika su na istoj mašini, uz punu postojanost (1/1), i potvrda ne pravi
+      merljivu razliku. Šta se dešava sa replikom udaljenom 1000 km?</p>
+    <label><input type="radio"> Ništa, jer je izmereno da potvrda ne košta</label>
+    <label><input type="radio"> Commit postaje znatno sporiji, jer potvrda nadjača fsync</label>
+    <label><input type="radio"> Commit se ubrzava, jer replika više ne deli disk</label>
+    <label><input type="radio"> Usporenje ostaje isto, jer zavisi samo od fsync-a</label>
+    <p class="why">Potvrda košta povratno putovanje: na 1000 km najmanje oko 10 ms, više od oba fsync-a.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong>
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/replication-semisync.html">MySQL 8.4 Reference Manual,
+  19.4.10 Semisynchronous Replication</a>: pročitaj uvodnu stranicu, pa opis promenljive
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/replication-options-source.html#sysvar_rpl_semi_sync_source_wait_point"><code>rpl_semi_sync_source_wait_point</code></a>
+  (tamo su obe rečenice o failover-u) i
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/replication-semisync-monitoring.html">19.4.10.3</a>
+  za nadzor. ·
+  <strong>Vidi još:</strong> <a href="../reference/semisinhrona-potvrda.html">referentna kartica</a>,
+  <a href="0003-postojanost-wal-dvofazno-komitovanje.html">lekcija 0003</a> (pravilo oporavka, matrica),
+  <a href="0002-binarni-log-gtid-asinhrona.html">lekcija 0002</a> (niti, GTID),
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §1b. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu. Lekcija je početak, ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>

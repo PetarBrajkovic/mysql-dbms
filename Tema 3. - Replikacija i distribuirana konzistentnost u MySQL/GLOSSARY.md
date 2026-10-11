@@ -142,6 +142,18 @@ never *latencija replikacije*; never *master/slave* as working terms.
 | Storage engine | mehanizam skladištenja *(storage engine)* | motor | Tema 1 `GLOSSARY.md`: never „skladišni motor“, never „mehanizam“ throughout, never „pogon“ |
 | Server layer | serverski sloj | serverski sloj | where the binary log lives, above the engines |
 
+### 1b⁗'. Added at ticket 16 (ch. 4 lesson, record 0006)
+
+| Concept | Serbian term (first use) | After first use | Note |
+|---|---|---|---|
+| Wait point | tačka čekanja *(wait point)* | tačka čekanja | the two values stay `AFTER_SYNC` / `AFTER_COMMIT` (§1c) |
+| Visibility window | prozor vidljivosti | prozor | interval in which other sessions see T and no replica has it |
+| Timeout (semisync) | istek vremena *(timeout)* | istek vremena | the variable stays `rpl_semi_sync_source_timeout` |
+| Silent degradation | tiha degradacija (vraćanje na asinhronu replikaciju) | tiha degradacija | |
+| Errant / extra transactions | višak transakcija *(errant transactions)* | višak | refman has no definition; Shell 8.4 says "extra transactions" |
+| Round-trip time | povratno putovanje *(round-trip time)* | povratno putovanje | the cost of one acknowledgement |
+| Plugin | dodatak *(plugin)* | dodatak | `INSTALL PLUGIN` stays verbatim; contrast with components only once |
+
 ### 1c. Verbatim - never translated, never declined
 
 Identifiers, keywords and product proper nouns:

@@ -15,6 +15,7 @@ chapter, never when planning a lesson.
 | [0003](0003-theory-framework.md) | 2 (ticket 14, lesson) | Vocabulary from three roots; PACELC as two plain questions; Abadi is the citation for "Dynamo quorums are not linearizable" | consistency models, RYW vs monotonic reads, CAP misreadings, PACELC, replication models, consensus, the two quorums; memo 07's errors |
 | [0004](0004-binlog-gtid-async.md) | 3, part A (ticket 15, lesson) | Replication = binlog shipping + replay; GTID is a name, file+offset an address; async acks before any replica saw it | binlog formats, unsafe statements, GTID / auto-positioning, receiver/applier threads, the rename, async loss window |
 | [0005](0005-durability-wal-2pc.md) | 3, part B (ticket 15, lesson) | write ≠ fsync; WAL/redo; two logs need two-phase commit with the binlog as decision point; the matrix | durability, crash recovery, `sync_binlog` × `innodb_flush_log_at_trx_commit`, process vs OS crash; ch. 4 `AFTER_SYNC` builds on it |
+| [0006](0006-semisync-acknowledgement.md) | 4 (ticket 16, lesson) | Ack = relay log + fsync; decision ≠ visibility; AFTER_COMMIT anomaly reproduced live; the failed source rejoins with zero errors | semisync, `AFTER_SYNC`/`AFTER_COMMIT`, failover vs switchover, errant/extra GTIDs, timeout signals, ack cost |
 
 ## Standing constraints these records impose on every later chapter
 
@@ -54,6 +55,10 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
 - Two-phase commit is **„dvofazno komitovanje“**, never „dvofazna potvrda“ (potvrda = acknowledgement).
   Matrix row 2/1 and the process-crash column are derived, not quoted; the ~2 redo fsyncs per commit
   with the binlog on is a measurement, not a documented mechanism. (0005)
+- **Ch. 4's measurements are done** (memo 04 claims 2, 3, 6): AFTER_COMMIT window 3005 ms vs 0 ms;
+  a reader saw a row the failover erased; under both wait points the restarted old source holds an
+  extra GTID and **rejoins with no error** (ER 1885 only covers the new source's UUID). Scripts in
+  `examples/03-semisync/`; always finish with `09-restore.ps1`. (0006)
 - A clean `topology.ps1 stop` is a **graceful leave**, not a failure — it cannot be used to
   demonstrate quorum loss. Losing majority requires killing the process. (0002)
 
@@ -72,6 +77,10 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   COMMIT`, not `ER_TRANSACTION_ROLLBACK_DURING_COMMIT` (3101), and `COUNT_CONFLICTS_DETECTED` never
   moves — measured across four different timings. First-commit-wins and row-level granularity both
   hold. (0002)
+- **Memo 04 invents `Rpl_semi_sync_source_timeouted`** (absent from 8.4 refman and the live server)
+  and lists five signals, not seven; **claim 6 is wrong in mechanism**: the failed source does not
+  cause replication errors on rejoin, it diverges silently. `_clients` is not a signal (stayed 2 with
+  receivers stopped). (0006)
 - **Memo 03 is wrong on `NOW()`** (lists it as unsafe; refman: safe, the binlog carries the timestamp)
   and **overstates GTIDs** ("failover is automatic"; refman: GTIDs *simplify* failover). (0004)
 - **Memo 03, claim 9 (parallel applier 2–4×) is understated** for this workload: measured 8.2×
