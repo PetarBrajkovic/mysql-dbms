@@ -1,0 +1,18 @@
+%% Slika 5.1 - certification: one common order, the same verdict on every member. Rendered via the mermaid render tool (mermaid-maker), 1568x938.
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","fontSize":"18px","edgeLabelBackground":"#ffffff"},"flowchart":{"nodeSpacing":40,"rankSpacing":60,"htmlLabels":true,"wrappingWidth":500}}}%%
+flowchart TB
+    A["T_A na članu 3307<br/>UPDATE invoices, red 1<br/>skup upisa: {invoices:1}"]
+    B["T_B na članu 3308<br/>UPDATE invoices, red 1<br/>skup upisa: {invoices:1}"]
+    S["<span style='white-space:nowrap'>Zajednički niz (XCom, Paxos)</span><br/>1. T_B<br/>2. T_A"]
+    R1["3307: T_B komitovana,<br/>T_A odbačena"]
+    R2["3308: T_B komitovana,<br/>T_A odbačena"]
+    R3["3309: T_B komitovana,<br/>T_A odbačena"]
+    A -->|"COMMIT: skup upisa"| S
+    B -->|"COMMIT: skup upisa"| S
+    S -->|"isti niz"| R1
+    S -->|"isti niz"| R2
+    S -->|"isti niz"| R3
+    classDef neutral fill:#e5e7eb,stroke:#6b7280,color:#111
+    classDef leader fill:#64748b,stroke:#334155,color:#fff
+    class A,B,R1,R2,R3 neutral
+    class S leader

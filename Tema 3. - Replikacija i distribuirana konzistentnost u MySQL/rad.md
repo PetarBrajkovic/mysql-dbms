@@ -455,3 +455,181 @@ istek vremena bira operater, a od tog izbora, i od toga da li prati znake degrad
 konzistentnost sistem zaista pruža. Peto poglavlje prelazi na Group Replication, u kojoj komitovanje
 znači da se o mestu transakcije u redosledu složila većina grupe.
 
+# 5. Group Replication: kvorum, certification i multi-primary
+
+Na jednom serveru redosled sukobljenih upisa određuje zaključavanje reda: od dve transakcije koje
+menjaju isti red, druga čeka prvu, pa redosled postoji pre nego što ijedna dobije potvrdu. Kada
+upise primaju dva čvora koji odlučuju nezavisno, oba mogu da potvrde upis u isti red, a kopije
+podataka se razilaze; to je sukob multi-leader replikacije iz drugog poglavlja. Group Replication
+ovaj problem rešava tako što se čvorovi grupe dogovore o redosledu pre nego što klijent dobije
+potvrdu. Članovi grupe poruke razmenjuju preko sistema za grupnu komunikaciju XCom, varijante
+algoritma Paxos, koji svim članovima isporučuje sve poruke istim redosledom [@mysql84refman]. Taj
+redosled se u ovom radu naziva zajednički niz (total order). Na topologiji ovog rada grupa od tri
+člana podignuta je pomoću alata MySQL Shell, kao InnoDB Cluster, čiju osnovu čini Group Replication
+[@mysqlshell84].
+
+## Certification: jedan niz, ista presuda
+
+Transakcija se najpre izvršava lokalno, na članu koji ju je primio, bez koordinacije sa ostalim
+članovima. Tek pri komitovanju član grupi šalje izmenjene redove i skup upisa (write-set), odnosno
+jedinstvene identifikatore redova koje je transakcija izmenila [@mysql84refman]. Zajednički niz
+zatim svakom članu isporučuje transakcije istim redosledom, a svaki član za sebe proverava da li
+transakcija menja red koji je već izmenila neka transakcija ispred nje u nizu, a koju ona nije
+videla. Taj korak MySQL naziva certification (provera saglasnosti transakcija). Kod sukoba
+komituje transakcija koja je u nizu prva, a druga se odbacuje na svim članovima; priručnik ovo
+naziva distribuiranim pravilom first commit wins [@mysql84refman], koje se u ovom radu prevodi kao
+prvi po redosledu pobeđuje. „Prvi“ pri tome znači prvi u nizu, a ne prvi po satu nekog čvora.
+Glasanja nema: svi članovi vide isti niz i iste podatke, pa samostalno donose istu presudu, kao na
+slici 5.1.
+
+![Slika 5.1: Certification dve sukobljene transakcije. Obe menjaju isti red, zajednički niz ih svim članovima isporučuje istim redosledom, pa svaki član samostalno komituje T_B i odbacuje T_A. Klijent A dobija grešku, a klijent B potvrdu.](figures/05-gr-01-certification.png){width=100%}
+
+Pošto se sukob prepoznaje po identifikatoru reda, svaka tabela mora da ima primarni ključ ili
+njegov ekvivalent, jedinstveni ključ čije kolone ne dozvoljavaju vrednost NULL [@mysql84refman]. Na
+topologiji je to provereno pomoćnom tabelom `no_pk_demo` bez primarnog ključa: grupa je prihvatila
+naredbu `CREATE TABLE`, ali je prvi `INSERT` odbijen greškom 3098, a provera instance u MySQL Shellu
+upozorila je da se tabela može čitati, ali ne i menjati. Tabela je zatim uklonjena.
+
+Sukob je izazvan u režimu sa više primarnih čvorova (multi-primary), u kome upise primaju svi
+članovi. Dve transakcije, na članovima 3307 i 3308, menjale su isti red tabele `invoices`. Komitovala
+je ona koja je prva stigla u niz, iako je otvorena kasnije, a druga je pri komitovanju dobila grešku
+`ERROR 1180` sa porukom „Lock deadlock; Retry transaction“. Sva tri člana završila su sa vrednošću
+pobednika. Kada su dve transakcije, sa istim vremenskim rasporedom, menjale dva različita reda iste
+tabele, komitovale su obe, pa se sukob utvrđuje po redu, a ne po tabeli. Gubitnik pri tome ne dobija
+posebnu grešku sukoba, već opštu grešku pri komitovanju, pa aplikacija mora da je prepozna i da
+transakciju ponovi.
+
+## Kvorum: manjina čeka, ne razilazi se
+
+Transakcija dobija mesto u nizu tek kada se o njemu složi većina grupe, pa grupa od tri člana
+podnosi otkaz jednog [@mysql84refman]. Ponašanje bez većine izmereno je tako što su procesi članova
+3308 i 3309 prinudno zaustavljeni; uredno gašenje servera nije moglo da posluži, jer uredno
+napuštanje grupe uklanja člana iz grupe, pa se većina računa nad preostalim članovima. Ishod na
+preživelom članu 3307, koji je i dalje bio primarni, prikazuje tabela 5.1. Čitanje je vraćeno za
+nekoliko desetina milisekundi, ali upis nije bio ni komitovan, ni odbijen, ni vidljiv drugim
+sesijama. Priručnik ovo stanje opisuje rečima da grupa ne može da napreduje i da se blokira, jer ne
+može da obezbedi većinu, odnosno kvorum [@mysql84refman]. Uloga primarnog člana određuje samo gde se
+upisi primaju, a o njihovom ishodu odlučuje većina.
+
+| Korak na članu 3307 | Ishod |
+|---|---|
+| `SELECT COUNT(*)` nad tabelom `patients` | vraćeno posle 39 ms |
+| `INSERT` u tabelu `heartbeat` | blokirano i posle 30 s, klijent prekinut |
+| čitanje tog reda iz druge sesije | 0 redova, posle 28 ms |
+| `forceQuorumUsingPartitionOf()` u MySQL Shellu | kvorum obnovljen nad jednim članom |
+| isti red, posle obnove kvoruma | komitovan, oko dva minuta posle slanja |
+
+Table: Tabela 5.1: Gubitak kvoruma u grupi od tri člana. Procesi članova 3308 i 3309 prinudno su zaustavljeni, a merenje je izvedeno na preživelom članu 3307 (MySQL 8.4.11, `group_replication_unreachable_majority_timeout = 0`).
+
+Ovo je ponašanje koje drugo poglavlje očekuje od konsenzusa. Manjina koja bi nastavila da prima
+upise izazvala bi split brain (razdvajanje grupe na dve nezavisne celine), odnosno dve grupe članova
+čiji se logovi razilaze. Član bez većine, međutim, ne može da dobije mesto u nizu, pa ne može ni da
+komituje upis koji bi se razišao sa većinom. U terminima teoreme CAP grupa za upise bira
+konzistentnost, a ne dostupnost, dok čitanja i dalje opslužuje, i to stanjem koje je imala pre
+gubitka većine. Podrazumevana vrednost promenljive `group_replication_unreachable_majority_timeout`
+je nula, pa član čeka neograničeno; uz pozitivnu vrednost član po isteku tog vremena poništava
+transakcije na čekanju i prelazi u stanje greške [@mysql84refman].
+
+Izlaz iz ovog stanja je odluka operatera. Naredba `forceQuorumUsingPartitionOf()` proglašava
+preživele članove novom grupom [@mysqlshell84], a sam alat pri tome upozorava da ostale članove
+treba ukloniti ili vratiti u obnovljenu grupu kako bi se izbegao split brain. Posle prisilnog
+obnavljanja kvoruma upis koji je čekao komitovan je, iako je njegov klijent odavno bio prekinut:
+transakcija nije bila poništena, već zadržana u komitovanju. Grupa, dakle, sama ne bira dostupnost,
+ali operater može da je izabere, i tada preuzima rizik koji je grupa odbijala da preuzme.
+
+## Jedan ili više primarnih čvorova
+
+<!--
+  Absence-claim check (../../NOTES.md rule 1), 2026-10-23, researcher, recorded in
+  .scratch/replikacija/measurements/0007-group-replication-lesson.md section 5:
+  rung 1, refman 8.4 sec. 19.4.9 Asynchronous Connection Failover re-points a replica's connection
+  automatically to another source from a stored list; it is not documented as promoting a replica.
+  So the text below contrasts WHO PROMOTES, and does not say "async has no automatic failover".
+  Rung 1, sec. 20.1.3.1: primary election in single-primary mode is automatic.
+-->
+Podrazumevani režim je režim sa jednim primarnim čvorom (single-primary): grupa automatski bira
+jednog člana koji prima upise, a ostali rade samo za čitanje, uz `super_read_only = ON`
+[@mysql84refman]. Na topologiji je pokušaj upisa na sekundarnom članu 3308 odbijen greškom 1290.
+Kada primarni član otkaže, grupa sama bira novog [@mysql84refman]. Razlika u odnosu na asinhronu
+replikaciju nije u tome da li se veze automatski preusmeravaju, jer i replika u asinhronoj
+replikaciji može sama da se poveže na drugi izvor sa unapred zadatog spiska (Asynchronous
+Connection Failover) [@mysql84refman]. Razlika je u tome ko unapređuje novi izvor: u asinhronoj
+replikaciji to čini operater ili spoljni alat, a u Group Replication sama grupa.
+
+<!--
+  Derived, not measured, and not in the manual (rule 1 check, 2026-10-23, researcher, rung 1):
+  refman 8.4 group-replication-multi-primary-mode, -limitations, -use-cases, -summary make no claim
+  that multi-primary scales writes; the only "write scale-out" sentence is about sharding with one
+  group per shard. The paragraph below therefore states the scaling verdict as derived.
+-->
+U režimu multi-primary sukobe razrešava certification, a sam režim ima ograničenja: odbija nivo
+izolovanosti `SERIALIZABLE`, ne podržava strane ključeve sa kaskadnim akcijama i ne podržava
+istovremene DDL i DML naredbe nad istim objektom sa različitih članova [@mysql84refman]. Primer
+`poliklinika` nema kaskadnih stranih ključeva, pa je režim na njemu bio dostupan. Više primarnih
+čvorova, međutim, ne umnožava kapacitet upisa: svaki član čuva sve podatke, pa primenjuje svaki
+komitovan red, i svoj i tuđ, a među članovima se raspoređuje samo izvršavanje naredbi. Ovaj
+zaključak izveden je iz načina rada, a ne izmeren. Multi-primary je zato opravdan samo kada upise
+mora da prima više članova istovremeno, a sukoba je malo; u ostalim slučajevima single-primary
+pruža istu zaštitu od razilaženja, bez odbačenih transakcija koje aplikacija mora da ponavlja.
+
+## Nivo konzistentnosti: ko čeka
+
+Komitovanje u grupi znači da je većina primila transakciju i da je transakcija dobila mesto u nizu,
+a ne da su je svi članovi primenili. Odluka i vidljivost su ponovo dva različita trenutka, kao u
+četvrtom poglavlju, pa čitanje sa sekundarnog člana i posle potvrde može da vrati staru vrednost.
+Promenljiva `group_replication_consistency` određuje ko čeka da se taj razmak zatvori, a može se
+postaviti globalno ili za pojedinačnu sesiju [@mysql84refman]. Uz `EVENTUAL` ne čeka niko. Uz
+`BEFORE` transakcija sesije koja ga je postavila pre izvršavanja čeka da se primene sve transakcije
+ispred nje u nizu. Uz `AFTER` transakcija koja upisuje završava komitovanje tek kada je primene svi
+ostali članovi, a na transakcije koje samo čitaju ne utiče. `BEFORE_AND_AFTER` spaja oba čekanja
+[@mysql84refman]. Podrazumevana vrednost u verziji 8.4 je `BEFORE_ON_PRIMARY_FAILOVER`
+[@mysql84relnotes], koja zadržava nove transakcije samo na novoizabranom primarnom članu, dok ne
+primeni transakcije zaostale od prethodnog [@mysql84refman], pa se u stabilnom radu ponaša kao
+`EVENTUAL`.
+
+| Nivo (sesija na kojoj je postavljen) | Zastarela čitanja | Pisac (ms) | Čitalac (ms) | Model iz 2. poglavlja (izvedeno) |
+|------------------------------|---------------:|-----------:|------------:|------------------------------|
+| `BEFORE_ON_PRIMARY_FAILOVER` (podrazumevani) | 80/80 | 16 | 0 | konačna |
+| `EVENTUAL` (čitalac) | 79/80 | 15–16 | 0 | konačna |
+| `BEFORE` (čitalac) | 0/80 | 16 | 14–16 | stroga, za to čitanje |
+| `AFTER` (pisac) | 0/40 | 29 | – | read-your-writes za sve čitaoce |
+| `BEFORE_AND_AFTER` (pisac) | 0/40 | 31 | – | stroga |
+
+Table: Tabela 5.2: Nivoi konzistentnosti u grupi sa jednim primarnim čvorom: upis od 5000 redova na primarnom članu 3307, zatim čitanje njegovog poslednjeg reda na sekundarnom članu 3309 odmah posle potvrde (MySQL 8.4.11). Vremena su medijane. Prva tri reda su dve serije od po 40 ponavljanja, a poslednja dva jedna serija iz ranijeg merenja, u kome vreme čitanja nije mereno. Povezivanje sa modelima izvedeno je u ovom radu.
+
+Tabela 5.2 je mesto na kome se rečnik drugog poglavlja susreće sa jednim podešavanjem MySQL-a. Uz
+podrazumevani nivo i uz `EVENTUAL` čitanje sa člana 3309, izvršeno odmah posle potvrde upisa na
+članu 3307, vratilo je staru vrednost u gotovo svim ponavljanjima, što je anomalija read-your-writes
+(čitanje sopstvenih upisa) iz drugog poglavlja. `BEFORE`, postavljen samo na sesiji čitaoca,
+uklonio je sva zastarela čitanja: pisac je potvrdu dobijao jednako brzo kao ranije, a čitanje je,
+umesto odmah, trajalo približno koliko i primena transakcije. `AFTER` i `BEFORE_AND_AFTER`,
+postavljeni na sesiji pisca, takođe su uklonili sva zastarela čitanja, ali je medijana komitovanja
+porasla sa 16 na oko 30 milisekundi. Zatvaranje razmaka u oba slučaja košta približno jedno vreme
+primene, a nivo bira samo ko ga plaća. Razlika ima i praktičnu posledicu: `BEFORE` štiti samo sesiju
+koja ga je postavila, pa zahteva izmenu čitaoca, dok `AFTER` štiti svakog čitaoca tog upisa, pa je
+jedini izbor kada se čitalac ne može menjati.
+
+<!--
+  Rule 1 / derived-mapping check, 2026-10-23, researcher, rung 1 (measurement 0007 section 5 and the
+  ticket-17 writing session): the consistency pages of refman 8.4 never use "linearizable" or
+  "read your writes"; "strong consistency" appears only in sec. 20.5.3.2 Scenario 6, which
+  recommends SET @@SESSION.group_replication_consistency = 'AFTER' for access-permission changes.
+  The level-to-model mapping in Tabela 5.2 is ours; AFTER-is-not-linearizable is derived.
+-->
+Povezivanje nivoa sa modelima izvedeno je u ovom radu, a najviše pažnje traži `AFTER`. Priručnik
+ga preporučuje upravo za slučaj u kome je potrebna stroga konzistentnost (strong consistency), na
+primer pri promeni prava pristupa dokumentima [@mysql84refman], ali u smislu drugog poglavlja on to
+nije. Dok pisac čeka, članovi transakciju primenjuju jedan za drugim, pa čitalac na jednom članu može
+da vidi novu vrednost, a čitalac koji kasnije pita drugi član staru. `AFTER` garantuje da posle
+potvrde svako čitanje, na bilo kom članu, vidi upis ili noviju vrednost [@mysql84refman], što je
+read-your-writes proširen na sve klijente, a ne linearizabilnost. Stroga konzistentnost postiže se
+tek čitanjem uz `BEFORE`, koje čeka sve transakcije ispred sebe u nizu.
+
+Group Replication na oba pitanja PACELC-a odgovara podesivo. Kada nema većine, grupa bira
+konzistentnost i blokira upise, a dostupnost može da izabere samo operater, prisilnim obnavljanjem
+kvoruma. Kada mreža radi, komitovanje uvek čeka da se većina složi o redosledu, a da li neko čeka i
+na primenu, i ko, bira se za svaku sesiju posebno. Ni ovde, dakle, MySQL ne isporučuje jedan model
+konzistentnosti, već nivo koji bira operater ili aplikacija, a cena svakog nivoa meri se
+milisekundama kod pisca ili kod čitaoca. Šesto poglavlje prelazi na InnoDB ClusterSet, skup
+klastera u kome MySQL između klastera bira suprotno od onoga što Group Replication bira unutar
+jednog klastera.

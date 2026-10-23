@@ -335,6 +335,19 @@ the operator's to assemble.
   checked on four rungs and then kept out of the wording. Slika 4.1 had to be redrawn after the DOCX
   check: the first draft was 9:1.
 
+- [Chapter 5 - Group Replication: kvorum, certification i multi-primary](issues/17-chapter-5-group-replication.md)
+  (2026-10-23): **~1590 words, Slika 5.1 + Tabela 5.1 + Tabela 5.2, measured at ~4.4 pages**, under
+  its budget of 5; spaced retrieval 3/3 at the start. The climax is **Tabela 5.2**: every
+  `group_replication_consistency` level with its measured stale reads and its waits, writer against
+  reader, mapped onto ch. 2's models in a column labelled *izvedeno*. The sentence it lands on: closing
+  the gap costs about one apply time, and **the level only chooses who pays**. One new nuance: the
+  refman recommends `AFTER` where "strong consistency" is needed, and the chapter argues it is
+  read-your-writes for every reader, not linearizability. The quorum section says the minority
+  chooses C **for writes** while still serving reads, and treats forced quorum as the operator
+  choosing A. Multi-primary's "does not scale writes" is stated as derived (rule 1 check: the refman
+  makes no scaling claim). Slika 5.1 needed the same fix as 4.1: its first draft was 3.9:1 and was
+  redrawn top-to-bottom.
+
 ## Not yet specified
 
 - ~~**The chapter tickets.**~~ **Graduated at ticket 09** into tickets 14–20, chained

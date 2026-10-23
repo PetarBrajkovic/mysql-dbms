@@ -154,13 +154,23 @@ never *latencija replikacije*; never *master/slave* as working terms.
 | Round-trip time | povratno putovanje *(round-trip time)* | povratno putovanje | the cost of one acknowledgement |
 | Plugin | dodatak *(plugin)* | dodatak | `INSTALL PLUGIN` stays verbatim; contrast with components only once |
 
+### 1b⁗''. Added at ticket 17 (ch. 5 lesson, record 0007)
+
+| Concept | Serbian term (first use) | After first use | Note |
+|---|---|---|---|
+| Total order (group communication) | zajednički niz *(total order)* | niz | the one order XCom delivers to every member |
+| First-commit-wins | prvi po redosledu pobeđuje *(first commit wins)* | — | "first" = first in the order, not by clock |
+| Consistency level | nivo konzistentnosti | nivo | the values of `group_replication_consistency` stay verbatim (§1c) |
+| Graceful leave | uredno napuštanje grupe | — | vs a killed process (`UNREACHABLE`) |
+| Forced quorum | prisilno obnavljanje kvoruma | — | `forceQuorumUsingPartitionOf()` stays verbatim |
+
 ### 1c. Verbatim - never translated, never declined
 
 Identifiers, keywords and product proper nouns:
 
 `GTID`, `Group Replication`, `InnoDB Cluster`, `InnoDB ClusterSet`, `MySQL Shell`, `MySQL Router`,
 `SOURCE_DELAY`, `AFTER_SYNC`, `AFTER_COMMIT`, `group_replication_consistency` and its levels
-(`EVENTUAL`, `BEFORE`, `AFTER`, `BEFORE_ON_PRIMARY_FAILOVER`), `sync_binlog`,
+(`EVENTUAL`, `BEFORE`, `AFTER`, `BEFORE_AND_AFTER`, `BEFORE_ON_PRIMARY_FAILOVER` — the last is the 8.4 default), `sync_binlog`,
 `innodb_flush_log_at_trx_commit`, `Seconds_Behind_Source`, `WAIT_FOR_EXECUTED_GTID_SET()`,
 `SOURCE_POS_WAIT()`, `CHANGE REPLICATION SOURCE TO`, `SOURCE_AUTO_POSITION`, `server_id`.
 
@@ -188,7 +198,7 @@ Soft target ~20-25 rendered pages; 24 budgeted below is a starting point, not a 
 | 2 | Teorijski okvir: modeli konzistentnosti, CAP/PACELC i konsenzus | 3 → 4.25 (measured 2026-10-07) → **~3.6 (cut to it and measured 2026-10-09, §2b)** | memo 07 | — |
 | 3 | Binarni log, GTID i asinhrona replikacija | 4.5 → **~4.8 (first draft ~5.8, cut and measured 2026-10-09, §2b; includes Tabela 3.1 and three figures)** | memo 03 | #1, #2 |
 | 4 | Semisinhrona replikacija i značenje potvrde | 3 → **3.0 (measured 2026-10-11, ~1180 words + Slika 4.1 + Tabela 4.1; on budget, nothing raised)** | memo 04 | #2 |
-| 5 | Group Replication: kvorum, certification i multi-primary | 5 | memo 05 | #3 |
+| 5 | Group Replication: kvorum, certification i multi-primary | 5 → **~4.4 (measured 2026-10-23, ~1590 words + Slika 5.1 + Tabele 5.1, 5.2; under budget, nothing raised)** | memo 05 | #3 |
 | 6 | Geo-distribuirana replikacija i InnoDB ClusterSet | 3 | memo 07 (corrected) | #4 |
 | 7 | Skaliranje čitanja i kašnjenje replikacije | 3.5 | memo 06 | #5 |
 | 8 | Zaključak | 1 | — | — |
