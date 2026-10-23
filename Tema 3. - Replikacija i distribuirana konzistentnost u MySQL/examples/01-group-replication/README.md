@@ -65,9 +65,12 @@ the account never enters the binary log and `gtid_executed` stays identical on a
 | `38-clusterset-switchover.js` | mysqlsh | replica cluster refuses writes; controlled switchover and back |
 | `39-clusterset-emergency-failover.ps1` | PowerShell | the primary "datacentre" dies; `forcePrimaryCluster()`; the split-brain warning |
 | `40-clusterset-repair.js` | mysqlsh | reboot, rejoin, hand the primary role back |
+| `41-no-pk-live.js` | mysqlsh | inside a **running** group: a PK-less table is created, its INSERT refused with ER 3098, then the AdminAPI verdict, then DROP (lesson 0005) |
+| `42-ryw-before.js` | mysqlsh, held sessions | read-your-writes on a secondary per **reader** level: 8.4 default `BEFORE_ON_PRIMARY_FAILOVER` / `EVENTUAL` stale, `BEFORE` closes it and the reader pays (lesson 0005; single-primary) |
 
 `34-conflict-pair.ps1`, `35-duplicate-key-conflict.ps1` and `36-consistency-levels.js` want
-**multi-primary** (`34a`) for the first two and **single-primary** for the third; `19-gr-down`
+**multi-primary** (`34a`) for the first two and **single-primary** for the third (as does `42`);
+`34-conflict-pair.ps1` leaves `invoices` rows 1/2 at +1099/+999 — subtract after each run; `19-gr-down`
 assumes nothing about the current mode.
 
 ## Traps this folder has already hit

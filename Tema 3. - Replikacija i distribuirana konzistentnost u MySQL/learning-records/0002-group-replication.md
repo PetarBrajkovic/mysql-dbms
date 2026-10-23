@@ -28,11 +28,11 @@ the same row on a secondary microseconds later, 40 times per level:
 
 | Level | Stale reads | Median commit |
 |---|---|---|
-| `EVENTUAL` (default) | **100 %** | 16 ms |
+| `EVENTUAL` (set explicitly; 8.4 default is `BEFORE_ON_PRIMARY_FAILOVER`, = EVENTUAL in steady state — 0007) | **100 %** | 16 ms |
 | `AFTER` | 0 % | 29 ms (+81 %) |
 | `BEFORE_AND_AFTER` | 0 % | 31 ms (+94 %) |
 
-The anomaly is total at the default and gone at the stronger levels, and the price is paid **by the
+The anomaly is total at `EVENTUAL` (and at the 8.4 default, which behaves the same in steady state — 0007) and gone at the stronger levels, and the price is paid **by the
 writer**. This is the spine of the paper as a table: MySQL does not ship a consistency model, it ships
 a knob, and the operator decides where on that scale the system sits. Chapter 5's climax is this
 table, not a list of level names.

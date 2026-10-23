@@ -1,0 +1,41 @@
+state check OK: single-primary, 3307 PRIMARY, 3 ONLINE
+global group_replication_consistency on 3309 = BEFORE_ON_PRIMARY_FAILOVER
+{"reader_level":"BEFORE_ON_PRIMARY_FAILOVER","iterations":40,"rows_per_txn":5000,"stale_reads":40,"stale_pct":100,"writer_median_ms":16,"writer_p95_ms":29,"reader_median_ms":0,"reader_p95_ms":0}
+{"reader_level":"EVENTUAL","iterations":40,"rows_per_txn":5000,"stale_reads":40,"stale_pct":100,"writer_median_ms":15,"writer_p95_ms":25,"reader_median_ms":0,"reader_p95_ms":8}
+{"reader_level":"BEFORE","iterations":40,"rows_per_txn":5000,"stale_reads":0,"stale_pct":0,"writer_median_ms":16,"writer_p95_ms":32,"reader_median_ms":14,"reader_p95_ms":26}
+--- summary
+[
+  {
+    "reader_level": "BEFORE_ON_PRIMARY_FAILOVER",
+    "iterations": 40,
+    "rows_per_txn": 5000,
+    "stale_reads": 40,
+    "stale_pct": 100,
+    "writer_median_ms": 16,
+    "writer_p95_ms": 29,
+    "reader_median_ms": 0,
+    "reader_p95_ms": 0
+  },
+  {
+    "reader_level": "EVENTUAL",
+    "iterations": 40,
+    "rows_per_txn": 5000,
+    "stale_reads": 40,
+    "stale_pct": 100,
+    "writer_median_ms": 15,
+    "writer_p95_ms": 25,
+    "reader_median_ms": 0,
+    "reader_p95_ms": 8
+  },
+  {
+    "reader_level": "BEFORE",
+    "iterations": 40,
+    "rows_per_txn": 5000,
+    "stale_reads": 0,
+    "stale_pct": 0,
+    "writer_median_ms": 16,
+    "writer_p95_ms": 32,
+    "reader_median_ms": 14,
+    "reader_p95_ms": 26
+  }
+]

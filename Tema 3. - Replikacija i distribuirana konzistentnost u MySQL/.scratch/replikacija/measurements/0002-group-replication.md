@@ -168,7 +168,7 @@ transaction so the apply window on the secondary is wide enough for a stale read
 
 | Level | Stale reads | Stale % | Median commit | p95 | Mean |
 |---|---|---|---|---|---|
-| `EVENTUAL` (default) | **40 / 40** | **100 %** | **16 ms** | 22 ms | 15.8 ms |
+| `EVENTUAL` (set explicitly; **not** the 8.4 default, which is `BEFORE_ON_PRIMARY_FAILOVER` — see 0007 §1) | **40 / 40** | **100 %** | **16 ms** | 22 ms | 15.8 ms |
 | `AFTER` | 0 / 40 | 0 % | 29 ms | 32 ms | 26.2 ms |
 | `BEFORE_AND_AFTER` | 0 / 40 | 0 % | 31 ms | 36 ms | 28.6 ms |
 

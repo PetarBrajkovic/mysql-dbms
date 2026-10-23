@@ -16,6 +16,7 @@ chapter, never when planning a lesson.
 | [0004](0004-binlog-gtid-async.md) | 3, part A (ticket 15, lesson) | Replication = binlog shipping + replay; GTID is a name, file+offset an address; async acks before any replica saw it | binlog formats, unsafe statements, GTID / auto-positioning, receiver/applier threads, the rename, async loss window |
 | [0005](0005-durability-wal-2pc.md) | 3, part B (ticket 15, lesson) | write ≠ fsync; WAL/redo; two logs need two-phase commit with the binlog as decision point; the matrix | durability, crash recovery, `sync_binlog` × `innodb_flush_log_at_trx_commit`, process vs OS crash; ch. 4 `AFTER_SYNC` builds on it |
 | [0006](0006-semisync-acknowledgement.md) | 4 (ticket 16, lesson) | Ack = relay log + fsync; decision ≠ visibility; AFTER_COMMIT anomaly reproduced live; the failed source rejoins with zero errors | semisync, `AFTER_SYNC`/`AFTER_COMMIT`, failover vs switchover, errant/extra GTIDs, timeout signals, ack cost |
+| [0007](0007-group-replication-lesson.md) | 5 (ticket 17, lesson) | One decision point orders writes; certification = one total order + deterministic verdict; minority blocks; the level picks who waits (BEFORE measured live) | certification, write-sets, 1180, PK requirement, quorum loss, single vs multi-primary, `group_replication_consistency` → ch. 2 models |
 
 ## Standing constraints these records impose on every later chapter
 
@@ -59,10 +60,20 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   a reader saw a row the failover erased; under both wait points the restarted old source holds an
   extra GTID and **rejoins with no error** (ER 1885 only covers the new source's UUID). Scripts in
   `examples/03-semisync/`; always finish with `09-restore.ps1`. (0006)
+- **The 8.4 default of `group_replication_consistency` is `BEFORE_ON_PRIMARY_FAILOVER`**, not
+  `EVENTUAL` (8.4.0 release notes; verified live). It equals EVENTUAL in steady state. Never call
+  EVENTUAL "the default" in ch. 5/7. **`BEFORE` is measured** (`42-ryw-before.js`): 0/40 stale,
+  reader pays ~one apply time, writer unchanged. The level → model mapping is ours, not the refman's. (0007)
+- No sentence may say asynchronous replication "has no automatic failover": refman §19.4.9
+  Asynchronous Connection Failover re-points automatically; contrast **who promotes**. Multi-primary
+  does **not** scale writes proportionally (derived, not measured). (0007)
 - A clean `topology.ps1 stop` is a **graceful leave**, not a failure — it cannot be used to
   demonstrate quorum loss. Losing majority requires killing the process. (0002)
 
 ## Corrections filed against the research memos
+
+- **Measurement 0002 mislabelled `EVENTUAL` as the default** (ticket 11's own record, not a memo).
+  Corrected in place in 0002; the numbers stand because the level was set explicitly. (0007)
 
 - **Memo 04, claim 5 (semisync latency cost) fails as written.** It predicted async 0.1–1 ms against
   semisync 2–10 ms. On loopback with full durability the difference is inside run-to-run noise, because

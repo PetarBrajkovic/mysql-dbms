@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 05 — Group Replication: kvorum, certification i multi-primary</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 05 · Poglavlje 5 (Group Replication)</p>
+<h1>Ko sme da odluči o redosledu — i ko čeka da se odluka vidi</h1>
+<p class="subtitle">Lekcija 04 je pokazala da semisinhrona potvrda ne znači da je „većina ima“. Ova lekcija
+pokazuje mehanizam u kome komitovanje zaista znači da je većina primila transakciju: certification nad
+zajedničkim nizom, kvorum koji manjinu blokira umesto da je pusti da se razilazi, i podešavanje koje
+određuje ko plaća vidljivost.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Poglavlje 5 je najduže poglavlje rada i nosi treću profesorovu stavku („Multi-Leader“ i „Quorum-Based“).
+  Na kraju lekcije treba da umeš bez podsetnika da: <strong>(1)</strong> izvedeš zašto kod više lidera
+  nastaje sukob i kako ga certification rešava pravilom „prvi po redosledu pobeđuje“, na nivou reda;
+  <strong>(2)</strong> objasniš zašto manjina blokira upise i zašto zato nema split brain-a;
+  <strong>(3)</strong> kažeš kada se multi-primary isplati; <strong>(4)</strong> povežeš svaki nivo
+  <code>group_replication_consistency</code> sa modelom iz poglavlja 2 i kažeš ko plaća cenu.
+</div>
+
+<h2>1 · Koren: na jednom serveru redosled određuje zaključavanje reda</h2>
+<p>InnoDB zaključava svaki red koji transakcija menja i drži to zaključavanje do <code>COMMIT</code>-a ili
+<code>ROLLBACK</code>-a. Kad dve transakcije žele isti red, zaključavanje dobija samo jedna, a druga
+<strong>čeka</strong>. Redosled je zato <strong>odluka jednog servera</strong>, doneta u trenutku
+zaključavanja. Ona ulazi u binarni log tim redom, a replike je samo izvršavaju
+(<a href="0002-binarni-log-gtid-asinhrona.html">lekcija 02</a>). Replike nemaju šta da biraju.</p>
+
+<p>Kod više lidera ta pretpostavka prestaje da važi. Zaključavanje postoji samo <strong>unutar</strong>
+jednog servera, pa dva servera mogu nezavisno da odluče o istom redu i obe odluke potvrde klijentima.
+<span class="hi">Sukob kod više lidera nastaje zato što je odluka o redosledu doneta na dva mesta i
+potvrđena pre dogovora.</span> Pravilo „poslednji upis pobeđuje“ ne rešava problem, nego samo određuje
+<strong>koji</strong> potvrđeni upis nestaje. Jedini izlaz je da se čvorovi dogovore o redosledu
+<strong>pre</strong> nego što klijentu vrate OK.</p>
+
+<figure class="fig">
+  <img src="../viz/viz-l05-jedan-vs-dva-lidera-1792770017069.png"
+       alt="Dva panela. Levo: jedan izvor 3307, X dobija zaključavanje reda 7, Y čeka na zaključanom redu, X pa Y komituju, binarni log beleži X pa Y, a replike 3308 i 3309 obe imaju vrednost 200. Desno: dva lidera A (3307) i B (3308); X na A i Y na B menjaju isti red i oba dobijaju OK; posle razmene A primeni Y i ima 200, B primeni X i ima 100; crvena oznaka razilaženja.">
+  <figcaption><b>Slika 1</b> — Kod jednog lidera zaključavanje određuje jedan redosled, pa svi čvorovi
+    završe sa istim stanjem. Kod dva nezavisna lidera svaki čvor potvrdi svoju odluku pre nego što drugi
+    sazna za nju, pa se podaci razilaze, a jedan potvrđeni upis mora da nestane. Šematski prikaz.</figcaption>
+</figure>
+
+<h2>2 · Certification: jedan dogovor o redosledu, pa svako sam presuđuje</h2>
+<p>Group Replication ne šalje transakcije direktno sa člana na člana. Predaje ih komunikacionom sloju
+koji ih isporučuje <strong>svim članovima, istim redom</strong>:</p>
+
+<div class="slide">
+  „The communication layer provides a set of guarantees such as atomic message and total order message
+  delivery.“
+  <span class="sr"><a href="https://dev.mysql.com/doc/refman/8.4/en/group-replication-summary.html">MySQL 8.4 Reference Manual, §20.1.1.2 Group Replication</a></span>
+</div>
+
+<p>Taj sloj je XCom, „a Paxos variant“
+(<a href="https://dev.mysql.com/doc/refman/8.4/en/group-replication-limitations.html">§20.3.2</a>):
+većina prihvata svaku poruku i dodeljuje joj mesto u nizu. To je konsenzus-kvorum iz poglavlja 2.</p>
+
+<p>Transakcija se izvršava <strong>lokalno, bez dogovora</strong>. Na <code>COMMIT</code>-u član u
+poruku grupi upisuje njen <strong>skup upisa</strong> (write-set), odnosno jedinstvene identifikatore
+redova koje je izmenila. Kad dođe do T u nizu, svaki član postavlja isto pitanje: <strong>da li je neka
+transakcija ranija u nizu, koju T nije videla, menjala isti red?</strong> Ako jeste, T se poništava
+svuda, a ako nije, komituje se svuda. Ovaj postupak je <strong>certification</strong> (provera
+saglasnosti transakcija). Svi članovi dolaze do iste odluke <strong>bez glasanja</strong>, jer imaju
+isti niz i primenjuju isto determinističko pravilo.</p>
+
+<div class="slide">
+  „The conflict resolution procedure states that the transaction that was ordered first commits on all
+  servers, and the transaction ordered second aborts […] This is in fact a distributed first commit wins
+  rule.“
+  <span class="sr"><a href="https://dev.mysql.com/doc/refman/8.4/en/group-replication-summary.html">MySQL 8.4 Reference Manual, §20.1.1.2</a></span>
+</div>
+
+<p>„Prvi“ znači <strong>prvi u nizu</strong>, a ne prvi po satu, niti onaj ko je ranije otvorio
+transakciju: grupa za transakciju saznaje tek na njenom <code>COMMIT</code>-u.</p>
+
+<figure class="fig">
+  <img src="../viz/viz-l05-certification-tok-1792770019608.png"
+       alt="Levo dve transakcije, A na 3307 sa COMMIT u t = 6 s i B na 3308 sa COMMIT u t = 2 s, obe menjaju invoice_id = 1 lokalno, bez dogovora. Strelice nose skup upisa {invoices, id = 1} u plavi okvir Zajednički niz (Paxos, većina) sa mestima T41, #42 B, #43 A. Desno tri člana 3307, 3308, 3309 postavljaju isto pitanje i donose istu presudu: #42 B komituje, #43 A se poništava. Dole: prvi po redosledu pobeđuje; isti ulaz i isto pravilo daju istu odluku bez glasanja; klijent A vidi ERROR 1180.">
+  <figcaption><b>Slika 2</b> — Dogovor je potreban samo jednom, oko mesta u nizu. Posle toga svaki član
+    sam izvodi istu presudu, pa B, koja je prva u nizu, pobeđuje, iako je A ranije otvorena. Raspored
+    iz demonstracije <code>34-conflict-pair.ps1</code>.</figcaption>
+</figure>
+
+<h3>Tri posledice koje slede direktno</h3>
+<table class="exp">
+  <tr><td>primarni ključ je obavezan</td><td>bez identifikatora reda nema skupa upisa, pa ni provere saglasnosti; upis u tabelu bez primarnog ključa se odbija</td></tr>
+  <tr><td>sukob na nivou reda</td><td>dve transakcije u istoj tabeli dolaze u sukob samo ako dele red</td></tr>
+  <tr><td>greška nije „certification failed“</td><td>poraženi klijent vidi <code>ERROR 1180 … 'Lock deadlock; Retry transaction' during COMMIT</code> i mora da ponovi transakciju</td></tr>
+</table>
+
+<p>Treća stavka je <strong>izmereni nalaz</strong>, a ne nešto što se izvodi iz mehanizma. Transakcija
+koja je prošla proveru stiže na član gde poražena još drži lokalno zaključavanje reda, ima prednost, pa
+se poražena <strong>lokalno</strong> poništava pre nego što uopšte pošalje svoj skup upisa. Zato
+<code>COUNT_CONFLICTS_DETECTED</code> ostaje 0. Refman ne opisuje grešku koju klijent vidi, pa je izvor
+četvrti stepenik lestvice izvora: MySQL bug 78705 „Improve Client Error For Certification Failures“.
+Greška 3101 (<code>ER_TRANSACTION_ROLLBACK_DURING_COMMIT</code>) nije se javila ni u jednom od pet
+merenja (ticket 11 i danas).</p>
+
+<div class="try">
+  <div class="hd">Probaj: par sukoba nad <code>poliklinika.invoices</code></div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> topologija je podignuta (<code>examples\00-setup\topology.ps1 start</code>)
+      i prebačena u stanje grupe, pa u multi-primary režim. Skripta upisuje u redove 1 i 2 tabele
+      <code>invoices</code>, pa ih posle vrati (+1099 na red 1, +999 na red 2). Na kraju obavezno pokreni
+      <code>19-gr-down.ps1</code>.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run">cd 'examples\01-group-replication'
+$msh = 'C:\mysql-repl\tools\mysql-shell-8.4.10-windows-x86-64bit\bin\mysqlsh.exe'
+&amp; $msh --js --no-wizard --file 10-gr-up.js           # async -&gt; cluster
+&amp; $msh --js --no-wizard --file 34a-to-multi-primary.js
+.\34-conflict-pair.ps1                                 # same row, then different rows
+&amp; $msh --js --no-wizard --file 41-no-pk-live.js       # PK-less table: created, write refused, dropped</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">same row:       A(3307) ERROR 1180 (HY000) ... 'Lock deadlock; Retry transaction' during COMMIT
+                B(3308) B COMMIT returned           -> the same value on 3307, 3308 and 3309
+different rows: A COMMIT returned / B COMMIT returned -> both values on all three members
+COUNT_CONFLICTS_DETECTED stays 0
+no_pk_demo:     INSERT refused: The table does not comply with the requirements by an external plugin.
+                (ERROR 3098); checkInstanceConfiguration: status = error, then ok after DROP</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> pobeđuje B, koja je prva u nizu, iako je A otvorena
+      ranije. Različiti redovi u istoj tabeli ne izazivaju sukob. Tabela bez primarnog ključa može da se
+      napravi, ali ne i da se menja, jer bez identifikatora reda nema skupa upisa.</p>
+  </div>
+</div>
+
+<h2>3 · Kvorum: bez većine nema mesta u nizu, pa manjina čeka</h2>
+<p>Transakcija se komituje tek kad dobije mesto u nizu, a to mesto dodeljuje većina. Iz toga sledi da
+član koji ne može da dosegne većinu ne može ni da komituje, <strong>bez obzira na to da li je primarni
+čvor</strong>. Primarni čvor određuje gde se upisi prihvataju, ali ne odlučuje sam da li je upis
+komitovan. Pošto se svake dve većine seku, najviše jedan deo mreže može da komituje. Zato nema
+<strong>split brain</strong>-a (razdvajanja grupe na dve nezavisne celine): <span class="hi">manjina
+blokira umesto da se razilazi.</span></p>
+
+<div class="slide">
+  „When a majority of group members is lost, the group is unable to progress and blocks because it cannot
+  secure majority or quorum.“
+  <span class="sr"><a href="https://dev.mysql.com/doc/refman/8.4/en/group-replication-network-partitioning.html">MySQL 8.4 Reference Manual, §20.7.8</a></span>
+</div>
+
+<figure class="fig">
+  <img src="../viz/viz-l05-gubitak-kvoruma-1792770012847.png"
+       alt="Vrh: 3307 zelen, ostao sam, 1 od 3, nema većine; 3308 i 3309 precrtani, proces ubijen. Vremenska linija za 3307: SELECT COUNT(*) FROM patients vraćen za 39 ms; INSERT INTO heartbeat u 14:40:56 blokiran, niti komitovan niti greška, i posle 30 s i dalje blokiran, pa se nastavlja isprekidano do plave linije operator forceQuorumUsingPartitionOf(3307) oko 14:42, posle koje postaje zelen: komitovan, red 16809, ts 14:40:56. Treća traka: SELECT traženog reda iz druge sesije vraćen za 28 ms sa 0 redova. Upozorenje alata o split brain-u. Dole: čitanja dostupna, upisi blokirani, razilaženja nema.">
+  <figcaption><b>Slika 3</b> — Bez većine, preživeli član odgovara na čitanja, a upis drži blokiranim
+    i nevidljivim. Upis nije izgubljen: komitovan je tek kad je operator prisilno obnovio kvorum, a o
+    njegovoj sudbini je odlučio operator, ne istek vremena. Izmereno na MySQL 8.4.11 (ticket 11,
+    <code>32-quorum-loss.ps1</code>, <code>33-force-quorum.js</code>); vremenska osa nije u razmeri.</figcaption>
+</figure>
+
+<table class="exp">
+  <tr><td><code>group_replication_unreachable_majority_timeout = 0</code></td><td>podrazumevano: manjina čeka zauvek. Ako se zada broj sekundi, blokirane transakcije se po isteku poništavaju, a član prelazi u <code>ERROR</code> (<a href="https://dev.mysql.com/doc/refman/8.4/en/group-replication-system-variables.html">refman</a>). To je projektna odluka, ne nešto što se izvodi.</td></tr>
+  <tr><td>uredno gašenje ≠ pad</td><td>član koji se uredno ugasi javlja grupi da odlazi, pa se većina računa od manjeg broja članova. Gubitak kvoruma se pokazuje samo ubijanjem procesa.</td></tr>
+  <tr><td>čitanje u manjini</td><td>izvršava se nad lokalnim podacima, koji mogu biti zastareli ako većina negde drugde i dalje prima upise</td></tr>
+</table>
+
+<h2>4 · Single-primary ili multi-primary</h2>
+<p><strong>Single-primary</strong> je podrazumevani režim (<code>group_replication_single_primary_mode = ON</code>).
+Svi upisi idu na jednog člana, pa ih raspoređuje njegovo lokalno zaključavanje (koren iz dela 1), i u
+niz stižu već raspoređeni. Izbor novog primarnog čvora je automatski: „If the existing primary leaves
+the group, whether voluntarily or unexpectedly, a new primary is elected automatically“
+(<a href="https://dev.mysql.com/doc/refman/8.4/en/group-replication-single-primary-mode.html">§20.1.3.1</a>).</p>
+
+<p>U poređenju sa asinhronom replikacijom treba biti precizan. Refman opisuje <strong>Asynchronous
+Connection Failover</strong>, koji automatski preusmerava vezu replike na drugi izvor sa spiska
+(<a href="https://dev.mysql.com/doc/refman/8.4/en/replication-asynchronous-connection-failover.html">§19.4.9</a>),
+ali ga ne opisuje kao unapređenje replike u izvor. Ovo je provereno na prvom stepeniku lestvice izvora.
+Razlika je dakle u tome <strong>ko unapređuje novi izvor</strong>, a ne u tome da li „automatika“
+postoji.</p>
+
+<p><strong>Multi-primary</strong> ne povećava propusnost upisa srazmerno broju članova, jer je svaki
+član pun primerak baze i mora fizički da upiše svaki red. Deli se samo izvršavanje iskaza. Jedina
+prava korist je <strong>upis na bilo kom članu u svakom trenutku</strong>. Cena su poništavanja na
+„vrućim“ redovima, logika ponavljanja u aplikaciji, i ograničenja iz
+<a href="https://dev.mysql.com/doc/refman/8.4/en/group-replication-limitations.html">§20.3.2</a>:
+<code>SERIALIZABLE</code> se odbija, strani ključevi sa <code>CASCADE</code> nisu podržani, a
+istovremeni DDL i DML nad istim objektom sa različitih servera nisu podržani.</p>
+
+<figure class="fig">
+  <img src="../viz/viz-l05-multi-primary-posao-1792770035917.png"
+       alt="Tri stuba za članove 3307, 3308 i 3309. Svakom članu klijenti šalju 100 upisa u sekundi. Svaki stub ima sivi deo 'izvršava lokalno: 100' i plavi deo 'primenjuje od ostalih: 200', ukupno 'upisuje na svoj disk: 300', do crvene isprekidane linije kapaciteta diska jednog servera. Okvir desno: upis mora da stigne do svih članova i ne deli se; čitanje traži jedan član i deli se.">
+  <figcaption><b>Slika 4</b> — Kad se upisi rasporede na tri člana, svaki član i dalje upisuje svih 300
+    redova, pa je usko grlo isto kao kod jednog servera. Čitanja bi se raspodelila, ali upisi ne.
+    Izvedeno iz modela pune replikacije, nije mereno.</figcaption>
+</figure>
+
+<p><strong>Zaključak</strong> (ocena iz memoa 05, ovde izvedena): multi-primary se isplati samo kad je
+dostupnost upisa na svakom članu najvažnija i kad su sukobi retki, odnosno kad različiti članovi menjaju
+različite redove. Refman takvu preporuku ne daje izričito: stranice o režimima i ograničenjima su
+proverene, i to je naš zaključak, a ne citat.</p>
+
+<h2>5 · Komitovanje znači da je većina primila transakciju, ne da su je svi primenili</h2>
+<p>Klijent dobija OK kad transakcija dobije mesto u nizu i prođe proveru saglasnosti. Za to je dovoljno
+da je većina <strong>primila</strong> poruku. <strong>Primena</strong> na svakom članu je poseban
+korak, koji niti primene obavljaju posle odluke. To je ponovo
+<span class="hi">odluka ≠ vidljivost</span> iz <a href="0004-semisinhrona-potvrda.html">lekcije 04</a>.
+Odluka je sada sigurna, jer je većina ima, ali vidljivost na sekundarnom članu i dalje kasni za njom.
+Čitanje sa sekundarnog člana odmah posle OK-a zato krši read-your-writes.</p>
+
+<p>Prozor se zatvara samo tako što <strong>neko čeka</strong>, a mesta za čekanje postoje samo dva:
+onaj ko upisuje čeka da svi primene upis (<code>AFTER</code>), ili onaj ko čita čeka da se primeni sve
+što je u nizu pre njegovog čitanja (<code>BEFORE</code>). Nivo važi <strong>za transakciju</strong> i
+može se postaviti za sesiju, što je projektna odluka.</p>
+
+<figure class="fig">
+  <img src="../viz/viz-l05-ko-ceka-1792770079692.png"
+       alt="Tri reda sa zajedničkom vremenskom osom, svaki sa trakom za 3307 (onaj ko upisuje) i 3309 (onaj ko čita). EVENTUAL ili podrazumevani: COMMIT, većina primila i redosled, OK; na 3309 primena 5 000 redova traje i posle OK-a, a SELECT koji stigne tada ne vidi red; zagrada odluka ≠ vidljivost; 40/40 zastarelih. AFTER: posle odluke onaj ko upisuje čeka da svi primene, tek onda OK; SELECT posle toga vidi red; upis 16 → 29 ms. BEFORE: OK odmah; SELECT stiže u isto vreme kao u prvom redu, ali čeka prethodne transakcije do kraja primene, pa vidi red; čitanje 0 → 16 ms.">
+  <figcaption><b>Slika 5</b> — Prozor između odluke i vidljivosti zatvara se samo čekanjem: kod
+    <code>AFTER</code> čeka onaj ko upisuje, a kod <code>BEFORE</code> onaj ko čita. Cena je u oba slučaja
+    približno vreme primene. Brojevi su iz Slike 6.</figcaption>
+</figure>
+
+<h2>6 · Vrhunac: nivoi povezani sa modelima iz poglavlja 2</h2>
+
+<div class="slide">
+  „The default value of the group_replication_consistency system variable is now
+  BEFORE_ON_PRIMARY_FAILOVER; previously, this was EVENTUAL.“
+  <span class="sr"><a href="https://dev.mysql.com/doc/relnotes/mysql/8.4/en/news-8-4-0.html">MySQL 8.4.0 Release Notes</a> — na našoj topologiji provereno: <code>@@group_replication_consistency</code> = <code>BEFORE_ON_PRIMARY_FAILOVER</code> na sva tri člana</span>
+</div>
+
+<p>Taj podrazumevani nivo štiti samo od zastarelih čitanja na <strong>novom</strong> primarnom čvoru
+posle failover-a. Dok primarni čvor radi, ponaša se kao <code>EVENTUAL</code> i prozor na sekundarnom
+članu ostaje otvoren.</p>
+
+<figure class="fig">
+  <img src="../viz/viz-l05-nivoi-konzistentnosti-merenje-1792770057377.png"
+       alt="Levi grafikon, zastarela čitanja od 40: BEFORE_ON_PRIMARY_FAILOVER (podrazumevani) 40, EVENTUAL 40, BEFORE (onaj ko čita) 0, AFTER (onaj ko upisuje) 0, BEFORE_AND_AFTER 0. Desni grafikon, medijana vremena u ms: podrazumevani upis 16, čitanje 0; BEFORE upis 16, čitanje 16; AFTER upis 29, čitanje nije mereno; BEFORE_AND_AFTER upis 31, čitanje nije mereno.">
+  <figcaption><b>Slika 6</b> — Zastarelo čitanje je kod podrazumevanog nivoa pravilo, a ne izuzetak, i
+    nestaje kod svakog nivoa u kome neko čeka. Cenu plaća onaj ko čeka: kod <code>BEFORE</code> čitanje
+    (0 → 16 ms), kod <code>AFTER</code> upis (16 → 29 ms). Single-primary, upis od 5 000 redova na 3307,
+    čitanje sa 3309 odmah posle OK-a, 40 iteracija. Prva tri nivoa: <code>42-ryw-before.js</code>, ova
+    sesija (prikazano 1. pokretanje; u 2. pokretanju EVENTUAL 40/40, BEFORE 0/40, čitanje 14 ms).
+    <code>AFTER</code> i <code>BEFORE_AND_AFTER</code>: <code>36-consistency-levels.js</code>, ticket 11.
+    MySQL 8.4.11.</figcaption>
+</figure>
+
+<p>Refman ne koristi reči „linearizable“ ni „read your writes“ na stranicama o nivoima. Leva kolona je
+zato iz refman-a (<a href="https://dev.mysql.com/doc/refman/8.4/en/group-replication-configuring-consistency-guarantees.html">§20.5.3.2</a>),
+a desna je <strong>naše povezivanje</strong>, izvedeno iz definicija.</p>
+
+<table class="exp">
+  <tr><td><code>EVENTUAL</code>, <code>BEFORE_ON_PRIMARY_FAILOVER</code> (u normalnom radu)</td><td>niko ne čeka → <strong>konačna konzistentnost</strong>; read-your-writes nije garantovan (40/40)</td></tr>
+  <tr><td><code>BEFORE</code> (onaj ko čita)</td><td>čitanje vidi sve što je komitovano pre njega, ma ko da je upisao i na kom članu → za to čitanje <strong>stroga konzistentnost</strong> u svom zahtevu za čitanje; read-your-writes je poseban slučaj</td></tr>
+  <tr><td><code>AFTER</code> (onaj ko upisuje)</td><td>posle OK-a svako naredno čitanje na svakom članu vidi upis → read-your-writes <strong>i za druge klijente</strong>. Nije linearizabilnost: dok onaj ko upisuje čeka, članovi primenjuju upis jedan po jedan, pa dva istovremena čitanja mogu videti različite vrednosti.</td></tr>
+  <tr><td><code>BEFORE_AND_AFTER</code></td><td>oba čekanja; najjače i najskuplje (+94 % na upisu)</td></tr>
+</table>
+
+<p><span class="hi">MySQL ne isporučuje jedan model konzistentnosti, nego podešavanje koje važi za
+svaku transakciju posebno.</span> Operator za svaku sesiju bira gde na skali od konačne do stroge
+konzistentnosti sistem stoji i ko plaća cenu. Ovo je okosnica rada, sada na merenju.</p>
+
+<div class="try">
+  <div class="hd">Probaj: zastarelo čitanje i kako ga <code>BEFORE</code> zatvara</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> stanje grupe, <strong>single-primary</strong>, a 3307 je primarni
+      čvor. Posle bloka iznad prvo pokreni <code>34b-to-single-primary.js</code>. Skripta sama proverava
+      stanje i prekida rad sa porukom ako nije ispravno. Pravi i briše <code>cons_demo</code> i
+      <code>cert_demo</code>. Posle nje obavezno pokreni <code>19-gr-down.ps1</code>.</p>
+
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run">&amp; $msh --js --no-wizard --file 34b-to-single-primary.js
+&amp; $msh --js --no-wizard --file 42-ryw-before.js       # held sessions: no client start-up in the window
+.\19-gr-down.ps1                                       # ALWAYS: back to the async resting state</pre>
+
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">reader_level BEFORE_ON_PRIMARY_FAILOVER : stale_reads ~40/40, reader_median ~0 ms
+reader_level EVENTUAL                   : stale_reads ~40/40, reader_median ~0 ms
+reader_level BEFORE                     : stale_reads 0/40,   reader_median rises to roughly
+                                          the writer's commit time; writer_median unchanged</pre>
+
+    <p class="interpret"><b>Kako se ovo čita:</b> onaj ko upisuje se ne menja, a menja se samo sesija koja
+      čita. Prozor se zatvara, a cenu plaća onaj ko čita. Tačni milisekundi zavise od mašine, a odnos ne
+      zavisi. Skripta drži sesije otvorene u jednom procesu: sa jednim <code>mysql.exe</code> po iskazu
+      pokretanje klijenta (~20 ms) traje duže od prozora i „izbriše“ ga (ticket 11).</p>
+  </div>
+</div>
+
+<div class="scope">
+  <span class="lbl">Van obima</span>
+  Read-your-writes na asinhronoj replici, sa <code>WAIT_FOR_EXECUTED_GTID_SET()</code> kao drugim alatom,
+  i kašnjenje izmereno preko <code>performance_schema</code> pripadaju poglavlju 7. InnoDB ClusterSet,
+  gde isti proizvod bira suprotnu stranu (dostupnost umesto konzistentnosti), pripada poglavlju 6.
+</div>
+
+<h2>7 · Provera</h2>
+<div class="quiz">
+  <p>Odgovaraj iz glave, pa tek onda proveri. Stanje od koga pitanje zavisi navedeno je u pitanju.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Dva nezavisna lidera A i B istovremeno menjaju isti red i oba odmah vrate OK svom klijentu. Šta je osnovni problem?</p>
+    <label><input type="radio"> Replike ne znaju kojim redom da primene binarni log</label>
+    <label><input type="radio"> Zaključavanje reda na A blokira upis na B dok A ne komituje</label>
+    <label><input type="radio"> Oba upisa su potvrđena, a samo jedna vrednost može da opstane</label>
+    <label><input type="radio"> Kasniji upis pobedi po vremenu, pa se ne gubi ništa važno</label>
+    <p class="why">Odluka o redosledu doneta je na dva mesta i potvrđena pre dogovora. Svako naknadno spajanje samo bira koji potvrđeni upis nestaje. Zaključavanja su lokalna i ne prelaze sa servera na server.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">2. Zašto svi članovi grupe donose istu odluku pri proveri saglasnosti, a da ne glasaju?</p>
+    <label><input type="radio"> Imaju isti niz transakcija i primenjuju isto pravilo nad njim</label>
+    <label><input type="radio"> Primarni čvor odluči i rezultat pošalje ostalim članovima</label>
+    <label><input type="radio"> Upoređuju vremena komitovanja, koja su na svima ista</label>
+    <label><input type="radio"> Svaki član drži zaključavanja redova na svim ostalim članovima</label>
+    <p class="why">Paxos obezbeđuje isti niz na svim članovima, a pravilo je determinističko, pa isti ulaz daje isti izlaz. Dogovor je potreban samo jednom, oko redosleda.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Multi-primary. A na 3307 menja invoice_id = 1 i komituje u t = 6 s; B na 3308 menja isti red i komituje u t = 2 s. A je otvorena prva. Ko pobeđuje?</p>
+    <label><input type="radio"> A, jer je prva otvorila transakciju i zaključala red</label>
+    <label><input type="radio"> Nijedna, jer grupa ne može da utvrdi koja je bila prva</label>
+    <label><input type="radio"> Obe, jer su na različitim članovima sa lokalnim zaključavanjem</label>
+    <label><input type="radio"> B, jer je prva dobila mesto u zajedničkom nizu na COMMIT-u</label>
+    <p class="why">Grupa saznaje za transakciju tek na njenom COMMIT-u, kad stigne njen skup upisa. „Prvi“ znači prvi u nizu. Izmereno: A dobija ERROR 1180.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">4. Group Replication sa tri člana, 3307 je primarni. Procesi 3308 i 3309 su ubijeni. Šta 3307 radi sa INSERT-om?</p>
+    <label><input type="radio"> Komituje ga, jer je 3307 i dalje primarni čvor grupe</label>
+    <label><input type="radio"> Drži ga blokiranim, jer bez većine nema mesta u nizu</label>
+    <label><input type="radio"> Odmah vraća grešku, jer zna da nema većinu članova</label>
+    <label><input type="radio"> Komituje ga lokalno i pošalje ostalima kad se vrate</label>
+    <p class="why">Komitovanje traži mesto u nizu, a njega dodeljuje većina. Uz podrazumevani unreachable_majority_timeout = 0 upis čeka zauvek. Izmereno: i posle 30 s blokiran, a komitovan tek posle forceQuorumUsingPartitionOf.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">5. Mreža podeli grupu od četiri člana na dva dela od po dva člana. Šta se dešava sa upisima?</p>
+    <label><input type="radio"> Upise prima deo u kome je primarni čvor</label>
+    <label><input type="radio"> Upise primaju oba dela, a sukobe kasnije rešava certification</label>
+    <label><input type="radio"> Upisi su blokirani na oba dela, jer nijedan nema većinu</label>
+    <label><input type="radio"> Upise prima deo koji je prvi primetio podelu mreže</label>
+    <p class="why">Većina od četiri člana su tri. Nijedan deo nema većinu, pa nijedan ne može da komituje. Zato se biraju neparni brojevi članova.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">6. Disk primarnog čvora u single-primary grupi je stalno 100 % opterećen upisima. Šta donosi prelazak u multi-primary?</p>
+    <label><input type="radio"> Ništa bitno, jer svaki član i dalje upisuje svaki red</label>
+    <label><input type="radio"> Trećinu opterećenja po disku, jer se upisi dele na tri člana</label>
+    <label><input type="radio"> Manje opterećenja, jer sekundarni članovi prestaju da primenjuju</label>
+    <label><input type="radio"> Manje opterećenja, jer svaki član upisuje samo redove svojih klijenata</label>
+    <p class="why">Svaki član je pun primerak baze, pa svaki red mora fizički da se upiše na svakom članu. Deli se samo izvršavanje iskaza. Skaliraju se čitanja, ne upisi.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">7. MySQL 8.4, single-primary, podrazumevani nivo konzistentnosti. Klijent upiše red na 3307 i odmah ga pročita sa 3309. Šta je tačno?</p>
+    <label><input type="radio"> Red je vidljiv, jer je podrazumevani nivo u 8.4 AFTER</label>
+    <label><input type="radio"> Red je vidljiv, jer OK stiže tek kad ga svi primene</label>
+    <label><input type="radio"> Čitanje se odbija dok 3309 ne primeni sve upise</label>
+    <label><input type="radio"> Red često nije vidljiv, jer je OK stigao pre primene na 3309</label>
+    <p class="why">Podrazumevani nivo je BEFORE_ON_PRIMARY_FAILOVER, koji se dok primarni čvor radi ponaša kao EVENTUAL. OK znači da je većina primila transakciju, a ne da su je svi primenili. Izmereno: 40/40 zastarelih.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">8. Aplikacija za naplatu (možeš da je menjaš) upisuje na 3307. Alat za izveštaje (ne možeš da ga menjaš) čita sa 3309 i mora da vidi svaki naplaćen račun. Šta postaviti?</p>
+    <label><input type="radio"> BEFORE u sesijama naplate, pa onaj ko upisuje čeka prethodne</label>
+    <label><input type="radio"> AFTER u sesijama naplate, pa onaj ko upisuje čeka da svi primene</label>
+    <label><input type="radio"> BEFORE_ON_PRIMARY_FAILOVER, jer je podrazumevani i štiti čitanja</label>
+    <label><input type="radio"> EVENTUAL u izveštajima, jer će 3309 ipak primeniti svaki upis</label>
+    <p class="why">Pošto onoga ko čita ne možeš da menjaš, mora da čeka onaj ko upisuje: AFTER. BEFORE na strani onoga ko upisuje čeka pre upisa, pa ništa ne garantuje kasnijem čitanju.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">9. Kojem modelu iz poglavlja 2 najbliže odgovara BEFORE, postavljen u sesiji onoga ko čita?</p>
+    <label><input type="radio"> Konačnoj konzistentnosti, jer će čitanje na kraju videti upis</label>
+    <label><input type="radio"> Monotonim čitanjima, jer jedna sesija ne vidi stariju verziju</label>
+    <label><input type="radio"> Strogoj konzistentnosti, jer vidi sve komitovano pre čitanja</label>
+    <label><input type="radio"> Read-your-writes, jer vidi samo upise iste sesije</label>
+    <p class="why">BEFORE tera čitanje da sačeka primenu svega što je u nizu pre njega, ma ko da je upisao i na kom članu. To je zahtev stroge konzistentnosti za čitanje, a read-your-writes je samo njegov poseban slučaj. Povezivanje je naše; refman ne koristi reč „linearizable“.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong>
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/group-replication-summary.html">MySQL 8.4 Reference Manual, §20.1.1.2 „Group Replication“</a>
+  (dve strane: zajednički niz, skup upisa, „first commit wins“), a zatim
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/group-replication-configuring-consistency-guarantees.html">§20.5.3.2 „Configuring Transaction Consistency Guarantees“</a>
+  (definicije nivoa i šest scenarija). Izvori su na engleskom; lekcija je na srpskom. ·
+  <strong>Vidi još:</strong> <a href="../reference/group-replication.html">referentna kartica: Group Replication</a>,
+  <a href="../reference/modeli-konzistentnosti.html">modeli konzistentnosti</a>,
+  <a href="0004-semisinhrona-potvrda.html">lekcija 04 (odluka ≠ vidljivost)</a>,
+  <a href="0002-binarni-log-gtid-asinhrona.html">lekcija 02 (replikacija = izvršavanje loga)</a>,
+  <a href="../GLOSSARY.md">GLOSSARY.md</a> §1b. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u četu. Lekcija je početak, ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>

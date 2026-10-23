@@ -65,8 +65,9 @@ learned about him goes here, so a new topic inherits it.
 - **Explanation first, then the quiz, and the explanation must actually reach him.** He reads the
   session in Obsidian via `md-log` and wants the Tema 2 rhythm: prose, then one quiz at its end, in the
   same flow. Explanations go in visible text, never in the quiz `details` field and never only in
-  thinking (thinking never reaches him). Protocol: send each node's explanation as its own text-only
-  message ending with „napiši „dalje““, then send the quiz (short lead-in) after he replies.
+  thinking (thinking never reaches him). Protocol (his change, Tema 3 lesson 05): send each node's
+  full explanation as text and, **in the same turn**, the quiz right after it; the quiz waits while
+  he reads. No „napiši „dalje““ handshake between explanation and quiz.
 - **No translated metaphors for tooling or process words.** "Pesak za igru" (sandbox) and "radnik"
   (worker) confused him. Say what it is: "naša topologija (3307/3308/3309)", "nit".
 - **Plain-language questions before acronyms.** Letter acronyms (PACELC's PA/EL) blocked him where
