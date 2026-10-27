@@ -348,6 +348,18 @@ the operator's to assemble.
   makes no scaling claim). Slika 5.1 needed the same fix as 4.1: its first draft was 3.9:1 and was
   redrawn top-to-bottom.
 
+- [Chapter 6 - Geo-distribuirana replikacija i InnoDB ClusterSet](issues/18-chapter-6-geo-clusterset.md)
+  (2026-10-27): **~1110 words, Slika 6.1 + Tabela 6.1, measured at ~3.15 pages** against a budget of 3;
+  spaced retrieval 3/3. Why the group does not stretch across locations: the physics, from ITU-T G.114
+  (new bib entry), plus expel. Either every commit pays an inter-location round trip, or the majority
+  sits in one location and dies with it (stated as derived). ClusterSet as **one writer, conflict
+  prevented rather than resolved**. Switchover vs forced failover from measurement 0008. **The payoff
+  is sharper than the ticket asked**: the vendor's two consecutive sentences (A across clusters, C
+  within) are quoted, *and* the measurement shows the replica cluster refusing writes until
+  `forcePrimaryCluster()`, so **availability across clusters is one operator command, not a system
+  property**. That is the spine in its strongest form, carried to ticket 20. The Shell 8.4-URL caveat is
+  closed: the wording is identical on the 8.0 pages.
+
 ## Not yet specified
 
 - ~~**The chapter tickets.**~~ **Graduated at ticket 09** into tickets 14–20, chained

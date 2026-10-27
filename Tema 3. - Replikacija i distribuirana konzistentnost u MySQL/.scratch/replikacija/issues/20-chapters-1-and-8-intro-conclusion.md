@@ -29,3 +29,8 @@ Binding on every session here: `GLOSSARY.md` (terms are locked - do not re-trans
 budget in `GLOSSARY.md` section 3, the caption honesty rule in section 5, `academic-research-writer`
 for all prose, `serbian-grammar` for every Serbian line, and the two research rules in
 `../../NOTES.md` (**no unverified absence claim**, **walk the source ladder and record the rung**).
+
+**Carried from ch. 6 writing (2026-10-27)**: when restating the two-scope CAP evidence, use ch. 6's sharper
+form, not ch. 5's closing sentence alone. Across clusters the replica cluster *refused writes* (C) until
+the operator ran `forcePrimaryCluster()`, so the A choice is one operator command. That is the spine in its
+strongest form ("konzistentnost je odluka operatera").

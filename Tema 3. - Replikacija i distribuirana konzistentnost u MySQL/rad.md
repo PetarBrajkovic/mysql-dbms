@@ -633,3 +633,138 @@ konzistentnosti, već nivo koji bira operater ili aplikacija, a cena svakog nivo
 milisekundama kod pisca ili kod čitaoca. Šesto poglavlje prelazi na InnoDB ClusterSet, skup
 klastera u kome MySQL između klastera bira suprotno od onoga što Group Replication bira unutar
 jednog klastera.
+
+# 6. Geo-distribuirana replikacija i InnoDB ClusterSet
+
+Topologije iz prethodnih poglavlja preživljavaju otkaz pojedinačnog servera, ali ne i gubitak cele
+lokacije, na primer centra podataka bez napajanja ili mreže. Geo-distribuirana replikacija čuva
+kopije podataka na udaljenim lokacijama upravo zbog takvog otkaza. MySQL za nju ne nudi grupu iz
+petog poglavlja raširenu preko lokacija, već InnoDB ClusterSet, dokumentovan u priručniku alata
+MySQL Shell [@mysqlshell84].
+
+## Zašto se grupa ne razvlači preko lokacija
+
+Udaljenost ima cenu koju nijedno podešavanje ne uklanja. Preporuka ITU-T G.114 pri planiranju
+kašnjenja u optičkim kablovskim sistemima računa sa nekoliko mikrosekundi po kilometru
+[@itug114], pa povratno putovanje između lokacija udaljenih hiljadu kilometara traje najmanje
+desetak milisekundi, pre bilo kakve obrade. Komitovanje u grupi čeka da se većina složi o mestu
+transakcije u zajedničkom nizu, pa grupa čija se većina ne može sastaviti na jednoj lokaciji svako
+komitovanje plaća bar jednim povratnim putovanjem između lokacija. Primena kod ostalih članova i
+dalje je asinhrona, ali dogovor o redosledu nije. Ako se, naprotiv, većina smesti na jednu lokaciju,
+komitovanje je brzo, ali gubitak te lokacije ostavlja ostatak grupe bez kvoruma, pa on blokira
+upise, kao u tabeli 5.1. Ova dilema izvedena je iz načina rada grupe, a ne izmerena.
+
+<!--
+  Not demonstrable locally (measurement 0008, "Not demonstrable locally"): inter-location latency and
+  expel under a slow link are theory from refman 8.4 (rung 1) + ITU-T G.114 (standard). G.114 Table
+  A.1 fibre row read as 6 us/km by the researcher (pdftotext; 5 us/km in the adjacent row), so the
+  text says "nekoliko mikrosekundi" and "najmanje desetak milisekundi", true for either value.
+  Expel: 5 s detection period + group_replication_member_expel_timeout default 5 (refman 8.4
+  sec. 20.7.7.1 and the sysvar entry, researcher 2026-10-27).
+-->
+Druga cena je stabilnost. Priručnik navodi da je Group Replication projektovan za okruženje u kome
+su instance veoma blizu jedna drugoj, i da latencija i propusni opseg mreže utiču na performanse i
+na stabilnost grupe [@mysql84refman]. Mehanizam nestabilnosti je izbacivanje člana iz grupe
+(expel): posle početnog perioda detekcije od 5 s član postaje sumnjiv (suspicion), a ako se ne javi
+ni tokom narednih `group_replication_member_expel_timeout` sekundi, podrazumevano 5, grupa ga
+izbacuje [@mysql84refman]. Na vezi između lokacija kratak prekid ili zagušenje može tako da izbaci ispravan
+član, koji se zatim vraća u grupu i nadoknađuje propušteno. Na topologiji ovog rada, čija su sva tri
+čvora na istom računaru, to se ne može pokazati, pa se odeljak oslanja na priručnik, a ne na merenje.
+
+## InnoDB ClusterSet: grupa unutar lokacije, asinhrono između
+
+<!--
+  Shell quotes verified 2026-10-27 (researcher, rung 2): the mysql-shell/8.4 URLs serve Shell 26.7
+  content; every quoted sentence is identical on the mysql-shell/8.0 pages. super_read_only on the
+  replica cluster is our measurement (rung 5, ERROR 1290, measurement 0008); the manual says only
+  "The replica clusters do not [accept write traffic]".
+-->
+MySQL ovaj problem ne rešava razvlačenjem grupe, već povezivanjem više grupa. InnoDB ClusterSet,
+prema priručniku, pruža otpornost na katastrofu (disaster tolerance) tako što primarni InnoDB Cluster
+povezuje sa jednom ili više njegovih replika na drugim lokacijama, na primer u drugim centrima
+podataka [@mysqlshell84]. Svaka lokacija ima sopstveni klaster sa Group Replication, a između
+klastera radi asinhroni kanal `clusterset_replication`, kojim primarni klaster (primary cluster)
+šalje transakcije replika-klasterima (replica clusters). Upise prima samo primarni server primarnog
+klastera, a svi klasteri moraju da rade u režimu single-primary [@mysqlshell84]. U celom skupu
+postoji, dakle, jedan pisac, pa sukob između lokacija nije potrebno razrešavati: arhitektura ga
+sprečava, umesto da ga posle razrešava, kao što unutar grupe čini certification.
+
+Na topologiji ovog rada ClusterSet je podignut alatom MySQL Shell, naredbama `createClusterSet()` i
+`createReplicaCluster()`. Klaster sme da ima i samo jednog člana, pa primarni klaster
+`poliklinikaCluster` čine članovi 3307 i 3308, a replika-klaster `drCluster` član 3309 (slika 6.1).
+Pokušaj upisa odbijen je i na 3308 i na 3309 greškom 1290, jer oba rade uz `super_read_only = ON`.
+Potvrda koju klijent dobija znači da je transakciju primila većina primarnog klastera, a kanal ka
+replika-klasteru ona ne čeka. Transakcije koje se u tom
+trenutku nalaze u kanalu postoje samo na lokaciji A, što je prozor gubitka asinhrone replikacije iz
+trećeg poglavlja, ovog puta na nivou cele lokacije.
+
+![Slika 6.1: InnoDB ClusterSet na topologiji ovog rada. Unutar primarnog klastera potvrda čeka većinu, a kanal `clusterset_replication` ka replika-klasteru je asinhron, pa transakcije u kanalu čine prozor gubitka. Obe lokacije nalaze se na istom računaru, pa između njih nema stvarne udaljenosti.](figures/06-geo-01-clusterset.png){width=100%}
+
+## Switchover i prinudni failover
+
+Četvrto poglavlje razlikuje switchover, planiranu promenu uloga dok je stari izvor dostupan, od
+failovera posle otkaza. ClusterSet ima obe operacije, a priručnik switchover opisuje kao promenu
+koja se izvodi dok je primarni klaster još dostupan, na primer radi održavanja [@mysqlshell84]. Pri
+switchoveru, naredbom `setPrimaryCluster()`, alat je ispisao svoje korake: replika-klaster najpre
+primenjuje sve primljene transakcije, zatim se zaključavaju članovi starog primarnog klastera, a
+na kraju se preostale transakcije sinhronizuju na novom primarnom članu. Stari primarni klaster je
+dostupan i zaključan, pa može da preda sve, i nijedna transakcija se ne gubi.
+
+<!--
+  Absence-claim check (NOTES rule 1), measurement 0008: "ClusterSet does not fail over between
+  clusters automatically" is NOT written. Rung 2 documents emergency failover only as the operator's
+  clusterSet.forcePrimaryCluster() procedure; rung 5: 3309 stayed read-only and UNAVAILABLE for 20 s
+  with no operator, two runs (tickets 11 and 18). The text states exactly those two facts.
+-->
+Prinudni failover (emergency failover) izazvan je tako što su procesi članova 3307 i 3308 prinudno
+zaustavljeni, čime je nestala cela lokacija A. Replika-klaster se nije sam unapredio: član 3309 je
+i posle 20 s radio uz `super_read_only = ON` i odbijao upise, a MySQL Shell je primarni klaster
+prijavio kao nedostupan. Priručnik prinudni failover i opisuje kao postupak operatera, naredbom
+`forcePrimaryCluster()` [@mysqlshell84]. Posle te naredbe 3309 je primao upise, a alat je upozorio
+da je stari primarni klaster označen kao `INVALIDATED`, da transakcije koje nisu stigle da se
+repliciraju mogu biti izgubljene i da je moguć split brain ako je stari klaster i dalje aktivan, pa
+ga treba ograditi od upisa ili od celog saobraćaja (fencing). Priručnik kaže isto: tokom prinudnog
+failovera konzistentnost podataka nije obezbeđena i nema garancije da će podaci biti sačuvani
+[@mysqlshell84]. Ponovo pokrenut, stari klaster nije se sam vratio u skup, već tek naredbom
+`rejoinCluster()`, posle koje je preuzeo istoriju novog primarnog klastera. Tabela 6.1 poredi dve
+operacije. Switchover je desetine puta brži, ali razlika koja odlučuje
+nije u trajanju, već u tome ko može da preda transakcije.
+
+| | Switchover | Prinudni failover |
+|---|---|---|
+| Naredba u alatu MySQL Shell | `setPrimaryCluster()` | `forcePrimaryCluster()` |
+| Stari primarni klaster | dostupan, zaključan i ispražnjen | procesi 3307 i 3308 zaustavljeni |
+| Ko pokreće promenu | operater | operater; 3309 se nije sam unapredio |
+| Trajanje naredbe | 0,44 s i 0,54 s | 21,6 s |
+| Transakcije u kanalu | predate novom primarnom | mogu biti izgubljene |
+| Stari klaster posle promene | replika-klaster, radi odmah | `INVALIDATED`, vraća se naredbom `rejoinCluster()` |
+
+Table: Tabela 6.1: Switchover i prinudni failover u ClusterSet-u na topologiji ovog rada (MySQL 8.4.11, MySQL Shell 8.4.10, jedan računar, bez opterećenja). Switchover je izveden u oba smera, a failover jednom; ranije merenje na istoj topologiji dalo je 0,48 s i 23 s.
+
+MySQL Router, podešen da prati primarni klaster, posle failovera za nekoliko sekundi sam preusmerava
+saobraćaj na novi primarni klaster [@mysqlshell84]. Automatsko je, dakle, preusmeravanje veza, a ne
+odluka o unapređenju.
+
+## Dva nivoa, dva CAP izbora
+
+Priručnik alata MySQL Shell oba izbora navodi u dve uzastopne rečenice: „InnoDB ClusterSet
+prioritizes availability over data consistency in order to maximize disaster tolerance. Consistency
+within each individual InnoDB Cluster is guaranteed by the underlying Group Replication technology.“
+[@mysqlshell84]. Između klastera ClusterSet, dakle, daje prednost dostupnosti nad konzistentnošću
+podataka, a unutar svakog klastera konzistentnost obezbeđuje Group Replication. Unutar klastera to
+je izmereno u petom poglavlju: grupa bez većine blokira upis, a referentni priručnik kaže da sistem
+tada ne napreduje dok se problem ne reši [@mysql84refman]. Između klastera važi suprotno: kanal je
+asinhron, replika-klasteri mogu da zaostaju, a prinudni failover prihvata gubitak transakcija da
+bi preživela lokacija mogla da prima upise. Isti proizvod tako na dva nivoa zauzima suprotne
+pozicije teoreme CAP, i to sopstvenim rečima.
+
+Merenje dodaje pojedinost važniju od same izjave. Do naredbe `forcePrimaryCluster()` replika-klaster
+je odbijao upise, odnosno ponašao se kao sistem koji bira konzistentnost. Dostupnost između klastera
+nije svojstvo koje ClusterSet sam ostvaruje, već odluka koju operater donosi jednom naredbom,
+prihvatajući prozor gubitka i rizik da nastane split brain. Na drugo pitanje PACELC-a, kada mreža radi,
+ClusterSet bira nisku latenciju umesto konzistentnosti: komitovanje čeka samo većinu na jednoj
+lokaciji, a replika-klasteri zaostaju onoliko koliko iznosi kašnjenje replikacije. Geo-distribucija
+tako potvrđuje osnovnu tezu ovog rada u najjasnijem obliku: MySQL ne isporučuje jedan model
+konzistentnosti, već na svakom nivou drugačiju podrazumevanu odluku i naredbu kojom je operater
+menja. Sedmo poglavlje vraća se na replike unutar jedne lokacije, koje služe za skaliranje čitanja,
+i na kašnjenje replikacije koje pri tome vide čitaoci.

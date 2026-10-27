@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="800" viewBox="0 0 1600 800" font-family="Arial, sans-serif">
+<defs>
+<marker id="ab" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#111"/></marker>
+<marker id="ag" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1e8c3a"/></marker>
+<marker id="ad" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#333"/></marker>
+</defs>
+<rect width="1600" height="800" fill="#fff"/>
+<!-- client -->
+<rect x="60" y="15" width="240" height="60" rx="10" fill="#f3f3f3" stroke="#333" stroke-width="3"/>
+<text x="180" y="55" font-size="28" font-weight="bold" text-anchor="middle">Klijent</text>
+<!-- box A -->
+<rect x="20" y="130" width="800" height="630" rx="24" fill="#fafafa" stroke="#333" stroke-width="3"/>
+<line x1="120" y1="75" x2="120" y2="246" stroke="#111" stroke-width="4" marker-end="url(#ab)"/>
+<text x="134" y="112" font-size="22" font-weight="bold">COMMIT</text>
+<line x1="240" y1="246" x2="240" y2="80" stroke="#1e8c3a" stroke-width="4" marker-end="url(#ag)"/>
+<text x="254" y="165" font-size="24" font-weight="bold" fill="#1e8c3a">OK</text>
+<text x="330" y="180" font-size="26" font-weight="bold">Lokacija A: primarni klaster</text>
+<text x="330" y="212" font-size="26" font-weight="bold">poliklinikaCluster</text>
+<rect x="45" y="228" width="480" height="362" rx="12" fill="none" stroke="#1e8c3a" stroke-width="3" stroke-dasharray="12 8"/>
+<text x="545" y="520" font-size="22" fill="#1e8c3a" font-weight="bold">opseg potvrde</text>
+<text x="545" y="548" font-size="22" fill="#1e8c3a" font-weight="bold">OK</text>
+<rect x="60" y="250" width="450" height="90" rx="12" fill="#fff" stroke="#1e8c3a" stroke-width="7"/>
+<text x="285" y="288" font-size="30" font-weight="bold" text-anchor="middle">3307</text>
+<text x="285" y="322" font-size="24" text-anchor="middle">primarni, prima upise</text>
+<rect x="60" y="480" width="450" height="90" rx="12" fill="#fff" stroke="#333" stroke-width="3"/>
+<text x="285" y="518" font-size="30" font-weight="bold" text-anchor="middle">3308</text>
+<text x="285" y="552" font-size="24" text-anchor="middle">sekundarni, super_read_only = ON</text>
+<line x1="277" y1="340" x2="277" y2="480" stroke="#333" stroke-width="5"/>
+<line x1="293" y1="340" x2="293" y2="480" stroke="#333" stroke-width="5"/>
+<text x="312" y="388" font-size="22">Group Replication:</text>
+<text x="312" y="416" font-size="22">zajednički niz,</text>
+<text x="312" y="444" font-size="22">čeka većinu</text>
+<text x="45" y="670" font-size="28" font-weight="bold" fill="#1f5fbf">Unutar klastera: konzistentnost</text>
+<text x="45" y="712" font-size="24" fill="#333">manjina blokira upis</text>
+<!-- box B -->
+<rect x="1160" y="130" width="420" height="630" rx="24" fill="#fafafa" stroke="#333" stroke-width="3"/>
+<text x="1370" y="180" font-size="26" font-weight="bold" text-anchor="middle">Lokacija B: replika-klaster</text>
+<text x="1370" y="212" font-size="26" font-weight="bold" text-anchor="middle">drCluster</text>
+<rect x="1180" y="235" width="380" height="120" rx="12" fill="#fff" stroke="#888" stroke-width="4"/>
+<text x="1370" y="273" font-size="30" font-weight="bold" text-anchor="middle">3309</text>
+<text x="1370" y="305" font-size="24" text-anchor="middle">super_read_only = ON</text>
+<text x="1370" y="336" font-size="24" text-anchor="middle">odbija upis: ERROR 1290</text>
+<text x="1180" y="670" font-size="28" font-weight="bold" fill="#e07000">Između klastera: dostupnost</text>
+<text x="1180" y="712" font-size="24" fill="#333">posle forcePrimaryCluster()</text>
+<!-- channel -->
+<line x1="510" y1="295" x2="1176" y2="295" stroke="#333" stroke-width="7" stroke-dasharray="20 12" marker-end="url(#ad)"/>
+<text x="990" y="205" font-size="22" font-weight="bold" text-anchor="middle">clusterset_replication</text>
+<text x="990" y="236" font-size="22" text-anchor="middle">asinhroni kanal,</text>
+<text x="990" y="264" font-size="22" text-anchor="middle">OK ga ne čeka</text>
+<g fill="#fff" stroke="#111" stroke-width="3">
+<rect x="935" y="278" width="50" height="34"/><polyline points="935,278 960,299 985,278" fill="none"/>
+<rect x="995" y="278" width="50" height="34"/><polyline points="995,278 1020,299 1045,278" fill="none"/>
+</g>
+<text x="990" y="346" font-size="22" text-anchor="middle">transakcije u kanalu</text>
+<line x1="990" y1="360" x2="990" y2="440" stroke="#c62828" stroke-width="3"/>
+<rect x="845" y="440" width="290" height="170" rx="10" fill="#fde8e8" stroke="#c62828" stroke-width="3"/>
+<text x="860" y="478" font-size="22" fill="#222"><tspan font-weight="bold">prozor gubitka:</tspan> ako</text>
+<text x="860" y="508" font-size="22" fill="#222">nestane lokacija A, ove</text>
+<text x="860" y="538" font-size="22" fill="#222">transakcije ne postoje</text>
+<text x="860" y="568" font-size="22" fill="#222">na lokaciji B</text>
+</svg>

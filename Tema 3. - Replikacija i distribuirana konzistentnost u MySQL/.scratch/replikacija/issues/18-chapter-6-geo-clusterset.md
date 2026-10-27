@@ -1,7 +1,7 @@
 # Chapter 6 - Geo-distribuirana replikacija i InnoDB ClusterSet
 
 Type: task (execution - see the map's execution override)
-Status: open (claimed)
+Status: **closed** (2026-10-27) - lesson taught, examples run live, chapter written, measured
 Assignee: Pex
 Blocked by: 11, 17 — both closed
 
@@ -55,3 +55,38 @@ for all prose, `serbian-grammar` for every Serbian line, and the two research ru
 `SOURCE_AUTO_POSITION`; also a Group-Replication-aware variant). It re-points a connection and is not
 documented as promoting a replica. Any sentence here contrasting "automatic" group failover with
 "manual" async failover must account for it (rule 1). Ch. 3 avoided the claim; see the HTML comment there.
+
+## Resolution (2026-10-27, writing session)
+
+Ch. 6 appended to `rad.md`: **~1110 words of prose, Slika 6.1, Tabela 6.1, measured at ~3.15 rendered
+pages** (Word COM, same method as ch. 5's 4.4; budget 3, 0.15 over, nothing cut). Spaced retrieval at the
+start (record 0008's three questions): **3/3**, including CAP judged per operation, the gap the lesson closed.
+
+- **Item 1 (ClusterSet)**: primary cluster + replica clusters, `clusterset_replication` async, one writer,
+  single-primary required (all rung 2, verified this session). Conflict across locations is *prevented by
+  architecture* rather than resolved by certification. `super_read_only` on 3308/3309 stated as measured
+  (ERROR 1290), not quoted. What OK covers (primary cluster's majority) and the loss window in the channel
+  are in the text and on Slika 6.1.
+- **Item 2 (switchover vs forced failover)**: Tabela 6.1 from measurement 0008 (444/539 ms vs 21.6 s, with
+  ticket 11's 0.48 s / 23 s in the caption). The switchover mechanism is told from Shell's own printed
+  steps (old cluster locked and drained). The failover is told as measured: 3309 did not promote itself
+  and refused writes for 20 s, and the manual describes `forcePrimaryCluster()` as an operator procedure.
+  That is the rule 1 form recorded in measurement 0008, kept as an HTML comment. `INVALIDATED`, the
+  split-brain warning, fencing and "no guarantee that data will be preserved" are included. Router gets one
+  sentence: it re-routes automatically if it follows the primary, so routing is automatic and promotion is not.
+- **Item 3 (CAP payoff)**: the Shell manual's two consecutive sentences (ClusterSet *prioritizes availability*
+  / consistency within each cluster *guaranteed by* Group Replication) are quoted verbatim in English and
+  glossed, set against the refman's "does not progress until this issue is resolved". **The chapter's strongest
+  move, from record 0008**: before `forcePrimaryCluster()` the replica cluster chose C. So A across clusters
+  is the operator's single command, not a system property. PACELC else-branch: EL.
+- **Item 4 (why not GR across regions)**: physics paragraph on ITU-T G.114 (**new bib entry `itug114`**).
+  The researcher read the fibre row as 6 us/km, next to a 5 us/km row, so the text says "a few us/km" and
+  "at least ~10 ms RTT per 1000 km", true for either. The derived dilemma: either pay an inter-location RTT
+  per commit, or put the majority in one location and lose quorum with it. It is labelled derived. Expel:
+  5 s detection + 5 s default `member_expel_timeout`, from the refman. Not demonstrable locally, and said so.
+- **Quotes**: all Shell quotes re-verified this session. The `8.4` URLs serve Shell 26.7, but the wording is
+  identical on the `8.0` pages, which closes the lesson's caveat. A separate controlled-switchover page does
+  not exist (404).
+- **Slika 6.1**: the official `innodb_clusterset_main.png` was checked: English labels, it shows no locations,
+  and it does not mark the OK scope or the loss window. A Mermaid draft came out 4.4:1, so it was redrawn
+  as SVG at 2:1 (`figures/06-geo-01-clusterset.svg`). Smallest text is about 6 pt at page width; ticket 13 should re-check it.

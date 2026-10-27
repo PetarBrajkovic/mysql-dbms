@@ -797,3 +797,33 @@
 
 > [!abstract] PI
 > Now the index, glossary, ticket, examples README.
+
+
+> [!abstract] PI
+> Lekcija 06 je naučena, zapisana, commitovana i pushovana (`0a21023`). Otvorio sam je u pregledaču.
+>
+> **Kako je prošlo.** Sva tri mesta gde si pogrešio u proveri znanja ispravljena su tokom lekcije, a na kraju si tačno odgovorio i na ponovljena pitanja:
+> - **CAP se procenjuje po operaciji.** U grupi koja je izgubila većinu upis visi, i to je izbor konzistentnosti, iako čitanje i dalje radi.
+> - **Šta pokriva OK u ClusterSet-u.** Samo većinu primarnog klastera. Transakcije koje su još u asinhronom kanalu mogu da se izgube. Na ovo si u proveri znanja odgovorio „ne znam“.
+> - **Grupa preko regiona.** Svako komitovanje čeka bar jedno povratno putovanje do udaljenog člana. Primena kod ostalih je asinhrona, ali dogovor o redosledu nije.
+>
+> **Uživo na našoj topologiji (3306 nisam dirao):**
+> - Switchover je trajao 539 ms, a povratak 444 ms, bez gubitka podataka.
+> - Prinudni failover je trajao 21 617 ms. Pre komande, 3309 se nije sam unapredio i odbijao je upis. Posle nje, stari klaster je ostao `INVALIDATED`.
+> - Popravka je uspela, ali je 3308 posle skripte 40 morao ručno da se vrati u grupu (`rejoinInstance`). To skripta ne radi sama, pa sam to zapisao.
+> - Na kraju je topologija vraćena u asinhrono stanje.
+>
+> **Šta treba proveriti pre pisanja poglavlja:** adrese Shell dokumentacije sa oznakom `8.4` trenutno prikazuju sadržaj verzije 26.7. Tačne reči citata treba ponovo proveriti pre nego što uđu u `rad.md`.
+>
+> **Novo pravilo za predavanje** (upisano u `TEACHING.md`): objašnjenje, pa ti napišeš „next“, pa tek onda kviz. Uzrok nestajanja teksta iz Obsidian-a nisam našao u `md-log.ts`. Dugačka objašnjenja poslata u istom potezu kao kviz nisu se upisivala, a kratka jesu. Ako hoćeš da se to popravi u samom proširenju, to je poseban zadatak.
+>
+> **Sledeće:** pisanje Poglavlja 6 u zasebnoj sesiji, oko 3 strane. Na početku idu tri pitanja za ponavljanje iz zapisa 0008.
+>
+> **Napravljeno ili izmenjeno u ovoj sesiji:**
+> - `lessons/0006-geo-clusterset.html` (lekcija, pet figura iz `viz/viz-l06-*.png`, kviz od 8 pitanja)
+> - `reference/clusterset.html` (nova referentna kartica)
+> - `learning-records/0008-geo-clusterset.md` i red u `learning-records/README.md`
+> - `.scratch/replikacija/measurements/0008-geo-clusterset.md` i `raw/0008-*.txt`
+> - `examples/01-group-replication/43-clusterset-status.js` (nova skripta)
+> - novi termini u `GLOSSARY.md` (§1b⁗''')
+> - unos „Progress“ u tiketu 18
