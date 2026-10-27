@@ -164,11 +164,22 @@ never *latencija replikacije*; never *master/slave* as working terms.
 | Graceful leave | uredno napuštanje grupe | — | vs a killed process (`UNREACHABLE`) |
 | Forced quorum | prisilno obnavljanje kvoruma | — | `forceQuorumUsingPartitionOf()` stays verbatim |
 
+### 1b⁗'''. Added at ticket 18 (ch. 6 lesson, record 0008)
+
+| Concept | Serbian term (first use) | After first use | Note |
+|---|---|---|---|
+| Primary / replica cluster (ClusterSet) | primarni klaster / replika-klaster *(primary / replica cluster)* | primarni klaster / replika-klaster | |
+| Emergency failover | prinudni failover *(emergency failover)* | prinudni failover | `forcePrimaryCluster()` stays verbatim; controlled = switchover (§1b) |
+| Fencing | ograđivanje klastera *(fencing)* | ograđivanje | `fenceWrites()` / `fenceAllTraffic()` stay verbatim |
+| Expel (a member) | izbacivanje člana iz grupe *(expel)* | izbacivanje | `group_replication_member_expel_timeout` verbatim |
+| Failure detection / suspicion | period detekcije / sumnja *(suspicion)* | — | the fixed 5 s before a suspicion |
+| Disaster tolerance | otpornost na katastrofu *(disaster tolerance)* | — | only when glossing the Shell manual's quote |
+
 ### 1c. Verbatim - never translated, never declined
 
 Identifiers, keywords and product proper nouns:
 
-`GTID`, `Group Replication`, `InnoDB Cluster`, `InnoDB ClusterSet`, `MySQL Shell`, `MySQL Router`,
+`GTID`, `Group Replication`, `InnoDB Cluster`, `InnoDB ClusterSet`, `clusterset_replication`, `INVALIDATED`, `MySQL Shell`, `MySQL Router`,
 `SOURCE_DELAY`, `AFTER_SYNC`, `AFTER_COMMIT`, `group_replication_consistency` and its levels
 (`EVENTUAL`, `BEFORE`, `AFTER`, `BEFORE_AND_AFTER`, `BEFORE_ON_PRIMARY_FAILOVER` — the last is the 8.4 default), `sync_binlog`,
 `innodb_flush_log_at_trx_commit`, `Seconds_Behind_Source`, `WAIT_FOR_EXECUTED_GTID_SET()`,

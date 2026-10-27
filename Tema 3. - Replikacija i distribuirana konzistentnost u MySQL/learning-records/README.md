@@ -17,6 +17,7 @@ chapter, never when planning a lesson.
 | [0005](0005-durability-wal-2pc.md) | 3, part B (ticket 15, lesson) | write ≠ fsync; WAL/redo; two logs need two-phase commit with the binlog as decision point; the matrix | durability, crash recovery, `sync_binlog` × `innodb_flush_log_at_trx_commit`, process vs OS crash; ch. 4 `AFTER_SYNC` builds on it |
 | [0006](0006-semisync-acknowledgement.md) | 4 (ticket 16, lesson) | Ack = relay log + fsync; decision ≠ visibility; AFTER_COMMIT anomaly reproduced live; the failed source rejoins with zero errors | semisync, `AFTER_SYNC`/`AFTER_COMMIT`, failover vs switchover, errant/extra GTIDs, timeout signals, ack cost |
 | [0007](0007-group-replication-lesson.md) | 5 (ticket 17, lesson) | One decision point orders writes; certification = one total order + deterministic verdict; minority blocks; the level picks who waits (BEFORE measured live) | certification, write-sets, 1180, PK requirement, quorum loss, single vs multi-primary, `group_replication_consistency` → ch. 2 models |
+| [0008](0008-geo-clusterset.md) | 6 (ticket 18, lesson) | GR cannot stretch (RTT per commit, expel); ClusterSet = GR per DC + async, one writer; C inside, A across — the A choice is one operator command | geo-distribution, ClusterSet, switchover vs forced failover, INVALIDATED/fencing, the CAP-at-two-scopes payoff, CAP judged per operation |
 
 ## Standing constraints these records impose on every later chapter
 
@@ -67,6 +68,10 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
 - No sentence may say asynchronous replication "has no automatic failover": refman §19.4.9
   Asynchronous Connection Failover re-points automatically; contrast **who promotes**. Multi-primary
   does **not** scale writes proportionally (derived, not measured). (0007)
+- **Ch. 6's measurements are done** (re-run 0008): switchover 539/444 ms vs forced failover 21.6 s (0002:
+  478/398 ms vs 23.1 s); the replica cluster never promotes itself; old cluster stays INVALIDATED until
+  `rejoinCluster`, and 3308 needs `rejoinInstance` after `40`. Shell `8.4` doc URLs serve 26.7 content:
+  re-verify quotes. `super_read_only` on replica clusters is measured, not quoted. (0008)
 - A clean `topology.ps1 stop` is a **graceful leave**, not a failure — it cannot be used to
   demonstrate quorum loss. Losing majority requires killing the process. (0002)
 

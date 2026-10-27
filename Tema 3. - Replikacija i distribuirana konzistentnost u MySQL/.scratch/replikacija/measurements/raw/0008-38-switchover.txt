@@ -1,0 +1,80 @@
+=== 15a. roles now
+     port=3307 read_only=0 super_read_only=0 offline_mode=0
+     port=3308 read_only=1 super_read_only=1 offline_mode=0
+     port=3309 read_only=1 super_read_only=1 offline_mode=0
+=== 15b. write to the REPLICA cluster (3309)
+   REFUSED: ClassicSession.runSql: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+   read works: patients = 90
+=== 15c. controlled switchover: drCluster becomes the primary cluster
+Switching the primary cluster of the clusterset to 'drCluster'
+* Verifying clusterset status
+** Checking cluster poliklinikaCluster
+  Cluster 'poliklinikaCluster' is available
+** Checking cluster drCluster
+  Cluster 'drCluster' is available
+
+** Waiting for the promoted cluster to apply pending received transactions...
+* Refreshing replication account of demoted cluster
+* Synchronizing transaction backlog at 127.0.0.1:3309
+
+
+
+* Updating metadata
+
+* Updating topology
+** Changing replication source of 127.0.0.1:3308 to 127.0.0.1:3309
+** Changing replication source of 127.0.0.1:3307 to 127.0.0.1:3309
+* Acquiring locks in ClusterSet instances
+** Pre-synchronizing SECONDARIES
+** Acquiring global lock at PRIMARY
+** Acquiring global lock at SECONDARIES
+
+* Synchronizing remaining transactions at promoted primary
+
+
+
+* Updating replica clusters
+Cluster 'drCluster' was promoted to PRIMARY of the clusterset. The PRIMARY instance is '127.0.0.1:3309'
+
+   switchover took 539 ms
+   after  port=3307 read_only=1 super_read_only=1 offline_mode=0
+   after  port=3308 read_only=1 super_read_only=1 offline_mode=0
+   after  port=3309 read_only=0 super_read_only=0 offline_mode=0
+=== 15d. who accepts a write now
+   3307: REFUSED - ClassicSession.runSql: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+   3309: ACCEPTED
+=== 15e. switch back
+Switching the primary cluster of the clusterset to 'poliklinikaCluster'
+* Verifying clusterset status
+** Checking cluster poliklinikaCluster
+  Cluster 'poliklinikaCluster' is available
+** Checking cluster drCluster
+  Cluster 'drCluster' is available
+
+** Waiting for the promoted cluster to apply pending received transactions...
+* Refreshing replication account of demoted cluster
+* Synchronizing transaction backlog at 127.0.0.1:3307
+
+
+
+* Updating metadata
+
+* Updating topology
+** Changing replication source of 127.0.0.1:3309 to 127.0.0.1:3307
+* Acquiring locks in ClusterSet instances
+** Pre-synchronizing SECONDARIES
+** Acquiring global lock at PRIMARY
+** Acquiring global lock at SECONDARIES
+
+* Synchronizing remaining transactions at promoted primary
+
+
+
+* Updating replica clusters
+Cluster 'poliklinikaCluster' was promoted to PRIMARY of the clusterset. The PRIMARY instance is '127.0.0.1:3307'
+
+   switchback took 444 ms
+   back  port=3307 read_only=0 super_read_only=0 offline_mode=0
+   back  port=3308 read_only=1 super_read_only=1 offline_mode=0
+   back  port=3309 read_only=1 super_read_only=1 offline_mode=0
+   primaryCluster = poliklinikaCluster ; All Clusters available.

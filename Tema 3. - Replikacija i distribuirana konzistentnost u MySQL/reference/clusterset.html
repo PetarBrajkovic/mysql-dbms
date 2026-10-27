@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referentni list · InnoDB ClusterSet i geo-distribucija</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentni list · Poglavlje 6</p>
+<h1>InnoDB ClusterSet: grupa unutra, asinhrono između</h1>
+<p class="subtitle">Sažetak <a href="../lessons/0006-geo-clusterset.html">lekcije 06</a>. MySQL 8.4.11 i MySQL Shell 8.4.10, naša topologija 3307/3308/3309.</p>
+
+<h2>Zašto ne jedna grupa preko regiona</h2>
+<table class="exp">
+  <tr><td>fizika</td><td>~200 km/ms u vlaknu; 1000 km → najmanje 10 ms RTT (donja granica)</td></tr>
+  <tr><td>svako komitovanje</td><td>čeka najbližeg člana koji sa primarnim čini većinu; dogovor o redosledu se čeka, primena ne</td></tr>
+  <tr><td>izbacivanje</td><td>5 s tišine → sumnja; + <code>group_replication_member_expel_timeout</code> (podrazumevano 5 s u 8.4) → član izbačen, i kad je ispravan. Vrednost je izbor projektanata</td></tr>
+  <tr><td>refman</td><td>„designed to be deployed in a cluster environment where server instances are very close to each other“ (§ Requirements)</td></tr>
+</table>
+
+<h2>Arhitektura</h2>
+<table class="exp">
+  <tr><td>sastav</td><td>primarni klaster + replika-klasteri; svaki je InnoDB Cluster (grupa); klaster sme da ima i jednog člana</td></tr>
+  <tr><td>kanal</td><td><code>clusterset_replication</code>, asinhron; na članu replika-klastera radi uz <code>group_replication_applier</code></td></tr>
+  <tr><td>upisi</td><td>samo primarni čvor primarnog klastera; replika-klasteri <code>super_read_only = 1</code> → <code>ERROR 1290</code>. Sukob između regiona se sprečava, ne rešava</td></tr>
+  <tr><td>OK pokriva</td><td>većinu primarnog klastera; ono što je u asinhronom kanalu je prozor gubitka između klastera</td></tr>
+  <tr><td>izvor</td><td>MySQL Shell manual, <strong>ne</strong> refman (memo 07 ga je zato promašio)</td></tr>
+</table>
+
+<h2>Prelazi uloga (izmereno, dva pokretanja)</h2>
+<table class="exp">
+  <tr><td><code>setPrimaryCluster()</code></td><td>switchover: zaključa stari, novi sustigne, zamena; 539 / 444 ms (danas), 478 / 398 ms (tiket 11); ništa izgubljeno</td></tr>
+  <tr><td>pre operatera</td><td>preživeli klaster <code>super_read_only = 1</code>, upis odbijen, <code>UNAVAILABLE</code>; sam se ne unapređuje</td></tr>
+  <tr><td><code>forcePrimaryCluster()</code></td><td>prinudni failover: 21 617 ms (danas), 23 064 ms (tiket 11); stari klaster <code>INVALIDATED</code>; „may be lost“, „split-brain can happen“</td></tr>
+  <tr><td>ograđivanje</td><td><code>fenceAllTraffic()</code> / <code>fenceWrites()</code> na starom klasteru, ako je možda živ</td></tr>
+  <tr><td>popravka</td><td><code>rebootClusterFromCompleteOutage</code> → <code>rejoinCluster</code> → <code>setPrimaryCluster</code> nazad → <code>rejoinInstance</code> za preostale članove</td></tr>
+  <tr><td>manual</td><td>„There is no guarantee that data will be preserved in the event of an emergency failover.“</td></tr>
+</table>
+
+<h2>CAP na dva nivoa</h2>
+<table class="exp">
+  <tr><td>unutar klastera</td><td>manjina blokira upise → konzistentnost; „the system does not progress until this issue is resolved“ (refman, GR Background)</td></tr>
+  <tr><td>između klastera</td><td>replika-klaster sme da preuzme upise → dostupnost; „InnoDB ClusterSet prioritizes availability over data consistency in order to maximize disaster tolerance“ (Shell manual)</td></tr>
+  <tr><td>po operaciji</td><td>CAP izbor se procenjuje za upis i za čitanje posebno; rad govori o upisima</td></tr>
+  <tr><td>ko bira</td><td>izbor dostupnosti između klastera je jedna komanda operatera: <code>forcePrimaryCluster()</code></td></tr>
+</table>
+
+<script src="../../assets/copy.js"></script>
+</body>
+</html>

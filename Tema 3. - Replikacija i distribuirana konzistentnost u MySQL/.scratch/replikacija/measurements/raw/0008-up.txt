@@ -1,0 +1,173 @@
+async channel removed on 3308
+async channel removed on 3309
+Validating local MySQL instance listening at port 3307 for use in an InnoDB Cluster...
+
+This instance reports its own address as 127.0.0.1:3307
+
+Checking whether existing tables comply with Group Replication requirements...
+No incompatible tables detected
+
+Checking instance configuration...
+Instance configuration is compatible with InnoDB cluster
+
+The instance '127.0.0.1:3307' is valid for InnoDB Cluster usage.
+
+checkInstanceConfiguration(3307) = ok
+Validating local MySQL instance listening at port 3308 for use in an InnoDB Cluster...
+
+This instance reports its own address as 127.0.0.1:3308
+
+Checking whether existing tables comply with Group Replication requirements...
+No incompatible tables detected
+
+Checking instance configuration...
+Instance configuration is compatible with InnoDB cluster
+
+The instance '127.0.0.1:3308' is valid for InnoDB Cluster usage.
+
+checkInstanceConfiguration(3308) = ok
+Validating local MySQL instance listening at port 3309 for use in an InnoDB Cluster...
+
+This instance reports its own address as 127.0.0.1:3309
+
+Checking whether existing tables comply with Group Replication requirements...
+No incompatible tables detected
+
+Checking instance configuration...
+Instance configuration is compatible with InnoDB cluster
+
+The instance '127.0.0.1:3309' is valid for InnoDB Cluster usage.
+
+checkInstanceConfiguration(3309) = ok
+A new InnoDB Cluster will be created on instance '127.0.0.1:3307'.
+
+Validating instance configuration at 127.0.0.1:3307...
+
+This instance reports its own address as 127.0.0.1:3307
+
+Instance configuration is suitable.
+NOTE: Group Replication will communicate with other members using '127.0.0.1:3307'. Use the localAddress option to override.
+
+* Checking connectivity and SSL configuration...
+
+Creating InnoDB Cluster 'poliklinikaCluster' on '127.0.0.1:3307'...
+
+Adding Seed Instance...
+Cluster successfully created. Use Cluster.addInstance() to add MySQL instances.
+At least 3 instances are needed for the cluster to be able to withstand up to
+one server failure.
+
+
+Incremental state recovery selected through the recoveryMethod option
+
+Validating instance configuration at 127.0.0.1:3308...
+
+This instance reports its own address as 127.0.0.1:3308
+
+Instance configuration is suitable.
+NOTE: Group Replication will communicate with other members using '127.0.0.1:3308'. Use the localAddress option to override.
+
+* Checking connectivity and SSL configuration...
+
+A new instance will be added to the InnoDB Cluster. Depending on the amount of
+data on the cluster this might take from a few seconds to several hours.
+
+Adding instance to the cluster...
+
+Monitoring recovery process of the new cluster member. Press ^C to stop monitoring and let it continue in background.
+State recovery already finished for '127.0.0.1:3308'
+
+The instance '127.0.0.1:3308' was successfully added to the cluster.
+
+
+Incremental state recovery selected through the recoveryMethod option
+
+Validating instance configuration at 127.0.0.1:3309...
+
+This instance reports its own address as 127.0.0.1:3309
+
+Instance configuration is suitable.
+NOTE: Group Replication will communicate with other members using '127.0.0.1:3309'. Use the localAddress option to override.
+
+* Checking connectivity and SSL configuration...
+
+A new instance will be added to the InnoDB Cluster. Depending on the amount of
+data on the cluster this might take from a few seconds to several hours.
+
+Adding instance to the cluster...
+
+Monitoring recovery process of the new cluster member. Press ^C to stop monitoring and let it continue in background.
+State recovery already finished for '127.0.0.1:3309'
+
+The instance '127.0.0.1:3309' was successfully added to the cluster.
+
+--- Cluster is ONLINE and can tolerate up to ONE failure.
+--- primary = 127.0.0.1:3307, mode = Single-Primary
+=== 20
+The instance will be removed from the InnoDB Cluster.
+
+* Waiting for instance '127.0.0.1:3309' to synchronize with the primary...
+
+
+* Instance '127.0.0.1:3309' is attempting to leave the cluster...
+
+The instance '127.0.0.1:3309' was successfully removed from the cluster.
+
+3309 removed from the primary cluster
+A new ClusterSet will be created based on the Cluster 'poliklinikaCluster'.
+
+* Validating Cluster 'poliklinikaCluster' for ClusterSet compliance.
+
+* Creating InnoDB ClusterSet 'poliklinikaCS' on 'poliklinikaCluster'...
+
+* Updating metadata...
+
+ClusterSet successfully created. Use ClusterSet.createReplicaCluster() to add Replica Clusters to it.
+
+ClusterSet poliklinikaCS created
+Setting up replica 'drCluster' of cluster 'poliklinikaCluster' at instance '127.0.0.1:3309'.
+
+A new InnoDB Cluster will be created on instance '127.0.0.1:3309'.
+
+Disabling super_read_only mode on instance '127.0.0.1:3309'.
+Validating instance configuration at 127.0.0.1:3309...
+
+This instance reports its own address as 127.0.0.1:3309
+
+Instance configuration is suitable.
+NOTE: Group Replication will communicate with other members using '127.0.0.1:3309'. Use the localAddress option to override.
+
+* Checking connectivity and SSL configuration...
+
+
+* Checking transaction state of the instance...
+
+Incremental state recovery selected through the recoveryMethod option
+
+* Checking connectivity and SSL configuration to PRIMARY Cluster...
+
+Creating InnoDB Cluster 'drCluster' on '127.0.0.1:3309'...
+
+Adding Seed Instance...
+Cluster successfully created. Use Cluster.addInstance() to add MySQL instances.
+At least 3 instances are needed for the cluster to be able to withstand up to
+one server failure.
+
+Cluster "memberAuthType" is set to 'PASSWORD' (inherited from the ClusterSet).
+* Configuring ClusterSet managed replication channel...
+** Changing replication source of 127.0.0.1:3309 to 127.0.0.1:3307
+
+* Waiting for instance '127.0.0.1:3309' to synchronize with PRIMARY Cluster...
+
+
+* Updating topology
+
+* Waiting for the Cluster to synchronize with the PRIMARY Cluster...
+
+
+
+Replica Cluster 'drCluster' successfully created on ClusterSet 'poliklinikaCS'.
+
+drCluster created as a replica cluster
+--- HEALTHY: All Clusters available.
+--- primary cluster = poliklinikaCluster, global primary = 127.0.0.1:3307

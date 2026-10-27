@@ -66,6 +66,7 @@ the account never enters the binary log and `gtid_executed` stays identical on a
 | `39-clusterset-emergency-failover.ps1` | PowerShell | the primary "datacentre" dies; `forcePrimaryCluster()`; the split-brain warning |
 | `40-clusterset-repair.js` | mysqlsh | reboot, rejoin, hand the primary role back |
 | `41-no-pk-live.js` | mysqlsh | inside a **running** group: a PK-less table is created, its INSERT refused with ER 3098, then the AdminAPI verdict, then DROP (lesson 0005) |
+| `43-clusterset-status.js` | mysqlsh | ClusterSet status, the `clusterset_replication` channel on 3309, and who accepts a write (1 accepted, 2 refused with ERROR 1290; lesson 0006) |
 | `42-ryw-before.js` | mysqlsh, held sessions | read-your-writes on a secondary per **reader** level: 8.4 default `BEFORE_ON_PRIMARY_FAILOVER` / `EVENTUAL` stale, `BEFORE` closes it and the reader pays (lesson 0005; single-primary) |
 
 `34-conflict-pair.ps1`, `35-duplicate-key-conflict.ps1` and `36-consistency-levels.js` want

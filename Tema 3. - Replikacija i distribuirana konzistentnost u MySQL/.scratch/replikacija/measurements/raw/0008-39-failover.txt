@@ -1,0 +1,40 @@
+### 16a. the whole PRIMARY cluster dies - 3307 and 3308 killed, no clean shutdown
+  port 3307 -> pid 4552 killed
+  port 3308 -> pid 11684 killed
+### 16b. the surviving DR cluster before any operator action
+   3309 super_read_only = 1
+   write REFUSED: ClassicSession.runSql: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+   clusterset status = UNAVAILABLE : Primary Cluster is not reachable from the Shell, assuming it to be unavailable.
+### 16c. emergency failover - forcePrimaryCluster(drCluster)
+mysqlsh.exe : Failing-over primary cluster of the clusterset to 'drCluster'
+At C:\Faks\Sistemi Baza\Tema 3. - Replikacija i distribuirana konzistentnost u 
+MySQL\examples\01-group-replication\39-clusterset-emergency-failover.ps1:42 char:1
++ & $sh --js --file "$PSScriptRoot\.tmp-f2.js" 2>&1 | Where-Object { $_ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Failing-over pr... to 'drCluster':String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+* Verifying primary cluster status
+None of the instances of the PRIMARY cluster 'poliklinikaCluster' could be reached.
+* Verifying clusterset status
+** Checking cluster drCluster
+  Cluster 'drCluster' is available
+** Waiting for instances to apply pending received transactions...
+** Checking whether target cluster has the most recent GTID set
+* Promoting cluster 'drCluster'
+* Updating metadata
+PRIMARY cluster failed-over to 'drCluster'. The PRIMARY instance is '127.0.0.1:3309'
+Former PRIMARY cluster 'poliklinikaCluster' was INVALIDATED, transactions that were not yet replicated may be lost.
+In case of network partitions and similar, the former PRIMARY Cluster 'poliklinikaCluster' may still be online and a 
+split-brain can happen. To avoid it, use <Cluster>.fenceAllTraffic() to fence the Cluster from all application 
+traffic, or <Cluster>.fenceWrites() to fence it from write traffic only.
+   failover took 21617 ms
+   3309 super_read_only = 0
+   write ACCEPTED
+   clusterset status = AVAILABLE : Primary Cluster available, there are issues with a Replica cluster.
+     drCluster : role=PRIMARY global=OK
+     poliklinikaCluster : role=REPLICA global=INVALIDATED
+### 16d. the dead datacentre comes back
+   on return: AVAILABLE : Primary Cluster available, there are issues with a Replica cluster.
+     drCluster : role=PRIMARY global=OK status=undefined
+     poliklinikaCluster : role=REPLICA global=INVALIDATED status=OFFLINE

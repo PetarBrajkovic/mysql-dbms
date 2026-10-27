@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 06 — Geo-distribuirana replikacija i InnoDB ClusterSet</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 06 · Poglavlje 6 (Geo-distribuirana replikacija i InnoDB ClusterSet)</p>
+<h1>Isti proizvod bira konzistentnost unutar klastera, a dostupnost između klastera</h1>
+<p class="subtitle">Lekcija 05 je pokazala da grupa radije blokira manjinu nego da dozvoli razilaženje. Ova lekcija
+  pokazuje zašto se ta grupa ne razvlači preko regiona, šta MySQL radi umesto toga i zašto na tom
+  nivou isti proizvod bira suprotno.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Poglavlje 6 nosi profesorov četvrti zahtev i vrhunac okosnice rada. Kad završiš, treba da umeš bez podsetnika:
+  <strong>(1)</strong> da objasniš zašto jedna grupa preko regiona plaća povratno putovanje na svakom komitovanju i
+  izbacuje ispravne članove; <strong>(2)</strong> da opišeš InnoDB ClusterSet (grupa unutra, asinhroni kanal
+  između, upisuje samo jedan klaster) i šta tačno pokriva OK; <strong>(3)</strong> da uporediš switchover i
+  prinudni failover na osnovu sopstvenog merenja; <strong>(4)</strong> da citiraš oba CAP izbora istog proizvoda,
+  jedan pored drugog, i da kažeš ko pravi drugi.
+</div>
+
+<h2>1 · Signal ima konačnu brzinu</h2>
+<p>Svetlost u optičkom vlaknu putuje oko trećinu sporije nego u vakuumu (indeks prelamanja stakla je oko 1,47),
+  što je <strong>oko 200 km po milisekundi</strong>. To je fizika, ne softver: nijedan protokol ni podešavanje to
+  ne menjaju. Stvarni put kabla je duži od vazdušne linije, pa je račun ispod <strong>donja granica</strong>.</p>
+<pre>one way            = distance / (200 km/ms)
+round trip (RTT)   = 2 * one way          -- before any processing
+1000 km of fibre   -> at least 10 ms RTT</pre>
+<p>Na našoj topologiji (3307/3308/3309, ista mašina) RTT je reda mikrosekundi. Zato su sve cene izmerene u
+  lekciji 05 (16 ms za komitovanje) cene diska i obrade, a ne razdaljine. Ovo jedino ne možemo da pokažemo
+  lokalno, i to je fizika, a ne funkcija koja nedostaje.</p>
+
+<h2>2 · Zašto ne jedna grupa preko regiona</h2>
+<p>Dve stvari koje već imaš iz <a href="0005-group-replication.html">lekcije 05</a>: pre nego što primarni vrati OK,
+  <strong>većina</strong> članova mora da primi transakciju i njeno mesto u zajedničkom nizu. Primena kod ostalih
+  dolazi kasnije. Asinhrona je <strong>primena</strong>, a <span class="hi">dogovor o redosledu se čeka na svakom komitovanju</span>.
+  Kad se to spoji sa fizikom, primarni čeka najbližeg člana koji sa njim čini većinu.</p>
+
+<figure class="fig">
+  <img src="../viz/viz-l06-gr-preko-regiona-1793110703190.png"
+       alt="Tri člana grupe: Frankfurt kao primarni, Virdžinija na RTT oko 90 ms i Singapur na RTT oko 160 ms. COMMIT stiže u Frankfurt, poruka ide ka oba člana paralelno, Virdžinija odgovara prva, većina je Frankfurt plus Virdžinija, i OK klijentu stiže posle najmanje oko 90 ms. Linija do Singapura je isprekidana i siva, sa oznakom da se ne čeka.">
+  <figcaption><b>Slika 1</b> — Svako komitovanje čeka najbližeg člana koji čini većinu: ovde bar ~90 ms, bez
+    obzira na disk. RTT vrednosti su pretpostavke za primer, ne merenje.</figcaption>
+</figure>
+
+<p>Drugi razlog je opasniji. Grupa ne zna da je član otkazao, nego to <strong>zaključuje iz tišine</strong>: posle 5 s
+  tišine nastaje sumnja, a posle još <code>group_replication_member_expel_timeout</code> sekundi (podrazumevano 5 u 8.4)
+  član se izbacuje.</p>
+
+<div class="slide">
+  „[group_replication_member_expel_timeout] specifies the period of time in seconds that a Group Replication group
+  member waits after creating a suspicion, before expelling from the group the member suspected of having failed.
+  The initial 5-second detection period before a suspicion is created does not count as part of this time.“
+  <span class="sr"><a href="https://dev.mysql.com/doc/refman/8.4/en/group-replication-system-variables.html">MySQL 8.4 Reference Manual, Group Replication System Variables</a></span>
+</div>
+
+<figure class="fig">
+  <img src="../viz/viz-l06-izbacivanje-clana-1793110694964.png"
+       alt="Vremenska osa od 0 do 14 sekundi. Plava traka: veza do Singapura zakočena 12 s, član je ispravan. Narandžasti segment od 0 do 5 s je period detekcije, crveni od 5 do 10 s je expel timeout. U 5 s nastaje sumnja, u 10 s je Singapur izbačen iz grupe, u 12 s se veza vraća i Singapur mora ponovo da se priključi.">
+  <figcaption><b>Slika 2</b> — Deset sekundi tišine dovodi do izbacivanja, čak i kad je član ispravan. Vremena su
+    podrazumevane vrednosti iz refman-a 8.4. Duži timeout znači sporije otkrivanje pravog otkaza.</figcaption>
+</figure>
+
+<p>Pet sekundi je <strong>izbor projektanata</strong>, a ne izvedena konstanta. Podrazumevana vrednost se menjala kroz
+  verzije i može da se podesi. Ali svako podešavanje je kompromis, a ne rešenje. Refman zato kaže otvoreno:</p>
+<div class="slide">
+  „MySQL Group Replication is designed to be deployed in a cluster environment where server instances are very close
+  to each other. The performance and stability of a group can be impacted by both network latency and network bandwidth.“
+  <span class="sr"><a href="https://dev.mysql.com/doc/refman/8.4/en/group-replication-requirements.html">MySQL 8.4 Reference Manual, Group Replication Requirements</a></span>
+</div>
+
+<h2>3 · InnoDB ClusterSet: grupa unutra, asinhrono između</h2>
+<p>Unutar data centra je grupa dobra, jer je RTT mali. Između data centara ne sme da se čeka. Alat koji ne čeka
+  primaoca već imaš: asinhroni kanal (<a href="0002-binarni-log-gtid-asinhrona.html">lekcija 02</a>). Spoj je
+  InnoDB ClusterSet, dokumentovan u <strong>MySQL Shell manual-u</strong>, a ne u refman-u. Zato ga je memo 07
+  promašio i tvrdio da MySQL nema posebnu funkciju za geo-distribuciju.</p>
+<div class="slide">
+  „MySQL InnoDB ClusterSet provides disaster tolerance for InnoDB Cluster deployments by linking a primary InnoDB
+  Cluster with one or more replicas of itself in alternate locations, such as different datacenters.“
+  <span class="sr"><a href="https://dev.mysql.com/doc/mysql-shell/8.4/en/innodb-clusterset.html">MySQL Shell 8.4 Manual, InnoDB ClusterSet</a></span>
+</div>
+<p>Kanal između klastera se zove <code>clusterset_replication</code> i asinhron je. Dva klastera sa dva
+  primarna čvora bi bila dva lidera bez zajedničkog niza, jer zajednički niz postoji samo unutar jedne grupe.
+  Zato ClusterSet primenjuje najjednostavnije pravilo: <span class="hi">upise prima samo jedan klaster</span>, a svi
+  replika-klasteri su <code>super_read_only</code>. Sukob između regiona se ne rešava, nego <strong>sprečava</strong>.</p>
+
+<figure class="fig">
+  <img src="../viz/viz-l06-clusterset-arhitektura-1793110711500.png"
+       alt="Data centar A sa primarnim klasterom poliklinikaCluster: 3307 prima upise, 3308 je sekundarni sa super_read_only 1, povezani Group Replication-om koji čeka većinu. Zelena isprekidana granica oko njih je opseg garancije OK-a. Klijent šalje COMMIT na 3307 i dobija OK. Isprekidana strelica clusterset_replication, asinhroni kanal koji OK ne čeka, vodi ka 3309 u data centru B, replika-klasteru drCluster, koji odbija upis greškom 1290. Na strelici su dve transakcije u letu, a crveni okvir kaže: prozor gubitka, ako nestane ceo data centar A, T postoji samo na mrtvim diskovima.">
+  <figcaption><b>Slika 3</b> — OK pokriva samo većinu primarnog klastera. Ono što je u asinhronom kanalu je prozor
+    gubitka između klastera. Na našoj topologiji su oba „data centra“ na istoj mašini.</figcaption>
+</figure>
+
+<div class="try">
+  <div class="hd">Pokreni u MySQL Shell-u</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> <code>topology.ps1 start</code>, zatim <code>10-gr-up.js</code> i
+      <code>20-clusterset-up.js</code> (README u <code>examples/01-group-replication/</code>). Skripta upisuje jedan
+      probni red u <code>poliklinika.heartbeat</code> na 3307. Na kraju sesije pokreni <code>19-gr-down.ps1</code>.</p>
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run">cd examples\01-group-replication
+mysqlsh --js --no-wizard --file 43-clusterset-status.js</pre>
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">ClusterSet poliklinikaCS: HEALTHY - All Clusters available.
+  drCluster: role=REPLICA global=OK ... receiver=ON applier=APPLIED_ALL source=127.0.0.1:3307
+  poliklinikaCluster: role=PRIMARY global=OK
+  port 3307 super_read_only=0  INSERT -> ACCEPTED
+  port 3308 super_read_only=1  INSERT -> REFUSED: ... --super-read-only ...
+  port 3309 super_read_only=1  INSERT -> REFUSED: ... --super-read-only ...
+  3309 channels: clusterset_replication ON, group_replication_applier ON, ...</pre>
+    <p class="interpret"><b>Kako se ovo čita:</b> na 3309 rade dva kanala istovremeno. Jedan je asinhroni dovod iz
+      drugog klastera, a drugi je unutrašnji kanal njegove grupe. 3308 odbija upis jer je sekundarni u svojoj grupi
+      (Poglavlje 5). 3309 ga odbija jer je <strong>ceo njegov klaster</strong> replika (Poglavlje 6).</p>
+  </div>
+</div>
+
+<h2>4 · Switchover naspram prinudnog failover-a</h2>
+<p>Definicija iz <a href="0004-semisinhrona-potvrda.html">lekcije 04</a>: kod switchover-a je stari izvor živ i
+  može da preda sve, a kod failover-a nije. ClusterSet sprovodi tu razliku doslovno.
+  <code>setPrimaryCluster()</code> zaključava stari primarni klaster (globalni lock), čeka da novi sustigne sve, pa
+  tek onda menja uloge: prozor gubitka se zatvara tako što se sačeka da se isprazni.
+  <code>forcePrimaryCluster()</code> ne može da pita mrtvi klaster šta je imao. Proverava samo da li među živima
+  ciljni klaster ima najnoviji GTID skup.</p>
+
+<div class="try">
+  <div class="hd">Pokreni: kontrolisani switchover</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> ClusterSet podignut kao gore. Skripta vraća uloge na kraju.</p>
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run">mysqlsh --js --no-wizard --file 38-clusterset-switchover.js</pre>
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">** Waiting for the promoted cluster to apply pending received transactions...
+** Acquiring global lock at PRIMARY
+* Synchronizing remaining transactions at promoted primary
+Cluster 'drCluster' was promoted to PRIMARY of the clusterset.
+   switchover took ... ms        (stotine ms)
+   3307: REFUSED - ... --super-read-only ...
+   3309: ACCEPTED</pre>
+    <p class="interpret"><b>Kako se ovo čita:</b> stari primarni je živ, pa se zaključa i preda sve. Uloge se menjaju
+      bez gubitka i za manje od sekunde.</p>
+  </div>
+</div>
+
+<div class="try">
+  <div class="hd">Pokreni: prinudni failover i popravka</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> ClusterSet podignut. Skripta 39 <strong>ubija</strong> procese 3307 i 3308
+      (3306 se ne dira), a zatim ih ponovo podiže. Skripta 40 popravlja ClusterSet. Ako 3308 posle toga ostane
+      <code>(MISSING)</code>, pokreni <code>cluster.rejoinInstance()</code> za 3308.</p>
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run">powershell -ExecutionPolicy Bypass -File 39-clusterset-emergency-failover.ps1
+mysqlsh --js --no-wizard --file 40-clusterset-repair.js</pre>
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">   3309 super_read_only = 1
+   write REFUSED
+   clusterset status = UNAVAILABLE : Primary Cluster is not reachable from the Shell, ...
+Former PRIMARY cluster 'poliklinikaCluster' was INVALIDATED, transactions that were not yet
+   replicated may be lost.
+In case of network partitions and similar, the former PRIMARY Cluster 'poliklinikaCluster' may
+   still be online and a split-brain can happen. To avoid it, use &lt;Cluster&gt;.fenceAllTraffic() ...
+   failover took ... ms          (desetine sekundi)
+     poliklinikaCluster : role=REPLICA global=INVALIDATED
+Skipping rejoining remaining instances because the Cluster belongs to a ClusterSet and is INVALIDATED.
+clusterset: HEALTHY : All Clusters available.  primary=poliklinikaCluster</pre>
+    <p class="interpret"><b>Kako se ovo čita:</b> preživeli klaster se <strong>nije sam unapredio</strong>. Upis odbija
+      dok operater ne pokrene komandu. Alat sam kaže da podaci mogu biti izgubljeni i da je moguć split brain.
+      Stari klaster ostaje <code>INVALIDATED</code> i ne vraća se sam: možda ima transakcije koje novi primarni
+      nema, pa nazad sme tek posle provere operatera.</p>
+  </div>
+</div>
+
+<figure class="fig">
+  <img src="../viz/viz-l06-switchover-vs-failover-1793110688074.png"
+       alt="Horizontalni stubičasti dijagram sa logaritamskom osom trajanja od 100 do 100 000 ms. Switchover A ka B: 539 ms danas, 478 ms u tiketu 11. Switchover B ka A: 444 ms danas, 398 ms u tiketu 11. Prinudni failover: 21 617 ms danas, 23 064 ms u tiketu 11. Zeleni okvir: stari primarni živ, zaključa se, B sustigne sve, ništa izgubljeno. Crveni okvir: stari primarni mrtav, pokreće operater, stari klaster INVALIDATED, transakcije koje nisu replicirane mogu biti izgubljene.">
+  <figcaption><b>Slika 4</b> — Na istom paru klastera planirani prelaz traje desetine puta kraće i ne gubi ništa.
+    Izmereno na MySQL 8.4.11 i MySQL Shell 8.4.10, jedna mašina; skripte 38 i 39, dva nezavisna pokretanja
+    (danas i tiket 11).</figcaption>
+</figure>
+
+<div class="slide">
+  „There is no guarantee that data will be preserved in the event of an emergency failover.“
+  <span class="sr"><a href="https://dev.mysql.com/doc/mysql-shell/8.4/en/innodb-clusterset.html">MySQL Shell 8.4 Manual, InnoDB ClusterSet</a></span>
+</div>
+
+<h2>5 · Isti proizvod, suprotni CAP izbori na dva nivoa</h2>
+<p>CAP izbor se procenjuje <strong>po operaciji</strong>. Kad manjina grupe dobije upis, on visi, iako čvor radi. Za
+  upise je žrtvovana dostupnost, a dobitak je da se ništa ne razilazi. To što čitanje na manjini radi tiče se čitanja.
+  U pravoj particiji ono može da vrati zastarele podatke, ali to je izvođenje iz rada grupe, a ne rečenica iz
+  manual-a. Rad se odnosi na upise, jer se razilaženje dešava samo kroz njih.</p>
+<p>Između klastera je obrnuto. Replika-klaster sme da preuzme upise bez starog primarnog, uz cenu „may be lost“ i
+  „split-brain can happen“. U normalnom radu se ne čeka, pa replika-klaster može da kasni. Proizvođač oba izbora
+  imenuje sam.</p>
+
+<figure class="fig">
+  <img src="../viz/viz-l06-cap-dva-nivoa-1793110732604.png"
+       alt="Dve kolone. Levo, unutar klastera, Group Replication: pet čvorova podeljenih 2 prema 3, manjina sa upisom koji visi. Kad se izgubi veza, manjina blokira upise; bira konzistentnost; u normalnom radu čeka većinu; citat iz refman-a: the system does not progress until this issue is resolved. Desno, između klastera, InnoDB ClusterSet: primarni klaster i replika-klaster razdvojeni prekidom; posle forcePrimaryCluster replika-klaster prima upise; bira dostupnost; u normalnom radu ne čeka; citat iz Shell manual-a: InnoDB ClusterSet prioritizes availability over data consistency in order to maximize disaster tolerance. Dole: prelaz na dostupnost je jedna komanda operatera, konzistentnost je odluka operatora, a ne svojstvo sistema.">
+  <figcaption><b>Slika 5</b> — Isti proizvod bira konzistentnost unutar klastera i dostupnost između klastera,
+    rečima sopstvene dokumentacije. Izbor dostupnosti je jedna komanda operatera. Citati: MySQL 8.4 Reference Manual
+    (Group Replication Background) i MySQL Shell 8.4 Manual (InnoDB ClusterSet).</figcaption>
+</figure>
+
+<div class="slide">
+  „If there is a network partition, resulting in a split where members are unable to reach agreement, then the system
+  does not progress until this issue is resolved.“
+  <span class="sr"><a href="https://dev.mysql.com/doc/refman/8.4/en/group-replication-background.html">MySQL 8.4 Reference Manual, Group Replication Background</a></span>
+</div>
+<div class="slide">
+  „It is important to know that InnoDB ClusterSet prioritizes availability over data consistency in order to maximize
+  disaster tolerance.“
+  <span class="sr"><a href="https://dev.mysql.com/doc/mysql-shell/8.4/en/innodb-clusterset.html">MySQL Shell 8.4 Manual, InnoDB ClusterSet</a></span>
+</div>
+<p>Dok niko ništa ne pokrene, 3309 bira konzistentnost (<code>super_read_only = 1</code>, <code>UNAVAILABLE</code>). Izbor
+  dostupnosti nije napravio MySQL, nego <strong>operater</strong>, jednom komandom. To je okosnica rada u najčistijem
+  obliku: <span class="hi">konzistentnost je odluka operatora, a ne svojstvo sistema</span>.</p>
+
+<h2>6 · Provera</h2>
+<div class="quiz">
+  <p>Jedno pitanje po tvrdnji lekcije. Odgovaraj iz sećanja, pre nego što pogledaš gore.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Dva data centra su udaljena 2000 km duž kabla. Koliko je najmanje povratno putovanje između njih?</p>
+    <label><input type="radio"> Oko 2 ms, uz brzinu od oko 2000 km po ms</label>
+    <label><input type="radio"> Oko 10 ms, uz brzinu od oko 400 km po ms</label>
+    <label><input type="radio"> Oko 20 ms, uz brzinu od oko 200 km po ms</label>
+    <label><input type="radio"> Oko 40 ms, uz brzinu od oko 100 km po ms</label>
+    <p class="why">Jedan smer: 2000 / 200 = 10 ms; povratno putovanje: 20 ms. To je donja granica, jer je stvarna mreža samo sporija.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">2. Grupa od tri člana: primarni u Frankfurtu, članovi na RTT 90 ms i 160 ms. Koliko najmanje čeka svako komitovanje zbog mreže?</p>
+    <label><input type="radio"> Oko 90 ms, jer čeka najbližeg člana za većinu</label>
+    <label><input type="radio"> Oko 160 ms, jer čeka najdaljeg člana za većinu</label>
+    <label><input type="radio"> Oko 0 ms, jer se primena kod ostalih ne čeka</label>
+    <label><input type="radio"> Oko 250 ms, jer čeka oba člana jednog za drugim</label>
+    <p class="why">Većina od tri su dva, a primarni je jedan od njih. Čeka se prvi odgovor, a poruke idu paralelno. Primena se ne čeka, ali dogovor o redosledu se čeka.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Ispravan član grupe ćuti 12 s zbog zagušene veze, a podešavanja su podrazumevana (8.4). Šta se desi?</p>
+    <label><input type="radio"> Grupa blokira upise dok se član ne javi ponovo</label>
+    <label><input type="radio"> Ništa, jer grupa razlikuje sporog člana od mrtvog</label>
+    <label><input type="radio"> Član nastavlja sam i prima upise kao manjina</label>
+    <label><input type="radio"> Član bude izbačen posle 10 s i mora ponovo da uđe</label>
+    <p class="why">5 s detekcije + 5 s expel timeout = 10 s, manje od 12. Ostala dva člana su većina, pa upisi teku. Grupa sporog člana ne razlikuje od mrtvog.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">4. Kojim pravilom ClusterSet čini sukobe upisa između klastera nemogućim?</p>
+    <label><input type="radio"> Svi klasteri primaju upise, a sukobe rešava certification</label>
+    <label><input type="radio"> Samo jedan klaster prima upise, a ostali su samo za čitanje</label>
+    <label><input type="radio"> Svi klasteri primaju upise, a pobeđuje kasniji po satu</label>
+    <label><input type="radio"> Svi klasteri primaju upise, ali svaki za svoje tabele</label>
+    <p class="why">Sukob traži dva upisivača. Certification između klastera bi tražila zajednički niz, a to znači čekanje preko regiona. Replika-klasteri su super_read_only.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">5. Klijent je na 3307 (primarni klaster 3307+3308) dobio OK za T. Ceo primarni klaster nestane, a operater na 3309 pokrene forcePrimaryCluster. Šta važi za T?</p>
+    <label><input type="radio"> Može da bude izgubljena, jer OK nije čekao 3309</label>
+    <label><input type="radio"> Sačuvana je, jer ju je većina grupe već potvrdila</label>
+    <label><input type="radio"> Sačuvana je, jer je GTID automatski donosi na 3309</label>
+    <label><input type="radio"> Čeka, jer failover ne sme dok se primarni ne vrati</label>
+    <p class="why">OK pokriva većinu primarnog klastera, a ona je nestala. Kanal ka 3309 je asinhron. Isti prozor gubitka kao u lekciji 02, samo između klastera.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">6. Zašto se posle prinudnog failover-a stari primarni klaster označava sa INVALIDATED i ne vraća se sam?</p>
+    <label><input type="radio"> Može da ima stariju verziju MySQL-a, pa mora da se nadogradi</label>
+    <label><input type="radio"> Može da ima manje članova, pa čeka da ponovo dobije većinu</label>
+    <label><input type="radio"> Može da ima transakcije koje novi nema, pa ga proverava operater</label>
+    <label><input type="radio"> Može da ima drugačiji GTID format, pa se imena moraju pretvoriti</label>
+    <p class="why">Transakcije koje nisu stigle kroz asinhroni kanal postoje samo kod njega. Novi primarni je nastavio svoju istoriju, pa bi samostalni povratak spojio dve istorije.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">7. Grupa od pet članova se podeli 2 | 3, a primarni je na strani sa dva člana. Koji je CAP izbor za upis na njemu?</p>
+    <label><input type="radio"> Dostupnost, jer upis prolazi dok je čvor i dalje primarni</label>
+    <label><input type="radio"> Konzistentnost, jer upis visi dok strana nema većinu</label>
+    <label><input type="radio"> Dostupnost, jer upis prolazi dok čitanja i dalje rade</label>
+    <label><input type="radio"> Konzistentnost, jer upis odmah dobija grešku 1180</label>
+    <p class="why">CAP se procenjuje po operaciji. Upis na manjini ne dobija odgovor. Uloga primarnog kaže gde se upisi primaju, ne ko odlučuje. Greška 1180 je poraz u sukobu, a ne gubitak kvoruma.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">8. Primarni klaster je odsečen, a replika-klaster radi i odbija upise. Kada ClusterSet prelazi na izbor dostupnosti?</p>
+    <label><input type="radio"> Kad replika-klaster posle isteka vremena sam preuzme upise</label>
+    <label><input type="radio"> Kad većina članova oba klastera zajedno izglasa novi primarni</label>
+    <label><input type="radio"> Kad MySQL Router sam preusmeri upise na replika-klaster</label>
+    <label><input type="radio"> Kad operater na replika-klasteru pokrene forcePrimaryCluster</label>
+    <p class="why">Na našoj topologiji 3309 je ostao super_read_only i UNAVAILABLE sve do komande. Između klastera nema zajedničkog glasanja. Izbor je jedna komanda operatera.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong> <a href="https://dev.mysql.com/doc/mysql-shell/8.4/en/innodb-clusterset.html">MySQL Shell 8.4 Manual, poglavlje InnoDB ClusterSet</a>.
+  Počni od uvodne stranice (arhitektura, kanal i rečenica o dostupnosti), pa pročitaj stranicu o prinudnom failover-u
+  (<a href="https://dev.mysql.com/doc/mysql-shell/8.4/en/innodb-clusterset-failover.html">Emergency Failover</a>). ·
+  <strong>Vidi još:</strong> <a href="../reference/clusterset.html">referentni list ClusterSet</a>,
+  <a href="../reference/group-replication.html">referentni list Group Replication</a>,
+  <a href="0005-group-replication.html">lekcija 05</a>, <a href="0004-semisinhrona-potvrda.html">lekcija 04</a>,
+  <a href="0001-teorijski-okvir.html">lekcija 01</a> (CAP, PACELC), <a href="../GLOSSARY.md">GLOSSARY.md</a> §1b. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu. Lekcija je početak, a ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>

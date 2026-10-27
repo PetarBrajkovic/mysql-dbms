@@ -1,0 +1,72 @@
+### 1. dissolve whatever is running, and clear the persisted read-only flags
+The Cluster 'drCluster' will be removed from the InnoDB ClusterSet.
+
+* Waiting for the Cluster to synchronize with the PRIMARY Cluster...
+
+
+* Updating topology
+* Waiting for the Cluster to synchronize the Metadata updates with the PRIMARY Cluster...
+
+
+* Stopping and deleting ClusterSet managed replication channel...
+* Dissolving the Cluster...
+* Reconciling internally generated GTIDs...
+* Instance '127.0.0.1:3309' is attempting to leave the cluster...
+
+The Cluster 'drCluster' was removed from the ClusterSet.
+
+removed replica cluster drCluster
+* Waiting for instance '127.0.0.1:3307' to apply received transactions...
+
+
+* Waiting for instance '127.0.0.1:3308' to apply received transactions...
+
+
+* Dissolving the Cluster...
+* Waiting for instance '127.0.0.1:3307' to apply received transactions...
+
+
+* Instance '127.0.0.1:3307' is attempting to leave the cluster...
+* Waiting for instance '127.0.0.1:3308' to apply received transactions...
+
+
+* Instance '127.0.0.1:3308' is attempting to leave the cluster...
+
+The cluster was successfully dissolved.
+Replication was disabled but user data was left intact.
+
+cluster dissolved
+  port=3307 read_only=0 super_read_only=0
+  port=3308 read_only=0 super_read_only=0
+  port=3309 read_only=0 super_read_only=0
+--- now re-run examples\00-setup\05-replication.sql on 3308 and 3309
+### 2. drop the throwaway demo objects (on 3307 only - they replicate)
++----------------+
+| heartbeat_rows |
++----------------+
+|          16806 |
++----------------+
+### 3. re-create the asynchronous channels 3307 -> 3308 and 3307 -> 3309
+  3307 -> 3308 re-created
+  3307 -> 3309 re-created
+### 4. prove it end to end
++------+------+------+
+| port | ro   | seen |
++------+------+------+
+| 3307 |    0 |    1 |
++------+------+------+
++------+------+------+
+| port | ro   | seen |
++------+------+------+
+| 3308 |    0 |    1 |
++------+------+------+
++------+------+------+
+| port | ro   | seen |
++------+------+------+
+| 3309 |    0 |    1 |
++------+------+------+
+### 5. and 3306 is still not ours
+node1  3307  UP   1	ON	0	0
+node2  3308  UP   2	ON	1	0
+node3  3309  UP   3	ON	1	0
+3306 (other topic's server) still listening - untouched

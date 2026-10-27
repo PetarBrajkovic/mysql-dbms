@@ -1,8 +1,9 @@
 # Chapter 6 - Geo-distribuirana replikacija i InnoDB ClusterSet
 
 Type: task (execution - see the map's execution override)
-Status: open
-Blocked by: 11, 17
+Status: open (claimed)
+Assignee: Pex
+Blocked by: 11, 17 — both closed
 
 ## Question
 
@@ -39,6 +40,15 @@ Binding on every session here: `GLOSSARY.md` (terms are locked - do not re-trans
 budget in `GLOSSARY.md` section 3, the caption honesty rule in section 5, `academic-research-writer`
 for all prose, `serbian-grammar` for every Serbian line, and the two research rules in
 `../../NOTES.md` (**no unverified absence claim**, **walk the source ladder and record the rung**).
+
+## Progress
+
+- **2026-10-27 — lesson taught** (lesson 0006, record 0008, reference `clusterset.html`). Live re-run of
+  20, 38, 39, 40 (+ new `43-clusterset-status.js`): switchover 539/444 ms, forced failover 21 617 ms,
+  replica cluster did not self-promote, INVALIDATED until `rejoinCluster`; 3308 needed `rejoinInstance`.
+  All four "Must contain" items taught; quotes verified (Shell `8.4` URLs serve 26.7 content: re-check
+  wording at writing). Sandbox returned to async, 3306 untouched. Remaining: the ch. 6 prose in a
+  separate session.
 
 **Carried from ch. 3 writing (2026-10-09)**: refman 8.4 documents *Asynchronous Connection Failover*
 (a replica re-points automatically to another source from a stored list; needs GTIDs and

@@ -1,0 +1,7 @@
+ClusterSet poliklinikaCS: HEALTHY - All Clusters available.
+  drCluster: role=REPLICA global=OK channel=undefined receiver=ON applier=APPLIED_ALL source=127.0.0.1:3307
+  poliklinikaCluster: role=PRIMARY global=OK
+  port 3307 super_read_only=0  INSERT -> ACCEPTED
+  port 3308 super_read_only=1  INSERT -> REFUSED: ClassicSession.runSql: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+  port 3309 super_read_only=1  INSERT -> REFUSED: ClassicSession.runSql: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+  3309 channels: [{"length":2,"CHANNEL_NAME":"clusterset_replication","SERVICE_STATE":"ON"},{"length":2,"CHANNEL_NAME":"group_replication_recovery","SERVICE_STATE":"OFF"},{"length":2,"CHANNEL_NAME":"group_replication_applier","SERVICE_STATE":"ON"}]

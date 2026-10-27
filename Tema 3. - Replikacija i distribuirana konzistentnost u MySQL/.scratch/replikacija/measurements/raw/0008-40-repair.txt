@@ -1,0 +1,74 @@
+=== reboot poliklinikaCluster from its outage
+No PRIMARY member found for cluster 'poliklinikaCluster'
+WARNING: Cluster 'poliklinikaCluster' was INVALIDATED and must be removed from the ClusterSet.
+Restoring the Cluster 'poliklinikaCluster' from complete outage...
+
+Cluster instances: '127.0.0.1:3307' (OFFLINE), '127.0.0.1:3308' (OFFLINE)
+Waiting for instances to apply pending received transactions...
+NOTE: The instance '127.0.0.1:3307' is running auto-rejoin process, which will be cancelled.
+
+NOTE: Cancelling active GR auto-initialization at 127.0.0.1:3307
+Validating instance configuration at 127.0.0.1:3307...
+
+This instance reports its own address as 127.0.0.1:3307
+
+Instance configuration is suitable.
+* Waiting for seed instance to become ONLINE...
+127.0.0.1:3307 was restored.
+Skipping rejoining remaining instances because the Cluster belongs to a ClusterSet and is INVALIDATED. Please add or remove the instances after the Cluster is rejoined to the ClusterSet.
+The Cluster was successfully rebooted.
+
+rebooted
+=== rejoin it to the ClusterSet
+Rejoining cluster 'poliklinikaCluster' to the clusterset
+NOTE: Cluster 'poliklinikaCluster' is invalidated
+* Updating metadata
+
+* Rejoining cluster
+** Changing replication source of 127.0.0.1:3307 to 127.0.0.1:3309
+
+Cluster 'poliklinikaCluster' was rejoined to the clusterset
+rejoined
+=== hand the primary role back to poliklinikaCluster
+Switching the primary cluster of the clusterset to 'poliklinikaCluster'
+* Verifying clusterset status
+** Checking cluster poliklinikaCluster
+  Cluster 'poliklinikaCluster' is available
+** Checking cluster drCluster
+  Cluster 'drCluster' is available
+
+** Waiting for the promoted cluster to apply pending received transactions...
+* Refreshing replication account of demoted cluster
+* Synchronizing transaction backlog at 127.0.0.1:3307
+
+
+
+* Updating metadata
+
+* Updating topology
+** Changing replication source of 127.0.0.1:3309 to 127.0.0.1:3307
+* Acquiring locks in ClusterSet instances
+** Pre-synchronizing SECONDARIES
+** Acquiring global lock at PRIMARY
+** Acquiring global lock at SECONDARIES
+
+* Synchronizing remaining transactions at promoted primary
+
+
+
+* Updating replica clusters
+Cluster 'poliklinikaCluster' was promoted to PRIMARY of the clusterset. The PRIMARY instance is '127.0.0.1:3307'
+
+switched back
+clusterset: HEALTHY : All Clusters available.  primary=poliklinikaCluster
+  drCluster role=REPLICA global=OK status=undefined
+  poliklinikaCluster role=PRIMARY global=OK status=undefined
+before 127.0.0.1:3307 ONLINE
+before 127.0.0.1:3308 (MISSING)
+3308 rejoined
+after  127.0.0.1:3307 ONLINE
+after  127.0.0.1:3308 ONLINE
+HEALTHY
+3307 heartbeat dr-after rows = 1
+3308 heartbeat dr-after rows = 1
+3309 heartbeat dr-after rows = 1
