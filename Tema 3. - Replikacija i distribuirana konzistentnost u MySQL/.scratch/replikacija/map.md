@@ -360,6 +360,18 @@ the operator's to assemble.
   property**. That is the spine in its strongest form, carried to ticket 20. The Shell 8.4-URL caveat is
   closed: the wording is identical on the 8.0 pages.
 
+- [Chapter 7 - Skaliranje čitanja i kašnjenje replikacije](issues/19-chapter-7-read-scaling.md)
+  (2026-10-28): **~1390 words, Slika 7.1 (the paper's one natural-lag chart) + Tabela 7.1, measured at
+  ~3.5 pages**, on budget; spaced retrieval 2/3, with the miss repaired. Lag is defined per transaction
+  (t2 − t0), and `Seconds_Behind_Source`'s three weaknesses are derived from the refman's own
+  definition, with performance_schema as the manual's *recommended* method. **The rule-1 catch here is
+  the opposite of overclaiming**: performance_schema fixes two weaknesses but **not clock skew**, which
+  is stated as derived (no clock-sync sentence exists in the refman). The point the chapter leads with
+  is that `WAIT_FOR_EXECUTED_GTID_SET` returning 1 leaves the read stale, so it reports freshness rather
+  than guaranteeing it. Router gets one paragraph from the **Router manual (rung 2, new bib entry)**,
+  never run. W > A is derived per replica, so replicas scale reads, not apply throughput. Spine: the
+  replica chooses EL, and consistency is the reader's decision, paid in the reader's wait.
+
 ## Not yet specified
 
 - ~~**The chapter tickets.**~~ **Graduated at ticket 09** into tickets 14–20, chained

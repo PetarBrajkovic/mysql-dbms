@@ -768,3 +768,154 @@ tako potvrđuje osnovnu tezu ovog rada u najjasnijem obliku: MySQL ne isporučuj
 konzistentnosti, već na svakom nivou drugačiju podrazumevanu odluku i naredbu kojom je operater
 menja. Sedmo poglavlje vraća se na replike unutar jedne lokacije, koje služe za skaliranje čitanja,
 i na kašnjenje replikacije koje pri tome vide čitaoci.
+
+# 7. Skaliranje čitanja i kašnjenje replikacije
+
+Prethodna poglavlja koristila su replike da bi podaci preživeli otkaz, a ovo ih koristi da preuzmu
+deo čitanja. Priručnik takvo skaliranje (scale-out) preporučuje kada čitanja ima mnogo, a upisa
+malo, i od aplikacije traži da sve upise šalje izvoru, a čitanja izvoru ili replici
+[@mysql84refman]. Replika za čitanje (read replica) tako dodaje kapacitet za čitanje, ali je
+replikacija podrazumevano asinhrona, pa čitalac na replici može da ne vidi upis koji je izvor već
+potvrdio.
+
+## Kašnjenje jedne transakcije
+
+Kašnjenje replikacije ovde se definiše za pojedinačnu transakciju, preko tri vremenske oznake
+(timestamps) koje MySQL beleži u tabelama šeme `performance_schema`: t0, trenutak komitovanja na
+izvornom serveru, t1, trenutak upisa u relay log replike, i t2, trenutak u kome je nit primene
+završila primenu [@mysql84refman]. Kašnjenje je razlika t2 − t0 i obuhvata obe faze, fazu prijema
+(od t0 do t1) i fazu primene (od t1 do t2). Koja faza preovlađuje pitanje je merenja, a ne
+definicije. Na topologiji ovog rada jedan upis u tabelu `heartbeat` stigao je u relay log replike
+3309 za manje od milisekunde, a primenjen je približno pet milisekundi kasnije, pa je faza primene
+činila gotovo devet desetina kašnjenja.
+
+Isto važi i pod opterećenjem, kao što je treće poglavlje najavilo. Izvor 3307 je iz četiri sesije,
+za manje od sekunde, komitovao dve hiljade jednorednih upisa u tabelu `visits`, a replika 3309
+imala je samo jednu nit primene. Relay log je dostigao konačnu veličinu za manje od sekunde, a
+kašnjenje je raslo još tridesetak sekundi, koliko je jednoj niti trebalo da sve primeni (slika
+7.1). Zaostatak se, dakle, gomila iza relay loga, a ne u mreži.
+
+## Seconds_Behind_Source i vremenske oznake
+
+<!--
+  Quotes verified 2026-10-28 (researcher, rung 1): refman 8.4 SHOW REPLICA STATUS (definition,
+  "useful only for fast networks", clock difference "computed when the replica receiver thread
+  starts, remains constant", MTS "based on Exec_Source_Log_Pos"); sec. 19.4.11 "Monitoring
+  Replication Delay" ("The recommended method ... Performance Schema tables"); column definitions in
+  replication_connection_status / replication_applier_status_by_worker.
+  Rule 1 checks, same day, rung 1: (a) no refman sentence says SBS includes receive/network time
+  (NOT FOUND; the definition compares only the event being processed by the applier); (b) no
+  clock-synchronization sentence for the performance_schema timestamps in sec. 19.4.11 or 29.12.11
+  (NOT FOUND). The text therefore states the clock effect as derived from the column definitions,
+  never "performance_schema corrects clock skew".
+-->
+Uobičajena mera kašnjenja je polje `Seconds_Behind_Source` naredbe `SHOW REPLICA STATUS`. Prema
+priručniku, dok replika obrađuje izmene, ono prikazuje razliku između trenutnog vremena na replici i
+vremenske oznake koju je izvor zabeležio za događaj koji replika upravo obrađuje [@mysql84refman].
+Iz te rečenice slede tri slabosti. Prvo, polje posmatra samo događaj u niti primene, pa fazu prijema
+ne vidi: priručnik upozorava da je ono korisno samo na brzoj mreži, jer na sporoj nit primene često
+sustigne nit prijema, pa polje pokazuje nulu iako nit prijema kasni za izvorom [@mysql84refman].
+Drugo, vreme replike i oznaka izvora potiču sa dva različita sata, pa se razlika satova (clock skew)
+računa jednom, pri pokretanju niti prijema, uz pretpostavku da posle toga ostaje stalna. Treće, kod
+replike sa više niti primene vrednost se zasniva na jednoj poziciji u logu izvora, pa ne mora da
+odgovara poslednjoj komitovanoj transakciji [@mysql84refman]. Uz to, polje kašnjenje izražava u
+celim sekundama.
+
+Kao preporučeni način praćenja kašnjenja priručnik navodi upravo tabele šeme `performance_schema`
+[@mysql84refman]. U njima su t0, t1 i t2 zasebne kolone sa delovima sekunde, a tabela
+`replication_applier_status_by_worker` ima po jedan red za svaku nit primene, sa poslednjom
+transakcijom koju je ta nit primenila [@mysql84refman]. Time su otklonjene prva i treća slabost:
+faza prijema vidi se kao razlika t1 − t0, a kašnjenje se računa za konkretnu transakciju, a ne za
+jednu poziciju u logu. Druga slabost ostaje. Oznaku t0 beleži sat izvora, a t2 sat replike, pa
+razlika t2 − t0 sadrži i razliku satova dva računara. Više decimala čini merenje preciznijim, ali ne
+i tačnijim. Na topologiji ovog rada sve tri instance rade na istom računaru, pa je razlika satova
+nula po konstrukciji, a ne zato što ju je MySQL ispravio.
+
+![Slika 7.1: Prirodno kašnjenje replike 3309 pri naletu od 2000 jednorednih upisa u tabelu `visits` na izvoru 3307, uz jednu nit primene na replici (MySQL 8.4.11, uzorak na svakih 250 ms). Kašnjenje nije izazvano podešavanjem `SOURCE_DELAY`. Plava linija je stvarno kašnjenje iz tabela `performance_schema` (t2 − t0), a crvena polje `Seconds_Behind_Source`. Sve tri instance rade na istom računaru, pa razlika satova ne utiče na merenje.](figures/07-skaliranje-01-kasnjenje.png){width=100%}
+
+Dok kašnjenje raste, `Seconds_Behind_Source` ga prati sa odstupanjem do jedne sekunde, što
+odgovara zaokruživanju (slika 7.1). Dok se zaostatak prazni, polje zaostaje za stvarnim padom i
+precenjuje kašnjenje za više od četiri sekunde, a na replici koja je sve primenila, sa stvarnim
+kašnjenjem od oko dve milisekunde, u 31 od 360 uzoraka pokazivalo je jednu sekundu. Uzrok te
+jedinice nije utvrđen, pa se navodi samo izmereno ponašanje. Ni nula ni jedinica u ovom polju,
+dakle, nisu pouzdan znak stanja replike.
+
+## Šta čitalac vidi na replici koja kasni
+
+Za prikaz anomalija kašnjenje je izazvano: replici 3309 postavljeno je `SOURCE_DELAY = 3`, uz koje
+se transakcija primenjuje najmanje tri sekunde posle komitovanja na izvoru [@mysql84refman], dok je
+replika 3308 radila bez odlaganja. Klijent je na izvoru 3307 upisao novu vrednost, a
+čitanje na replici 3309 odmah posle toga vratilo je staru. Transakcija je u tom trenutku bila primljena, jer
+je njen GTID bio u skupu primljenih transakcija replike, ali nije bila primenjena. To je anomalija
+read-your-writes iz drugog poglavlja [@terry1994]. Zatim je isti klijent, posle novog upisa, čitao
+najpre sa replike 3308, koja je vratila novu vrednost, pa sa replike 3309, koja je vratila
+prethodnu. Ako aplikacija čitanja raspoređuje na više replika, klijent tako vidi stanje koje se
+vraća unazad, što krši i monotona čitanja [@terry1994].
+
+## Čekanje na sopstveni upis
+
+Anomaliju ne uklanja replika, već čitalac koji pre čitanja sačeka svoj upis. MySQL za to nudi dve
+funkcije. `WAIT_FOR_EXECUTED_GTID_SET(g, timeout)` čeka dok server ne primeni sve transakcije čiji
+su GTID-ovi u skupu g i vraća 0 pri uspehu, a 1 kada istekne vreme. Podrazumevani istek vremena je
+nula, a nula ovde znači da funkcija čeka bez ograničenja [@mysql84refman]. `SOURCE_POS_WAIT()` čeka
+da replika primeni sve izmene do zadate datoteke i pozicije u binarnom logu izvora i vraća broj
+događaja na koje je čekala, `-1` kada istekne vreme, a NULL ako nit primene ne radi ili se zaustavi
+tokom čekanja [@mysql84refman]. Razlika je ista kao u trećem poglavlju: prva funkcija čeka
+transakciju po imenu, a druga po adresi u logu jednog izvora.
+
+| Čitanje na replici 3309 | Kašnjenje | Vraćeno; pročitano | Čekanje |
+|------------------------------------|-------------|--------------------|-----------:|
+| odmah posle upisa | izazvano | stara vrednost | 0 |
+| posle `WAIT_FOR_EXECUTED_GTID_SET(g, 1)` | izazvano | 1; stara vrednost | 1,0 s |
+| posle `WAIT_FOR_EXECUTED_GTID_SET(g, 10)` | izazvano | 0; nova vrednost | 4,0 s |
+| posle `SOURCE_POS_WAIT(f, p, 10)` | izazvano | 1; nova vrednost | 4,3 s |
+| član grupe uz `BEFORE` (tabela 5.2) | prirodno | 0/80 zastarelih | 14–16 ms |
+
+Table: Tabela 7.1: Čitanje sopstvenog upisa na replici 3309 (MySQL 8.4.11). U prva četiri reda replika je asinhrona, a kašnjenje je izazvano podešavanjem `SOURCE_DELAY = 3`, dok su f i p datoteka i pozicija upisa u binarnom logu izvora; svaki red je izvršen dva puta, sa istim ishodom i vremenima koja se razlikuju za manje od 10 ms. Poslednji red je iz grupe sa jednim primarnim čvorom iz petog poglavlja, bez izazvanog kašnjenja, sa nivoom `BEFORE` na sesiji čitaoca i medijanom vremena čitanja.
+
+Uspešno čekanje u tabeli 7.1 trajalo je oko četiri sekunde, onoliko koliko je replika kasnila, u
+skladu sa formulacijom „najmanje N sekundi“ iz priručnika. Važniji je drugi red: uz istek vremena
+kraći od kašnjenja funkcija je vratila 1, a čitanje koje je usledilo bilo je zastarelo. Funkcija,
+dakle, ne garantuje svežinu, već o njoj obaveštava, pa aplikacija mora da proveri povratnu
+vrednost i, kada je ona 1, pročita sa izvora ili prijavi grešku. Kada je nit primene zaustavljena,
+`SOURCE_POS_WAIT()` je odmah vratila NULL, a `WAIT_FOR_EXECUTED_GTID_SET()` je čekala do isteka
+vremena i vratila 1; uz nulti istek vremena čekala bi bez kraja (izvedeno iz priručnika, ne
+izmereno). U grupi iz petog poglavlja isto čekanje obavlja server, uz nivo `BEFORE`.
+
+<!--
+  Router: rung 2 (MySQL Router 8.4 manual, sec. 3.5 Read/Write Splitting and 3.5.1 Configuration,
+  researcher 2026-10-28). Router was not run on the topology; the paragraph says so.
+-->
+Isto čekanje može da preuzme i MySQL Router, koji podržava razdvajanje čitanja i upisa (read/write
+splitting): čitanja usmerava na instance samo za čitanje, na primer sekundarne članove InnoDB
+Cluster-a, a upise na primarnu instancu. Uz opciju `wait_for_my_writes` čitanje čeka poslednju
+transakciju koju je sesija upisala, najviše `wait_for_my_writes_timeout` sekundi (podrazumevano
+jednu), a ako transakcija do tada nije primenjena, Router ga šalje instanci za upis
+[@mysqlrouter84]. To je ista provera povratne
+vrednosti, premeštena u posrednika. Router nije pokretan na topologiji ovog rada, pa se ovaj pasus
+oslanja samo na priručnik.
+
+## Šta skaliranje čitanja ne skalira
+
+Svi upisi idu izvoru, a svaka replika primenjuje svaki upis [@mysql84refman]. Dodavanje replika
+zato povećava kapacitet za čitanje, ali ne menja ni kapacitet za upis ni posao primene na pojedinoj
+replici. Ako izvor trajno komituje W transakcija u sekundi, a nit primene jedne replike stiže da
+primeni A, zaostatak te replike raste za W − A transakcija u sekundi kad god je W veće od A, i to
+na svakoj replici nezavisno, jer svaka primenjuje isti tok. Deset replika tada ima deset jednako
+rastućih zaostataka, a ne jedan deset puta manji. Ovaj zaključak je izveden, ali ga nalet sa slike
+7.1 pokazuje u malom: izvor je komitovao nekoliko hiljada transakcija u sekundi, a jedna nit
+primene šezdesetak, pa je nalet kraći od sekunde ostavio zaostatak od pola minuta.
+
+Replika propusnost primene može da poveća samo paralelnom primenom. U verziji 8.4 replika
+podrazumevano ima četiri niti primene, a izvor u binarni log upisuje zavisnosti između transakcija
+izvedene iz skupova upisa, pa se paralelno primenjuju transakcije koje ne zavise jedna od druge
+[@mysql84refman; @mysql84relnotes]. Transakcije koje menjaju iste redove ipak zavise jedna od
+druge i primenjuju se redom, pa paralelna primena podiže propusnost samo onoliko koliko to radno
+opterećenje dopušta.
+
+U terminima PACELC-a replika za čitanje bira latenciju: čitanje je brzo i lokalno, a cenu,
+zastarelost podataka, plaća čitalac. MySQL repliku ne čini konzistentnom, već daje alate kojima se
+ta cena plaća kada je potrebno: funkciju koja čeka sopstveni upis, opciju posrednika i nivo
+`BEFORE` unutar grupe. Svaki od njih svežinu jednog čitanja kupuje vremenom čekanja čitaoca, a
+dužinu tog čekanja određuje kašnjenje, koje se meri tabelama šeme `performance_schema`, a ne
+poljem `Seconds_Behind_Source`. I ovde je konzistentnost odluka onoga ko čita, a ne svojstvo replike.

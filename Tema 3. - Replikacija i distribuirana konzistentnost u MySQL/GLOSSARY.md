@@ -224,7 +224,7 @@ Soft target ~20-25 rendered pages; 24 budgeted below is a starting point, not a 
 | 4 | Semisinhrona replikacija i značenje potvrde | 3 → **3.0 (measured 2026-10-11, ~1180 words + Slika 4.1 + Tabela 4.1; on budget, nothing raised)** | memo 04 | #2 |
 | 5 | Group Replication: kvorum, certification i multi-primary | 5 → **~4.4 (measured 2026-10-23, ~1590 words + Slika 5.1 + Tabele 5.1, 5.2; under budget, nothing raised)** | memo 05 | #3 |
 | 6 | Geo-distribuirana replikacija i InnoDB ClusterSet | 3 → **~3.15 (measured 2026-10-27, ~1110 words + Slika 6.1 + Tabela 6.1; 0.15 over, nothing cut pending the user's call)** | memo 07 (corrected) | #4 |
-| 7 | Skaliranje čitanja i kašnjenje replikacije | 3.5 | memo 06 | #5 |
+| 7 | Skaliranje čitanja i kašnjenje replikacije | 3.5 → **~3.5 (measured 2026-10-28, ~1390 words + Slika 7.1 + Tabela 7.1; on budget, nothing raised; ~190 words over the §2b cap, accepted because the rendered count is the final word)** | memo 06 | #5 |
 | 8 | Zaključak | 1 | — | — |
 
 **Total: 24 pages as budgeted at ticket 09; 25.25 after ch. 2 was measured; 24.9 after the
