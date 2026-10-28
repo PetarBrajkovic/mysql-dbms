@@ -15,7 +15,10 @@ per-paragraph citation). The one topic-specific addition is in §5.
 ## 0. The paper's spine
 
 > MySQL ne isporučuje model konzistentnosti - isporučuje log i skup podesivih tačaka potvrde, pa je
-> konzistentnost odluka operatora, a ne svojstvo sistema.
+> konzistentnost odluka operatera, a ne svojstvo sistema.
+
+*(Spine wording aligned 2026-10-28, ticket 20: "operatora" → "operatera", the form every chapter of
+`rad.md` already used, 16 times. In Serbian,* operater *is the person;* operator *is the math/code sense.)*
 
 Every chapter's job is to show, for its own slice, **which knob it exposes and what the operator buys with it**. The evidence that this is a claim and not a truism: the same product takes **opposite CAP
 positions at two scopes** in its own documentation - Group Replication blocks a minority rather than
@@ -225,7 +228,7 @@ Soft target ~20-25 rendered pages; 24 budgeted below is a starting point, not a 
 | 5 | Group Replication: kvorum, certification i multi-primary | 5 → **~4.4 (measured 2026-10-23, ~1590 words + Slika 5.1 + Tabele 5.1, 5.2; under budget, nothing raised)** | memo 05 | #3 |
 | 6 | Geo-distribuirana replikacija i InnoDB ClusterSet | 3 → **~3.15 (measured 2026-10-27, ~1110 words + Slika 6.1 + Tabela 6.1; 0.15 over, nothing cut pending the user's call)** | memo 07 (corrected) | #4 |
 | 7 | Skaliranje čitanja i kašnjenje replikacije | 3.5 → **~3.5 (measured 2026-10-28, ~1390 words + Slika 7.1 + Tabela 7.1; on budget, nothing raised; ~190 words over the §2b cap, accepted because the rendered count is the final word)** | memo 06 | #5 |
-| 8 | Zaključak | 1 | — | — |
+| 8 | Zaključak | 1 → **~1.08 (measured 2026-10-28, 271 words + Tabela 8.1; first draft 400 words measured ~1.5 and was cut to budget under §2b)** | — | — |
 
 **Total: 24 pages as budgeted at ticket 09; 25.25 after ch. 2 was measured; 24.9 after the
 2026-10-09 cut was measured (§2b); the cut aimed for 3 + 3.5 and the user accepted the measured

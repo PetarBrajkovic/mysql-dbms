@@ -919,3 +919,40 @@ ta cena plaća kada je potrebno: funkciju koja čeka sopstveni upis, opciju posr
 `BEFORE` unutar grupe. Svaki od njih svežinu jednog čitanja kupuje vremenom čekanja čitaoca, a
 dužinu tog čekanja određuje kašnjenje, koje se meri tabelama šeme `performance_schema`, a ne
 poljem `Seconds_Behind_Source`. I ovde je konzistentnost odluka onoga ko čita, a ne svojstvo replike.
+
+# 8. Zaključak
+
+U poglavljima od trećeg do sedmog ono što se prenosi nije se menjalo: komitovane transakcije
+upisuju se u binarni log, a ostali čvorovi taj log primenjuju. Menjali su se samo trenutak u kome
+pisac dobija potvrdu i odgovor na pitanje ko čeka da se razmak između odluke i vidljivosti zatvori.
+Tabela 8.1 sabira podešavanja kojima se to bira.
+
+| Poglavlje | Podešavanje | Dobija se | Ko plaća i čime |
+|---|---|---|---|
+| 3. Asinhrona | podrazumevano, bez čekanja replika | najmanja latencija | čitalac zastarelošću; potvrđeni upis pri otkazu izvora |
+| 4. Semisinhrona | tačka čekanja, istek vremena | transakcija na disku još jednog čvora | pisac, jednim povratnim putovanjem |
+| 5. Group Replication | kvorum, `group_replication_consistency` | nema razilaženja; sveža čitanja | upisi kada nema većine; pisac (`AFTER`) ili čitalac (`BEFORE`) |
+| 6. ClusterSet | `forcePrimaryCluster()` | upisi posle gubitka lokacije | transakcije u kanalu, rizik da nastane split brain |
+| 7. Replike za čitanje | `WAIT_FOR_EXECUTED_GTID_SET()` | čitanje sopstvenog upisa | čitalac, čekanjem koliko replika kasni |
+
+Table: Tabela 8.1: Podešavanja iz poglavlja 3 do 7, šta svako od njih obezbeđuje i ko to plaća. Tabela sažima prethodna poglavlja i ne uvodi nove rezultate.
+
+Svaka jača garancija plaća se čekanjem, a podešavanje određuje samo ko čeka: pisac, čitalac ili,
+pri otkazu, operater. Garancije su pri tome uže od svojih naziva. Semisinhrona potvrda ne znači da
+je transakcija primenjena, a po isteku vremena tiho nestaje. Nivo `AFTER`, koji priručnik
+preporučuje kada je potrebna stroga konzistentnost [@mysql84refman], daje read-your-writes za sve
+čitaoce, a ne linearizabilnost.
+
+Najjači dokaz za tezu rada jeste to što isti proizvod na dva nivoa zauzima suprotne pozicije
+teoreme CAP. Unutar klastera grupa bez većine blokira upise, a između klastera InnoDB ClusterSet,
+prema sopstvenom priručniku, daje prednost dostupnosti nad konzistentnošću [@mysqlshell84]. Ipak,
+replika-klaster posle gubitka primarne lokacije nije sam počeo da prima upise, već tek posle naredbe
+`forcePrimaryCluster()`, kao što i u grupi upise vraća tek prisilno obnavljanje kvoruma. Dostupnost,
+dakle, ni na jednom nivou nije svojstvo sistema, već odluka koju operater donosi jednom naredbom,
+prihvatajući gubitak transakcija i rizik da nastane split brain.
+
+MySQL ne isporučuje model konzistentnosti, već log i skup podesivih tačaka potvrde, pa je
+konzistentnost odluka operatera, a ne svojstvo sistema. Sva merenja u ovom radu izvedena su na tri
+instance na jednom računaru, pa je uticaj stvarne udaljenosti između lokacija izveden iz
+priručnika, a ne izmeren. Njegova provera na mreži sa stvarnim rastojanjima prirodan je nastavak
+ovog rada.

@@ -1,8 +1,14 @@
 # Chapters 1 and 8 - Uvod i Zaključak
 
 Type: task (execution - see the map's execution override)
-Status: open
-Blocked by: 19
+Status: open (claimed 2026-10-28)
+
+**Shape decided by the user (2026-10-28)**: no lesson, per `../WORKFLOW.md` ("an introduction and a
+conclusion need no teaching at all"), which overrides the generic chapter-ticket shape below. Two
+writing sessions: **Zaklju\u010dak first** (the argument is now known), then **Uvod**, written
+against it and reconciled with it. The ticket closes after the second session.
+Assignee: Pex
+Blocked by: 19 — closed
 
 ## Question
 
@@ -34,3 +40,26 @@ for all prose, `serbian-grammar` for every Serbian line, and the two research ru
 form, not ch. 5's closing sentence alone. Across clusters the replica cluster *refused writes* (C) until
 the operator ran `forcePrimaryCluster()`, so the A choice is one operator command. That is the spine in its
 strongest form ("konzistentnost je odluka operatera").
+
+## Comments
+
+- **Zaključak written (2026-10-28, session 1 of 2).** Appended to `rad.md` as `# 8. Zaključak`. It has
+  **271 words of prose plus Tabela 8.1**, one row per body chapter 3-7: the knob, what it buys, and
+  who pays and how. That is the ticket's "one table". It measured **~1.08 rendered pages** (Word COM,
+  ch. 8 heading p. 24 y540 to Reference p. 25 y597, the same method that reproduces ch. 7's 3.5).
+  The first draft was 400 words and ~1.5 pp, and was cut to budget under GLOSSARY §2b.
+  - The two-scope CAP evidence is restated in **ch. 6's sharper form**, as this ticket required: the
+    replica cluster stayed read-only until `forcePrimaryCluster()`, paired with forced quorum inside
+    the group. So **availability is an operator command at both scopes**, which ends on the spine.
+  - **No new claims and no new sources.** The two citations (`mysql84refman` for `AFTER`'s
+    "strong consistency" recommendation, and `mysqlshell84` for ClusterSet's availability priority)
+    are already used and fetched in chs. 5 and 6. "Narrower than their names" re-states only ch. 4's
+    and ch. 5's established findings.
+  - Limitation stated: everything was measured on one machine, so inter-location distance is derived,
+    not measured (as in ch. 6). That is offered as further work.
+  - **Terminology fix**: the GLOSSARY §0 spine said *operatora*, but `rad.md` uses *operater*
+    throughout (16 times). The spine is now aligned to *operatera* before Uvod quotes it.
+- **Next session: Uvod** (~1 page). State the spine (now worded as in ch. 8's last paragraph), frame
+  the five areas, and say that the topology is three local `mysqld` instances. Then reconcile with
+  ch. 8: the claims should match, and Uvod's chapter roadmap should match the table's row order.
+  Close the ticket after that, then append both to the map's Decisions-so-far.
