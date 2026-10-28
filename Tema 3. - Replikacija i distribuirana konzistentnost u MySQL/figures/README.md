@@ -141,7 +141,7 @@ a replication window, and it silently reported the window as absent.
 
 | Script | Figures it builds | What it asserts |
 |---|---|---|
-| `tools/make-lag-plot.py` *(to be written at ch. 7)* | Slika 7.1 | the two lag series diverge; real lag rises above idle baseline |
+| `tools/make-lag-plot.py` (written 2026-10-28, ticket 19) | Slika 7.1 (`figures/07-skaliranje-01-kasnjenje.png`, from `figures/raw/07-skaliranje-01-kasnjenje.csv` by `examples/04-read-scaling/10-lag-burst.ps1`) | real lag peaks far above the idle baseline; the series diverge (max \|SBS−real\| ≥ 1 s and SBS ≥ 1 at real < 10 ms); `Relay_Log_Space` settles well before the lag peak |
 | `examples/02-binlog-async/05-slika-nesiguran-iskaz.ps1` | Slika 3.1 (`-Raw` via `../../tools/make-table-figure.ps1`) | Note 1592 under `STATEMENT`; a decoded `Update_rows` event for `invoices` under `ROW`; the update is reverted and the revert is visible on 3307/3308/3309 |
 
 ## Own diagrams vs official ones

@@ -1,8 +1,9 @@
 # Chapter 7 - Skaliranje čitanja i kašnjenje replikacije
 
 Type: task (execution - see the map's execution override)
-Status: open
-Blocked by: 18
+Status: open (lesson half done 2026-10-28, record 0009; writing half next)
+Assignee: Pex
+Blocked by: 18 — closed
 
 ## Question
 
@@ -42,3 +43,5 @@ for all prose, `serbian-grammar` for every Serbian line, and the two research ru
 ## Comments
 
 - **From ticket 12:** `pip install --user matplotlib`, then write `tools/make-lag-plot.py`: one natural-burst chart with both lag series overlaid, asserting that they diverge. Sampler output goes to `figures/raw/<figure-base>.csv`. Spec in `figures/README.md`.
+
+- **Lesson half done (2026-10-28):** `lessons/0007-skaliranje-citanja.html`, record 0009, measurements 0009. Slika 7.1 generated and asserting (`tools/make-lag-plot.py`); scripts in `examples/04-read-scaling/`. Tabela 7.1's async half: measurements 0009 §3; GR half: 0007 (`42-ryw-before.js`).

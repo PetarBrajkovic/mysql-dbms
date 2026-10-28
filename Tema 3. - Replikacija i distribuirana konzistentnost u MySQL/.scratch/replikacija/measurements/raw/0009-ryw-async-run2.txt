@@ -1,0 +1,15 @@
+state check OK: async, channels ON on node2 and node3
+node3 SOURCE_DELAY = 3 (INDUCED lag)
+
+A. read-your-writes: wrote v=1 on node1 (GTID 92f36f51-b420-11f1-aa37-9c6b001d863b:20852), read node3 at once -> v=0
+   received on node3: true | applied on node3: false | SQL_Remaining_Delay=4
+
+B. monotonic reads: wrote v=2; same client reads node2 -> v=2, then node3 -> v=1
+
+C. WAIT_FOR_EXECUTED_GTID_SET(g, 1): returned 1 after 1002 ms; read node3 -> v=2
+
+D. WAIT_FOR_EXECUTED_GTID_SET(g, 10): returned 0 after 4004 ms; read node3 -> v=4
+
+E. SOURCE_POS_WAIT('node1-bin.000017', 1157041, 10): returned 1 (events waited for) after 4309 ms; read node3 -> v=5
+
+restored: node3 SOURCE_DELAY = 0

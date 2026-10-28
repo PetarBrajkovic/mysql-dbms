@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referentni list · Kašnjenje i skaliranje čitanja</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Referentni list · Poglavlje 7</p>
+<h1>Kašnjenje replikacije, njegovo merenje i čekanje sopstvenog upisa</h1>
+<p class="subtitle">Sažetak <a href="../lessons/0007-skaliranje-citanja.html">lekcije 07</a>. MySQL 8.4.11, naša topologija 3307/3308/3309.</p>
+
+<h2>Definicija</h2>
+<pre>lag(T) = t2 - t0          // both phases always count
+t0  COMMIT on source       ORIGINAL_COMMIT_TIMESTAMP  (source clock, carried in the binlog)
+t1  queued in relay log    LAST_QUEUED_TRANSACTION_END_QUEUE_TIMESTAMP  (replication_connection_status)
+t2  applied, visible       LAST_APPLIED_TRANSACTION_END_APPLY_TIMESTAMP (replication_applier_status_by_worker)</pre>
+<table class="exp">
+  <tr><td>raspodela na faze</td><td>merenje, ne definicija. Loopback: prijem 0,724 ms, ukupno 6,375 ms (≈ 89 % primena)</td></tr>
+  <tr><td>izvor kašnjenja kod nas</td><td>nit primene. Prirodni nalet: relay log je stao na 4,5 s, a kašnjenje je raslo do 31,0 s</td></tr>
+</table>
+
+<h2><code>Seconds_Behind_Source</code> = sat replike − t₀ događaja u niti primene</h2>
+<table class="exp">
+  <tr><td>slabost 1</td><td>ne vidi fazu prijema: spora mreža → 0 dok replika kasni („useful only for fast networks“)</td></tr>
+  <tr><td>slabost 2</td><td>dva sata; razlika se računa kad se pokrene nit prijema; kasniji pomeraj sata replike ide u rezultat <strong>sa istim znakom</strong> (negativno → 0)</td></tr>
+  <tr><td>slabost 3</td><td>više niti primene (podrazumevano 4): zasniva se na <code>Exec_Source_Log_Pos</code>, a ne na poslednjoj komitovanoj transakciji</td></tr>
+  <tr><td>ostalo</td><td>cele sekunde; bez posla → 0; <code>NULL</code> ako nit primene ne radi</td></tr>
+  <tr><td>izmereno</td><td>pri pražnjenju precenjuje do 4,2 s; na replici koja je stigla izvor (2 ms) pokazuje 1 u 31/360 uzoraka</td></tr>
+</table>
+
+<h2><code>performance_schema</code></h2>
+<table class="exp">
+  <tr><td>rešava</td><td>slabost 1 (prijem ima t₁), slabost 3 (red po niti, sa GTID-om), rezoluciju (µs)</td></tr>
+  <tr><td><strong>ne rešava</strong></td><td>slabost 2: i ona oduzima sat izvora od sata replike. Preciznost ≠ tačnost. Kod nas je jedan sat, pa je greška nula po konstrukciji</td></tr>
+</table>
+
+<h2>Anomalije (asinhrona replika, <code>SOURCE_DELAY = 3</code>, izazvano)</h2>
+<table class="exp">
+  <tr><td>read-your-writes</td><td>upis na 3307 → SELECT na 3309: stara vrednost; GTID u <code>RECEIVED_TRANSACTION_SET</code>, nije u <code>gtid_executed</code></td></tr>
+  <tr><td>monotona čitanja</td><td>bez sopstvenog upisa: 3308 → nova vrednost, zatim 3309 → stara</td></tr>
+  <tr><td>Group Replication</td><td><code>BEFORE</code> zatvara prozor (lekcija 05); ovde se samo upućuje napred</td></tr>
+</table>
+
+<h2>Čekanje sopstvenog upisa</h2>
+<pre>-- on the source, right after COMMIT: the name of the write (or session_track_gtids)
+-- on the replica:
+SELECT WAIT_FOR_EXECUTED_GTID_SET(@g, 2);   -- 0: applied -> read here; 1: timeout -> read the SOURCE
+SELECT SOURCE_POS_WAIT(@file, @pos, 2);     -- same by address; -1 timeout; NULL if applier stopped</pre>
+<table class="exp">
+  <tr><td><code>timeout = 0</code></td><td><strong>čekaj zauvek</strong> (podrazumevano; proizvoljna odluka). Provera bez čekanja: <code>GTID_SUBSET(g, @@GLOBAL.gtid_executed)</code></td></tr>
+  <tr><td>izmereno</td><td>0 posle 4 009 ms; timeout 1 → 1 posle 1 001 ms, i čitanje ostaje zastarelo; <code>SOURCE_POS_WAIT</code> 1 posle 4 312 ms</td></tr>
+  <tr><td>nit primene stoji</td><td>GTID funkcija čeka ceo timeout, pa vrati 1; <code>SOURCE_POS_WAIT</code> odmah vrati <code>NULL</code></td></tr>
+  <tr><td>GTID ili adresa</td><td>adresa važi samo u logu jednog izvora (posle failovera ne važi); GTID važi svuda</td></tr>
+  <tr><td>ko plaća</td><td>čitalac, oko jedno kašnjenje; upis je nepromenjen</td></tr>
+  <tr><td>MySQL Router</td><td><code>access_mode=auto</code>, <code>wait_for_my_writes</code>; posle <code>wait_for_my_writes_timeout</code> čita sa izvora</td></tr>
+</table>
+
+<h2>Šta se ne skalira</h2>
+<table class="exp">
+  <tr><td>upisi</td><td>svaka replika ponavlja svaki upis; refman: „high number of reads and low number of writes“</td></tr>
+  <tr><td>nit primene</td><td>W &gt; A → zaostatak raste za W − A u sekundi, na <strong>svakoj</strong> replici. Pomaže samo veće A (više niti za nezavisne transakcije, brži disk)</td></tr>
+  <tr><td>nalet</td><td>izvor 2 000 transakcija za 598 ms (≈ 3 300/s), jedna nit primene ≈ 60/s → nagib ≈ 1 s/s</td></tr>
+</table>
+
+<p class="meta">Skripte: <code>examples/04-read-scaling/10-lag-burst.ps1</code>, <code>11-lag-sampler.js</code>, <code>20-ryw-async.js</code>;
+  grafik <code>tools/make-lag-plot.py</code>. Izvori: refman 8.4
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/show-replica-status.html">SHOW REPLICA STATUS</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/gtid-functions.html">GTID functions</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/replication-functions-synchronization.html">synchronization functions</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/replication-delayed.html">Delayed Replication</a>,
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/replication-solutions-scaleout.html">Scale-Out</a>;
+  <a href="https://dev.mysql.com/doc/mysql-router/8.4/en/router-read-write-splitting-configuration.html">Router 8.4 read/write splitting</a>.</p>
+</body>
+</html>

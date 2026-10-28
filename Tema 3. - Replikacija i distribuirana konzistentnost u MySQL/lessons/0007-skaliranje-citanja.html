@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lekcija 07 — Skaliranje čitanja i kašnjenje replikacije</title>
+<link rel="stylesheet" href="../../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">Lekcija 07 · Poglavlje 7 (Skaliranje čitanja i kašnjenje replikacije)</p>
+<h1>Replika za čitanje deli čitanja, ne upise, i odgovara onoliko staro koliko kasni</h1>
+<p class="subtitle">Lekcija 02 je pokazala da je „primljeno“ različito od „primenjeno“. Ova lekcija tu razliku
+  meri: šta je kašnjenje, zašto mu <code>Seconds_Behind_Source</code> ne odgovara, koju anomaliju ono pravi i
+  kako replika može da sačeka baš tvoj upis.</p>
+
+<div class="note">
+  <span class="lbl">Veza sa ciljem</span>
+  Profesorova peta tačka, „Skaliranje čitanja korišćenjem replika“. Posle ove lekcije treba da umeš bez podsetnika:
+  <strong>(1)</strong> da definišeš kašnjenje replikacije po transakciji i kažeš koja faza ga čini na našoj
+  topologiji; <strong>(2)</strong> da izvedeš tri slabosti <code>Seconds_Behind_Source</code> iz njegove
+  definicije i da kažeš koju od njih <code>performance_schema</code> <strong>ne</strong> rešava;
+  <strong>(3)</strong> da pokažeš read-your-writes i monotona čitanja na asinhronoj replici i da ih zatvoriš sa
+  <code>WAIT_FOR_EXECUTED_GTID_SET()</code>; <strong>(4)</strong> da objasniš zašto više replika ne skalira
+  ni upise ni propusnost niti primene.
+</div>
+
+<h2>1 · Kašnjenje je osobina jedne transakcije</h2>
+<p>„Replika kasni“ ne kaže ništa dok ne kaže <strong>koliko je star podatak koji čitam</strong>. Na to se može
+  odgovoriti samo za konkretnu transakciju <code>T</code>:</p>
+<pre class="out">kašnjenje(T) = t₂ − t₀
+t₀  COMMIT na izvoru
+t₁  T upisana u relay log replike        (kraj faze prijema)
+t₂  T primenjena, SELECT je vidi         (kraj faze primene)</pre>
+<p>Obe faze se <strong>uvek</strong> računaju, jer klijentu je svejedno gde je njegov upis proveo to vreme. Pitanje
+  <span class="hi">koja faza čini veći deo</span> je <strong>merenje</strong>, a ne definicija. Na loopbacku
+  skoro sve otpada na primenu, a na sporoj mreži može da prevagne prijem.</p>
+
+<figure class="fig">
+  <img src="../viz/viz-l07-kasnjenje-definicija-1793201271444.png"
+       alt="Gore: vremenska osa sa tri trenutka, t0 COMMIT na izvoru 3307, t1 upis u relay log na 3309 i t2 primena. Između t0 i t1 je faza prijema, između t1 i t2 faza primene sa crvenom napomenom da SELECT još ne vidi T. Plava zagrada preko cele ose kaže kašnjenje jednako t2 minus t0, obe faze se računaju. Dole: dve trake. Izmereni loopback: prijem 0,724 ms i primena 5,651 ms, ukupno 6,375 ms, skoro sve je primena. Ilustrativna spora mreža: prijem 900 ms i primena 100 ms, ukupno 1000 ms, a ko meri samo primenu vidi 100 ms.">
+  <figcaption><b>Slika 1</b> — Kašnjenje se meri od komita na izvoru do primene na replici. Raspodela na faze je
+    merenje: na našoj topologiji je oko 89 % primena (GTID …:17704, izmereno na MySQL 8.4.11). Red „spora mreža“ je
+    računski primer.</figcaption>
+</figure>
+
+<div class="try">
+  <div class="hd">Probaj: t₀, t₁ i t₂ jedne transakcije</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> topologija pokrenuta (<code>topology.ps1 start</code>), asinhrono stanje,
+      <code>SOURCE_DELAY = 0</code>. Upis ide na 3307, a čitanje na 3309, kao <code>root</code>.</p>
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run"><span class="c">-- on 3307</span>
+<span class="k">INSERT INTO</span> poliklinika.heartbeat (ts, node) <span class="k">VALUES</span> (<span class="fn">NOW</span>(6), <span class="s">'node1'</span>);
+
+<span class="c">-- on 3309, a second later</span>
+<span class="k">SELECT</span> LAST_QUEUED_TRANSACTION,
+       LAST_QUEUED_TRANSACTION_ORIGINAL_COMMIT_TIMESTAMP <span class="k">AS</span> t0,
+       LAST_QUEUED_TRANSACTION_END_QUEUE_TIMESTAMP       <span class="k">AS</span> t1
+<span class="k">FROM</span> performance_schema.replication_connection_status;
+
+<span class="k">SELECT</span> WORKER_ID, LAST_APPLIED_TRANSACTION,
+       LAST_APPLIED_TRANSACTION_END_APPLY_TIMESTAMP <span class="k">AS</span> t2,
+       <span class="fn">TIMESTAMPDIFF</span>(<span class="k">MICROSECOND</span>,
+         LAST_APPLIED_TRANSACTION_ORIGINAL_COMMIT_TIMESTAMP,
+         LAST_APPLIED_TRANSACTION_END_APPLY_TIMESTAMP) / 1000 <span class="k">AS</span> lag_ms
+<span class="k">FROM</span> performance_schema.replication_applier_status_by_worker
+<span class="k">WHERE</span> LAST_APPLIED_TRANSACTION &lt;&gt; <span class="s">''</span>;</pre>
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">Isti GTID u obe tabele; t0 &lt; t1 &lt; t2 sa mikrosekundama; t1 − t0 ispod milisekunde,
+lag_ms reda nekoliko milisekundi. U uživo pokretanju: 0,724 ms prijem, 6,375 ms ukupno.</pre>
+    <p class="interpret"><b>Kako se ovo čita:</b> ovo je definicija doslovno, za jednu transakciju koja je
+      imenovana svojim GTID-om, sa obe faze odvojeno.</p>
+  </div>
+</div>
+
+<h2>2 · Šta tačno meri <code>Seconds_Behind_Source</code></h2>
+<div class="slide">
+  „When the replica is actively processing updates, this field shows the difference between the current timestamp
+  on the replica and the original timestamp logged on the source for the event currently being processed on the
+  replica. […] When no event is currently being processed on the replica, this value is 0.“
+  <span class="sr"><a href="https://dev.mysql.com/doc/refman/8.4/en/show-replica-status.html">MySQL 8.4 Reference Manual, SHOW REPLICA STATUS</a></span>
+</div>
+<p>Prevedeno na naše oznake: <strong>sada, po satu replike, minus t₀ po satu izvora, za ono što nit primene trenutno
+  radi</strong>, u celim sekundama. Kad nema posla, rezultat je 0. Sve tri slabosti koje priručnik navodi slede iz ove
+  jedne rečenice:</p>
+<table class="exp">
+  <tr><td>„događaj koji <strong>nit primene</strong> obrađuje“</td><td><strong>Slabost 1.</strong> Faza prijema se ne vidi. Na sporoj mreži nit primene nema posla, pa prikazuje 0 dok replika kasni. Priručnik: kolona je „useful only for fast networks“.</td></tr>
+  <tr><td>„sat <strong>replike</strong> − oznaka <strong>izvora</strong>“</td><td><strong>Slabost 2.</strong> Upoređuju se dva sata. Razlika se izračuna kad se pokrene nit prijema, a kasniji pomeraj (NTP) prelazi u rezultat <span class="hi">sa istim znakom</span>: +4 s daje +4 s, a −5 s daje 0.</td></tr>
+  <tr><td>„<strong>događaj</strong>“, u jednini</td><td><strong>Slabost 3.</strong> Sa više niti primene (podrazumevano 4) nema jednog događaja. Vrednost se zasniva na <code>Exec_Source_Log_Pos</code>, tački bez rupa, koja „may not reflect the position of the most recently committed transaction“.</td></tr>
+</table>
+
+<figure class="fig">
+  <img src="../viz/viz-l07-sbs-tri-slabosti-1793201283659.png"
+       alt="Formula Seconds_Behind_Source je podeljena na tri dela: sada po satu replike, t0 po satu izvora i događaj koji nit primene trenutno obrađuje. Iz svakog dela strelica vodi u crveni okvir: slabost 2 dva sata, slabost 3 više niti primene i Exec_Source_Log_Pos, slabost 1 slepo za fazu prijema. Dole je tabela za performance_schema: slabost 1, slabost 3 i mikrosekunde su rešene, a slabost 2 nije, uz napomenu da preciznost nije tačnost i da je na našoj topologiji sa jednim satom slabost 2 nula po konstrukciji.">
+  <figcaption><b>Slika 2</b> — Sve tri slabosti dolaze iz definicije. <code>performance_schema</code> rešava slabosti 1 i 3,
+    ali ne i satove: i ona oduzima oznaku izvora od oznake replike. Izvor: refman 8.4, SHOW REPLICA STATUS.</figcaption>
+</figure>
+
+<div class="note">
+  <span class="lbl">Preciznost ≠ tačnost</span>
+  Mikrosekunde u <code>performance_schema</code> daju <strong>preciznost</strong>. <code>ORIGINAL_COMMIT_TIMESTAMP</code>
+  ipak piše sat izvora, a <code>END_APPLY_TIMESTAMP</code> sat replike. Ako sat replike žuri 2 s, rezultat je
+  2,010000 s: šest tačnih decimala pogrešnog broja. <strong>Svako merenje koje oduzima oznaku jednog servera od
+  oznake drugog nasleđuje razliku njihovih satova.</strong> To važi i za <code>heartbeat</code>. Kod nas su sve tri instance
+  na jednoj mašini, sa jednim satom, pa je slabost 2 nula <strong>po konstrukciji</strong>, a ne zato što je bilo šta
+  popravilo.
+</div>
+
+<h2>3 · Jedini prirodni nalet</h2>
+<p>Na 3309 je nit primene ograničena na jednu, a <code>SOURCE_DELAY</code> ne postoji. Četiri sesije na 3307
+  istovremeno upisuju po 500 redova u <code>visits</code>, svaki red u svojoj transakciji. Na svakih 250 ms jedan
+  <code>heartbeat</code> red ide na 3307, a uzorkivač beleži oba merenja i <code>Relay_Log_Space</code> na 3309.</p>
+
+<figure class="fig">
+  <img src="../viz/viz-l07-prirodni-nalet.png"
+       alt="Gornji grafik: stvarno kašnjenje iz performance_schema (plava linija) i Seconds_Behind_Source (crvene stepenice) tokom oko 57 sekundi. Oba su na nuli do oko 4 s, zatim rastu skoro linearno do vrha od oko 31 s na 35,5 s, pa padaju na nulu do 37,9 s. Crvena kriva ide stepenasto i kasni pri padu. Posle pražnjenja crvena kriva više puta skače na 1, dok je plava na nuli. Donji grafik: Relay_Log_Space skoči sa oko 280 na oko 950 KiB do 4,5 s i posle toga se skoro ne menja. Strelica označava da je nit prijema tu završila.">
+  <figcaption><b>Slika 3</b> — <strong>Prirodno</strong> kašnjenje, bez <code>SOURCE_DELAY</code>. Izvor je komitovao 2 000 transakcija
+    za 598 ms, a nit prijema ih je primila do 4,5 s. Kašnjenje je ipak raslo do 31,0 s, pa je u celini kašnjenje primene.
+    <code>Seconds_Behind_Source</code> pri pražnjenju precenjuje za do 4,2 s, a na replici koja je stigla izvor
+    (stvarno kašnjenje 1–2 ms) pokazuje 1 u 31 od 360 uzoraka. Podaci: <code>figures/raw/07-skaliranje-01-kasnjenje.csv</code>,
+    <code>examples/04-read-scaling/10-lag-burst.ps1</code>, grafik <code>tools/make-lag-plot.py</code>, MySQL 8.4.11.</figcaption>
+</figure>
+
+<p>Šta se čita sa slike:</p>
+<table class="exp">
+  <tr><td>relay log stane na 4,5 s</td><td>Nit prijema je završila. Ostalih oko 30 s je <strong>samo</strong> primena. Relay log ne opada dok traje primena, jer ga MySQL briše po celim fajlovima.</td></tr>
+  <tr><td>nagib skoro 1 s/s</td><td>Izvor: oko 3 300 transakcija/s (4 sesije, grupno komitovanje). Jedna nit primene: oko 60/s. Zašto baš oko 16 ms po redu <code>visits</code>, nije izmereno.</td></tr>
+  <tr><td>SBS = 1, stvarno 2 ms</td><td>Deo razlike objašnjavaju cele sekunde, jer je oznaka događaja u binarnom logu u celim sekundama. Ostatak bi mogla da objasni slabost 3 (checkpoint koordinatora), ali to <strong>nije</strong> provereno.</td></tr>
+</table>
+
+<div class="try">
+  <div class="hd">Probaj: ponovi nalet</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> asinhrono stanje, <code>SOURCE_DELAY = 0</code> na 3309 (skripta to proverava). Skripta sama
+      vraća <code>replica_parallel_workers</code> i briše redove iz naleta, i kad padne na pola. Traje 1–2 minuta.</p>
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run">cd examples\04-read-scaling
+.\10-lag-burst.ps1 -Sessions 4 -RowsPerSession 500
+cd ..\..
+python tools\make-lag-plot.py --with-relay viz\my-burst.png</pre>
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">"burst committed on node1: 2000 transactions in ~600 ms", zatim
+"OK  baseline ~2 ms | peak ~30 s | max |SBS-real| ... | relay settled at t=~4.5 s".
+Skripta grafika prekida rad ako se krive ne razilaze ili ako relay log raste sve do vrha.</pre>
+    <p class="interpret"><b>Kako se ovo čita:</b> vrh zavisi od diska. Oblik se ne menja: rani plato relay loga i
+      linearni rast kašnjenja su potpis niti primene kao uskog grla.</p>
+  </div>
+</div>
+
+<h2>4 · Dve anomalije na asinhronoj replici</h2>
+<p>Prirodno kašnjenje na loopbacku traje milisekunde, pa anomalija koja se javi samo ponekad ne može da se pokaže. Zato
+  se na 3309 uključuje <code>SOURCE_DELAY = 3</code>. Priručnik: transakcija „is not executed until at least N seconds
+  later than its commit on the immediate source“
+  (<a href="https://dev.mysql.com/doc/refman/8.4/en/replication-delayed.html">refman 8.4, Delayed Replication</a>).
+  Ovo je <span class="hi">izazvano</span> kašnjenje. Opcija inače služi za zaštitu od ljudske greške, a mi je koristimo
+  da eksperiment bude ponovljiv.</p>
+
+<figure class="fig">
+  <img src="../viz/viz-l07-ryw-monotona-1793201255776.png"
+       alt="Dijagram sekvence sa klijentom, izvorom 3307, replikom 3308 bez kašnjenja i replikom 3309 sa SOURCE_DELAY 3. U delu A klijent upisuje v jednako 1 na 3307 i dobija OK sa GTID-om 20843. Transakcija stiže u relay log na 3309, ali SELECT na 3309 vraća v jednako 0. Napomena: u RECEIVED_TRANSACTION_SET da, u gtid_executed ne, SQL_Remaining_Delay 4. U delu B klijent upisuje v jednako 2, čita sa 3308 i dobija 2, pa čita sa 3309 i dobija 1, odnosno vreme ide unazad.">
+  <figcaption><b>Slika 4</b> — Kašnjenje <strong>izazvano</strong> sa <code>SOURCE_DELAY = 3</code> na 3309. Read-your-writes je prekršen jer je
+    upis primljen, ali nije primenjen. Monotona čitanja su prekršena bez ikakvog sopstvenog upisa, samo zato što su dva
+    čitanja otišla na dve replike koje različito kasne. Dva pokretanja, isti ishod (<code>examples/04-read-scaling/20-ryw-async.js</code>).</figcaption>
+</figure>
+
+<p>Obe anomalije su prekršene <strong>sesijske garancije</strong> iz <a href="0001-teorijski-okvir.html">lekcije 01</a>. Asinhrona
+  replika daje samo konačnu konzistentnost. U Group Replication isti prozor zatvara
+  <code>group_replication_consistency = 'BEFORE'</code>, izmereno u <a href="0005-group-replication.html">lekciji 05</a>.
+  Poglavlje 7 samo upućuje napred na to.</p>
+
+<h2>5 · Čekaj tačno svoj upis</h2>
+<p>Replika treba da sačeka <strong>moj</strong> upis, a ne da „stigne izvor“, jer pod stalnim upisima ona izvor možda
+  nikad potpuno ne stigne. Iz <a href="0002-binarni-log-gtid-asinhrona.html">lekcije 02</a> znaš dva načina da se
+  transakcija označi: imenom (GTID) i adresom (fajl + pozicija).</p>
+<div class="slide">
+  „Wait until the server has applied all of the transactions whose global transaction identifiers are contained in
+  gtid_set; that is, until the condition GTID_SUBSET(gtid_subset, @@GLOBAL.gtid_executed) holds. […] 0 represents
+  success, and 1 represents timeout. […] the default timeout is 0 seconds, in which case the function always waits
+  until all of the transactions in the GTID set have been applied.“
+  <span class="sr"><a href="https://dev.mysql.com/doc/refman/8.4/en/gtid-functions.html">MySQL 8.4 Reference Manual, Functions Used with GTIDs</a></span>
+</div>
+
+<figure class="fig">
+  <img src="../viz/viz-l07-cekanje-gtid-1793201255395.png"
+       alt="Dijagram toka: COMMIT na izvoru 3307, izvor daje GTID g, na 3309 se poziva WAIT_FOR_EXECUTED_GTID_SET(g, N). Ako vrati 0, SELECT na 3309 vidi upis posle 4009 ms čekanja. Ako vrati 1 i aplikacija to proveri, SELECT ide na izvor. Ako ne proveri, SELECT na 3309 je zastareo. Crvena bočna napomena: N jednako 0 znači čekaj zauvek, a samo provera je GTID_SUBSET. Siva bočna napomena: SOURCE_POS_WAIT je ista ideja po adresi i vraća NULL odmah kad nit primene stoji.">
+  <figcaption><b>Slika 5</b> — Funkcija je čekanje sa gornjom granicom, a ne garancija. Posle 1 upis i dalje nije
+    primenjen, pa aplikacija mora da pređe na izvor. Kašnjenje je <strong>izazvano</strong> sa <code>SOURCE_DELAY = 3</code>.
+    Izmereno: 0 posle 4 009 ms; 1 posle 1 001 ms, uz zastarelo čitanje; <code>SOURCE_POS_WAIT</code> 1 posle 4 312 ms.</figcaption>
+</figure>
+
+<table class="exp">
+  <tr><td><code>timeout = 0</code></td><td><strong>Čekaj neograničeno.</strong> To je proizvoljna odluka u dizajnu, a ne „samo proveri“. Provera bez čekanja je <code>GTID_SUBSET(g, @@GLOBAL.gtid_executed)</code>.</td></tr>
+  <tr><td>nit primene stoji</td><td>Izmereno: GTID funkcija čeka ceo timeout (3 s), pa vrati 1. <code>SOURCE_POS_WAIT</code> odmah vrati <code>NULL</code>.</td></tr>
+  <tr><td>ime ili adresa</td><td>Adresa važi samo u binarnom logu jednog izvora i posle failovera ne znači ništa. GTID je isto ime na svakom serveru.</td></tr>
+  <tr><td>ko plaća</td><td>Čitalac, oko jedno kašnjenje. Upis na izvoru nije usporen. Isto kao <code>BEFORE</code> u lekciji 05.</td></tr>
+  <tr><td>monotona čitanja</td><td>Klijent pamti najveći GTID skup koji je video i čeka ga pre svakog čitanja (izvedeno, nije citat).</td></tr>
+  <tr><td>MySQL Router</td><td><code>access_mode=auto</code> + <code>wait_for_my_writes</code>: čitanja „wait for the last written transaction of the session“, a posle <code>wait_for_my_writes_timeout</code> idu na izvor (<a href="https://dev.mysql.com/doc/mysql-router/8.4/en/router-read-write-splitting-configuration.html">Router 8.4</a>).</td></tr>
+</table>
+
+<div class="try">
+  <div class="hd">Probaj: anomalija, pa njeno zatvaranje</div>
+  <div class="bd">
+    <p class="prereq"><b>Preduslov:</b> asinhrono stanje, kanali uključeni na 3308 i 3309. Skripta postavlja
+      <code>SOURCE_DELAY = 3</code> na 3309 i na kraju ga vraća na 0, a radnu tabelu <code>ch7_demo</code> pravi na 3307 i briše.
+      Traje oko 30 s.</p>
+    <h3 class="lab">Pokreni ovo</h3>
+<pre class="sql run">cd examples\04-read-scaling
+C:\mysql-repl\tools\mysql-shell-8.4.10-windows-x86-64bit\bin\mysqlsh.exe --js --no-wizard --file 20-ryw-async.js</pre>
+    <h3 class="lab">Šta treba da vidiš</h3>
+<pre class="out">A. ... read node3 at once -> v=0   | received on node3: true | applied on node3: false
+B. ... reads node2 -> v=2, then node3 -> v=1
+C. WAIT_FOR_EXECUTED_GTID_SET(g, 1): returned 1 after ~1000 ms; read node3 -> (stara vrednost)
+D. WAIT_FOR_EXECUTED_GTID_SET(g, 10): returned 0 after ~4000 ms; read node3 -> v=4
+E. SOURCE_POS_WAIT(...): returned 1 (events waited for) after ~4300 ms
+restored: node3 SOURCE_DELAY = 0</pre>
+    <p class="interpret"><b>Kako se ovo čita:</b> A i B su anomalije, a D i E njihovo zatvaranje. C je zamka: istek
+      vremena ne menja ono što SELECT vidi. Čekanje traje oko 4 s za <code>SOURCE_DELAY = 3</code>, što odgovara „at least“
+      iz priručnika.</p>
+  </div>
+</div>
+
+<h2>6 · Šta skaliranje čitanja ne skalira</h2>
+<div class="slide">
+  „Because replication works from the distribution of one source to one or more replicas, using replication for
+  scale-out works best in an environment where you have a high number of reads and low number of writes/updates.“
+  <span class="sr"><a href="https://dev.mysql.com/doc/refman/8.4/en/replication-solutions-scaleout.html">MySQL 8.4 Reference Manual, Using Replication for Scale-Out</a></span>
+</div>
+<p><strong>Upisi:</strong> svaka replika je kopija celog skupa podataka, pa ponavlja <strong>svaki</strong> upis. Pet replika daje
+  pet puta više čitanja i isti kapacitet za upis. <strong>Propusnost niti primene:</strong> neka je <code>W</code> brzina upisa
+  na izvoru, a <code>A</code> najveća brzina primene na replici. Kad god je <code>W &gt; A</code>, zaostatak raste za
+  <code>W − A</code> transakcija u sekundi. To je <span class="hi">akumulacija</span>, a ne fiksno kašnjenje. Dodata replika ima
+  istu granicu <code>A</code>, jer i ona mora da primeni svih <code>W</code>. <code>A</code> podižu samo više niti
+  primene, za nezavisne transakcije, ili brži disk.</p>
+
+<figure class="fig">
+  <img src="../viz/viz-l07-zaostatak-w-a-1793201303695.png"
+       alt="Levo: crvena linija zaostatka raste 500 transakcija u sekundi za W 2000 i A 1500, do 30000 na 60 s. Označeno je da na 4 s zaostatak dostiže 1 s kašnjenja, kad WAIT sa timeoutom 1 počinje da ističe, i da isto važi za 2 ili 10 replika. Desno: plava linija za nalet W 1600 tokom 3 s, inače 800, uz A 1000. Zaostatak raste do 1800 na 3 s, pa opada 200 u sekundi do nule na 12 s.">
+  <figcaption><b>Slika 6</b> — Računski primer, nije merenje. Pri stalnom <code>W &gt; A</code> kašnjenje raste bez granice na svakoj
+    replici, pa svaki <code>WAIT</code> ističe i čitanja se vraćaju na izvor. Pri kratkom naletu replika se oporavlja čim
+    je <code>W &lt; A</code>, isto kao na slici 3.</figcaption>
+</figure>
+
+<h2>7 · Provera</h2>
+<div class="quiz">
+  <p>Svako pitanje cilja jednu tačku na kojoj se u lekciji grešilo ili koja je lako mogla da se pomeša.</p>
+
+  <div class="q" data-correct="2">
+    <p class="stem">1. Transakcija je komitovana na izvoru u 0 ms, ušla u relay log u 2 ms, a primenjena je u 1 500 ms. Koliko je kašnjenje?</p>
+    <label><input type="radio"> 2 ms, jer je od tada transakcija na replici</label>
+    <label><input type="radio"> 1 498 ms, jer se faza prijema ne računa</label>
+    <label><input type="radio"> 1 500 ms, jer se računaju obe faze</label>
+    <label><input type="radio"> 1 502 ms, jer se faze sabiraju dva puta</label>
+    <p class="why">Kašnjenje je t₂ − t₀. Prijem je deo kašnjenja, ovde je samo mali.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">2. NTP pomeri sat replike 3 s unazad, a stvarno kašnjenje je 2 s. Šta pokazuje <code>Seconds_Behind_Source</code>?</p>
+    <label><input type="radio"> 0, jer se pomeraj unazad oduzme od kašnjenja</label>
+    <label><input type="radio"> 5, jer se pomeraj unazad doda na kašnjenje</label>
+    <label><input type="radio"> 2, jer MySQL pri svakom čitanju usklađuje satove</label>
+    <label><input type="radio"> 2, jer se pomera samo sat replike, ne izvora</label>
+    <p class="why">Pomeraj sata replike prelazi u rezultat sa istim znakom: 2 − 3 = −1, a to se prikazuje kao 0.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">3. Koju slabost <code>Seconds_Behind_Source</code> <code>performance_schema</code> ne rešava?</p>
+    <label><input type="radio"> Slepilo za fazu prijema na sporoj mreži</label>
+    <label><input type="radio"> Nejasnoću sa više niti primene na replici</label>
+    <label><input type="radio"> Rezoluciju u celim sekundama umesto finije</label>
+    <label><input type="radio"> Oduzimanje oznake izvora od oznake replike</label>
+    <p class="why">I <code>performance_schema</code> oduzima sat izvora od sata replike. Mikrosekunde daju preciznost, a ne tačnost.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">4. U prirodnom naletu relay log je stao na 4,5 s, a kašnjenje je raslo do 31 s. Šta to znači?</p>
+    <label><input type="radio"> Nit prijema je zaostajala, a nit primene je čekala</label>
+    <label><input type="radio"> Nit prijema je završila, a nit primene je zaostajala</label>
+    <label><input type="radio"> Relay log je bio pun, pa je nit prijema stala</label>
+    <label><input type="radio"> Mreža je bila spora, pa je kašnjenje raslo do 31 s</label>
+    <p class="why">Ceo nalet je primljen za ~0,5 s. Ostalih ~30 s je čisto kašnjenje primene.</p>
+  </div>
+
+  <div class="q" data-correct="0">
+    <p class="stem">5. Korisnik ništa ne upisuje, a čita prvo sa 3308 (novo), pa sa 3309 (staro). Šta je prekršeno?</p>
+    <label><input type="radio"> Monotona čitanja</label>
+    <label><input type="radio"> Read-your-writes</label>
+    <label><input type="radio"> Konačna konzistentnost</label>
+    <label><input type="radio"> Ništa, jer nema upisa</label>
+    <p class="why">Bez sopstvenog upisa read-your-writes nema na šta da se primeni. Stanje koje ide unazad krši monotona čitanja.</p>
+  </div>
+
+  <div class="q" data-correct="2">
+    <p class="stem">6. <code>WAIT_FOR_EXECUTED_GTID_SET(g, 2)</code> uz <code>SOURCE_DELAY = 3</code>, pa SELECT bez provere. Šta korisnik vidi?</p>
+    <label><input type="radio"> Svoj upis, jer SELECT posle isteka sam čeka primenu</label>
+    <label><input type="radio"> Svoj upis, jer funkcija ignoriše istek dok ne primeni g</label>
+    <label><input type="radio"> Staru vrednost, jer funkcija posle 2 s vrati 1 i pusti dalje</label>
+    <label><input type="radio"> Grešku, jer funkcija posle isteka prekida sesiju na 3309</label>
+    <p class="why">Funkcija je čekanje sa granicom. Posle 1 upis još nije primenjen, a SELECT o čekanju ne zna ništa.</p>
+  </div>
+
+  <div class="q" data-correct="1">
+    <p class="stem">7. Šta znači <code>timeout = 0</code> u <code>WAIT_FOR_EXECUTED_GTID_SET</code>?</p>
+    <label><input type="radio"> Samo proveri da li je g primenjen, bez ikakvog čekanja</label>
+    <label><input type="radio"> Čekaj neograničeno, dok g ne bude primenjen na serveru</label>
+    <label><input type="radio"> Čekaj podrazumevanih 10 s, pa vrati 1 ako g nije primenjen</label>
+    <label><input type="radio"> Odmah vrati 1, jer nulti timeout znači da je istekao</label>
+    <p class="why">Proizvoljna odluka iz priručnika: 0 znači „uvek čeka“. Samo provera je <code>GTID_SUBSET</code>.</p>
+  </div>
+
+  <div class="q" data-correct="3">
+    <p class="stem">8. Stalno je W = 2 000/s, a svaka replika može A = 1 500/s. Šta se dešava kad se broj replika poveća sa 2 na 10?</p>
+    <label><input type="radio"> Kašnjenje opada, jer se upisi dele na deset replika</label>
+    <label><input type="radio"> Kašnjenje ostaje isto, a čitanja čekaju kraće nego pre</label>
+    <label><input type="radio"> Kašnjenje opada, jer svaka replika ima manje čitanja</label>
+    <label><input type="radio"> Kašnjenje i dalje raste na svakoj od deset replika</label>
+    <p class="why">Svaka replika mora da primeni svih 2 000/s. Zaostatak raste za 500/s na svakoj, bez obzira na broj replika.</p>
+  </div>
+
+  <p class="quiz-score">Rezultat: <span class="got">0</span> / <span class="total">0</span></p>
+</div>
+
+<p class="meta">
+  <strong>Primarni izvor za čitanje:</strong> <a href="https://dev.mysql.com/doc/refman/8.4/en/show-replica-status.html">MySQL 8.4 Reference Manual, SHOW REPLICA STATUS</a>.
+  Počni od opisa polja <code>Seconds_Behind_Source</code>, pa pročitaj
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/gtid-functions.html">Functions Used with GTIDs</a> i
+  <a href="https://dev.mysql.com/doc/refman/8.4/en/replication-delayed.html">Delayed Replication</a>. ·
+  <strong>Vidi još:</strong> <a href="../reference/kasnjenje-i-citanje.html">referentni list Kašnjenje i skaliranje čitanja</a>,
+  <a href="0002-binarni-log-gtid-asinhrona.html">lekcija 02</a> (niti, GTID),
+  <a href="0005-group-replication.html">lekcija 05</a> (<code>BEFORE</code>),
+  <a href="0001-teorijski-okvir.html">lekcija 01</a> (sesijske garancije), <a href="../GLOSSARY.md">GLOSSARY.md</a> §1b. ·
+  <strong>Pitaj slobodno:</strong> ako nešto nije jasno, pitaj u čatu. Lekcija je početak, ne ceo čas.
+</p>
+
+<script src="../../assets/copy.js"></script>
+<script src="../../assets/quiz.js"></script>
+</body>
+</html>

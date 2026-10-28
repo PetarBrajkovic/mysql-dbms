@@ -18,6 +18,7 @@ chapter, never when planning a lesson.
 | [0006](0006-semisync-acknowledgement.md) | 4 (ticket 16, lesson) | Ack = relay log + fsync; decision ≠ visibility; AFTER_COMMIT anomaly reproduced live; the failed source rejoins with zero errors | semisync, `AFTER_SYNC`/`AFTER_COMMIT`, failover vs switchover, errant/extra GTIDs, timeout signals, ack cost |
 | [0007](0007-group-replication-lesson.md) | 5 (ticket 17, lesson) | One decision point orders writes; certification = one total order + deterministic verdict; minority blocks; the level picks who waits (BEFORE measured live) | certification, write-sets, 1180, PK requirement, quorum loss, single vs multi-primary, `group_replication_consistency` → ch. 2 models |
 | [0008](0008-geo-clusterset.md) | 6 (ticket 18, lesson) | GR cannot stretch (RTT per commit, expel); ClusterSet = GR per DC + async, one writer; C inside, A across — the A choice is one operator command | geo-distribution, ClusterSet, switchover vs forced failover, INVALIDATED/fencing, the CAP-at-two-scopes payoff, CAP judged per operation |
+| [0009](0009-read-scaling-lag.md) | 7 (ticket 19, lesson) | Lag = t2 − t0 per transaction; SBS's three weaknesses derive from its definition, performance_schema keeps the clock one; wait for the GTID, check the 1; W > A accumulates on every replica | lag, `Seconds_Behind_Source`, performance_schema timestamps, the natural burst, RYW/monotonic on async, `WAIT_FOR_EXECUTED_GTID_SET` / `SOURCE_POS_WAIT`, Router `wait_for_my_writes`, what read scaling does not scale |
 
 ## Standing constraints these records impose on every later chapter
 
@@ -72,6 +73,11 @@ Facts already settled, with the record that settled them. **Do not re-litigate o
   478/398 ms vs 23.1 s); the replica cluster never promotes itself; old cluster stays INVALIDATED until
   `rejoinCluster`, and 3308 needs `rejoinInstance` after `40`. Shell `8.4` doc URLs serve 26.7 content:
   re-verify quotes. `super_read_only` on replica clusters is measured, not quoted. (0008)
+- **Ch. 7's measurements are done** (0009): natural burst CSV + `figures/07-skaliranje-01-kasnjenje.png`
+  (asserting, `tools/make-lag-plot.py`; peak 31.0 s, relay plateau at 4.5 s, SBS 1 at 2 ms in 31/360);
+  RYW/monotonic/WAIT on `SOURCE_DELAY 3` (≈ 4.0 s waits). Scripts in `examples/04-read-scaling/`.
+  **performance_schema does not fix clock skew** — never write that it does; one machine = one clock.
+  `WAIT_FOR_EXECUTED_GTID_SET` timeout 0 = wait forever; a returned 1 leaves the read stale. (0009)
 - A clean `topology.ps1 stop` is a **graceful leave**, not a failure — it cannot be used to
   demonstrate quorum loss. Losing majority requires killing the process. (0002)
 

@@ -175,6 +175,19 @@ never *latencija replikacije*; never *master/slave* as working terms.
 | Failure detection / suspicion | period detekcije / sumnja *(suspicion)* | — | the fixed 5 s before a suspicion |
 | Disaster tolerance | otpornost na katastrofu *(disaster tolerance)* | — | only when glossing the Shell manual's quote |
 
+### 1b⁗''''. Added at ticket 19 (ch. 7 lesson, record 0009)
+
+| Concept | Serbian term (first use) | After first use | Note |
+|---|---|---|---|
+| Timestamp | vremenska oznaka *(timestamp)* | oznaka | column names stay verbatim (`ORIGINAL_COMMIT_TIMESTAMP` …) |
+| Receive / apply phase | faza prijema / faza primene | — | follows nit prijema / nit primene (§1b) |
+| Induced / natural lag | izazvano / prirodno kašnjenje | — | the §5 caption words; `SOURCE_DELAY` = izazvano |
+| Backlog (untransferred work) | zaostatak | zaostatak | transactions received but not yet applied; grows by W − A per second |
+| Throughput | propusnost | propusnost | of the applier: the A in W > A |
+| Clock skew | razlika satova *(clock skew)* | razlika satova | |
+| Precision vs accuracy | preciznost / tačnost | — | µs timestamps give precision, not accuracy |
+| Checkpoint (MTS coordinator) | checkpoint | checkpoint | kept English, as the deck keeps *checkpoint* (§1a) |
+
 ### 1c. Verbatim - never translated, never declined
 
 Identifiers, keywords and product proper nouns:
