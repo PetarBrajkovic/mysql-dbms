@@ -16,6 +16,37 @@ reference-section-title: "Reference"
 
 # 1. Uvod
 
+Baza podataka replicira se da bi podaci preživeli otkaz jednog servera, da bi se čitanja
+raspodelila na više čvorova i da bi kopija postojala i na drugoj lokaciji. Čim ista transakcija
+postoji na više čvorova, svaki od tih ciljeva otvara isto pitanje: kada klijent sme da dobije
+potvrdu da je upis uspeo i šta tada vraća čitanje sa neke druge kopije. Teorija distribuiranih
+sistema na to pitanje odgovara modelima konzistentnosti, teoremom CAP i njenim proširenjem PACELC, a ovaj rad
+ispituje kako na njega odgovara MySQL 8.4.
+
+Teza rada glasi da MySQL ne isporučuje model konzistentnosti, već log i skup podesivih tačaka
+potvrde, pa je konzistentnost odluka operatera, a ne svojstvo sistema. U svim oblicima replikacije
+koje rad razmatra prenosi se isto: komitovane transakcije upisuju se u binarni log, a ostali
+čvorovi taj log primenjuju. Menja se samo trenutak u kome pisac dobija potvrdu i odgovor na pitanje
+ko čeka da promena postane vidljiva na ostalim čvorovima. Zato svako poglavlje od trećeg do sedmog
+izdvaja jedno podešavanje i pita šta se njime dobija, ko to plaća i čime. Da je reč o tvrdnji, a ne o opštem
+mestu, pokazuje to što isti proizvod na dva nivoa zauzima suprotne pozicije teoreme CAP, čemu vode
+peto i šesto poglavlje.
+
+Drugo poglavlje uvodi rečnik kojim se rad služi: modele konzistentnosti, CAP i PACELC, modele
+replikacije single-leader, multi-leader i leaderless, kao i konsenzus, uz razliku između
+konsenzus-kvoruma i Dynamo-kvoruma. Treće poglavlje opisuje binarni log, GTID i asinhronu
+replikaciju, u kojoj izvor ne čeka nijednu repliku. Četvrto razmatra semisinhronu replikaciju i
+ono što potvrda replike zaista garantuje. Peto je posvećeno mehanizmu Group Replication: postupku
+certification (provera saglasnosti transakcija), kvorumu, radu sa jednim ili više primarnih čvorova i nivoima konzistentnosti. Šesto
+se bavi geo-distribuiranom replikacijom kroz InnoDB ClusterSet, a sedmo skaliranjem čitanja pomoću
+replika za čitanje i kašnjenjem replikacije. Osmo poglavlje sabira ta podešavanja na jednom mestu.
+
+Sva merenja u radu izvedena su na tri instance servera MySQL 8.4.11 na jednom računaru, na
+portovima 3307, 3308 i 3309, a ne na čvorovima razmeštenim po različitim lokacijama. Povratno
+putovanje između instanci zato je kraće od sinhronizacije diska, pa merenja pokazuju redosled
+događaja, ishode i odnose cena, a ne vremena kakva bi se dobila na stvarnoj mreži. Gde tvrdnja
+zavisi od udaljenosti između lokacija, ona je izvedena iz dokumentacije i tako je i označena.
+
 # 2. Teorijski okvir: modeli konzistentnosti, CAP/PACELC i konsenzus
 
 Replikacija podrazumeva da isti podatak postoji na više čvorova. Čvorovi nemaju zajedničku memoriju

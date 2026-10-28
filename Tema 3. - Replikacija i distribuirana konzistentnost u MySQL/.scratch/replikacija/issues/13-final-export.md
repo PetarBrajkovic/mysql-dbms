@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 20 (rewired from 12 at ticket 09, when the chapter tickets graduated)
+Blocked by: 20 (rewired from 12 at ticket 09, when the chapter tickets graduated) — **closed 2026-10-28; this ticket is now on the frontier**
 
 ## Question
 

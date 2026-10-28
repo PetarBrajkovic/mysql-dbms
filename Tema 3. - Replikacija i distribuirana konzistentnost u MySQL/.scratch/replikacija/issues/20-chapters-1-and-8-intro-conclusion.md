@@ -1,7 +1,7 @@
 # Chapters 1 and 8 - Uvod i Zaključak
 
 Type: task (execution - see the map's execution override)
-Status: open (claimed 2026-10-28)
+Status: **closed** (2026-10-28) - Zaključak and Uvod both written, measured and pushed
 
 **Shape decided by the user (2026-10-28)**: no lesson, per `../WORKFLOW.md` ("an introduction and a
 conclusion need no teaching at all"), which overrides the generic chapter-ticket shape below. Two
@@ -63,3 +63,20 @@ strongest form ("konzistentnost je odluka operatera").
   the five areas, and say that the topology is three local `mysqld` instances. Then reconcile with
   ch. 8: the claims should match, and Uvod's chapter roadmap should match the table's row order.
   Close the ticket after that, then append both to the map's Decisions-so-far.
+- **Uvod written (2026-10-28, session 2 of 2). Ticket closed.** Appended to `rad.md` as `# 1. Uvod`:
+  **386 words, no figure, no citation**, measured at **~0.8 rendered pages** (Word COM, ch. 1 heading
+  p. 2 y71 to ch. 2 heading p. 2 y617), under its 1-page budget. Total export: 28 pages including
+  title page and references.
+  - Four paragraphs: the question replication opens (failover, read scaling, another location all
+    lead to "when may the writer be told, and what may a read elsewhere return"). Next, **the spine
+    worded identically to ch. 8's last paragraph**, plus the mechanism (one binary log; only the
+    acknowledgement point and who waits change) and a one-line pointer to the two-scope CAP evidence
+    in chs. 5-6. Then the roadmap, and finally the topology disclaimer.
+  - **Reconciled with ch. 8**: the mechanism sentence mirrors ch. 8's opening, and the roadmap of
+    chs. 3-7 follows Tabela 8.1's row order. The topology paragraph matches ch. 8's limitation
+    (three instances on one machine; distance is derived, not measured).
+  - **No new claims.** One sentence from the first draft was removed during reconciliation:
+    "all tools used are part of the free Community edition" is true, but no body chapter establishes
+    it. The sub-millisecond round trip being shorter than a disk sync comes from ch. 4.
+  - Terms as in `GLOSSARY.md`. *certification* is glossed on first use in document order, which is
+    now ch. 1. Ch. 5's own gloss is left in place, so that chapter still reads on its own.

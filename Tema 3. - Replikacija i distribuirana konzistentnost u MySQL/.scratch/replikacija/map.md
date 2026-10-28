@@ -372,6 +372,17 @@ the operator's to assemble.
   never run. W > A is derived per replica, so replicas scale reads, not apply throughput. Spine: the
   replica chooses EL, and consistency is the reader's decision, paid in the reader's wait.
 
+- [Chapters 1 and 8 - Uvod i Zaključak](issues/20-chapters-1-and-8-intro-conclusion.md)
+  (2026-10-28, two writing sessions, no lesson per `../WORKFLOW.md`): **every chapter is now in
+  `rad.md`.** **Ch. 8** is 271 words plus **Tabela 8.1** (one row per body chapter: the knob, what it
+  buys, who pays and how), measured ~1.08 pp. It restates the two-scope CAP evidence in ch. 6's
+  sharper form: availability is **one operator command at both scopes** (`forcePrimaryCluster()`,
+  forced quorum). It also names one-machine measurement as the limitation. **Ch. 1** is 386 words,
+  ~0.8 pp. Its spine is worded identically to ch. 8's, and its roadmap follows Tabela 8.1's row order.
+  It adds no new claims: one true but unestablished sentence ("all tools are free Community") was cut
+  during reconciliation. GLOSSARY §0 spine aligned to *operatera*. Export: 28 pages including title
+  page and references. **Ticket 13 (final export) is now unblocked.**
+
 ## Not yet specified
 
 - ~~**The chapter tickets.**~~ **Graduated at ticket 09** into tickets 14–20, chained
